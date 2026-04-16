@@ -1,0 +1,71 @@
+Bug fix needed in the question reward system.
+
+Current intended behavior:
+
+* When any normal user answers a question for the first time, that answering user gets 1 cent.
+* The creator of that question should also get 0.5 cent for each valid answer received.
+* This 0.5 cent reward is currently NOT being added to the wallet, even though the UI says it should happen.
+* We previously had logic around not giving certain rewards to admin accounts, and that may now be blocking the creator reward too broadly.
+
+Please fix the logic carefully with these exact rules:
+
+1. The question creator must receive 0.5 cent whenever another user submits a valid answer to their question.
+2. Do NOT globally disable creator rewards.
+3. Only prevent self-reward abuse:
+
+   * If the person answering is the same user as the question creator, then do NOT give the creator the extra 0.5 cent for that same answer.
+4. The answering user should still receive their normal 1 cent according to the existing first-valid-answer rules.
+5. If the creator is an admin, do not use a blanket rule that disables creator reward logic for everyone else.
+6. If there is any admin-specific restriction, it must apply ONLY when the actual creator account is admin, not to all creators.
+7. Make sure the 0.5 cent is actually written to the creator’s wallet/balance and also appears in transaction history.
+8. Add or fix a clear transaction record for the creator reward, for example:
+
+   * type: creator_reward
+   * amount: 0.5 cent
+   * linked question id
+   * linked answer id or responding user id if needed
+9. Prevent duplicate creator rewards:
+
+   * the same answer submission must not credit the creator twice
+   * use a safe idempotent check or database flag if needed
+10. Keep all existing earning rules intact unless they conflict with this bug fix.
+
+Please inspect the full reward flow end-to-end:
+
+* answer submission
+* answer validation
+* wallet update
+* transaction creation
+* UI wallet display
+
+Then implement the fix in code, not just text.
+After fixing, also verify these test cases:
+
+Test case 1:
+
+* User A creates a question
+* User B answers it validly
+* User B gets 1 cent
+* User A gets 0.5 cent
+
+Test case 2:
+
+* User A creates a question
+* User A answers their own question
+* No extra 0.5 cent creator reward should be given for self-answering
+
+Test case 3:
+
+* Admin creates a question
+* Normal user answers it
+* Apply only the intended admin rule precisely, without breaking rewards for normal creators
+
+Test case 4:
+
+* A duplicate submission or retry should not add the creator reward twice
+
+Please show me:
+
+* which files were changed
+* what exact logic was corrected
+* and confirm that the creator reward now appears in wallet + transaction history.

@@ -1,0 +1,62 @@
+There is an important search ranking issue on the Browse Questions page.
+
+Required behavior:
+When a user types a word or phrase into search, any question containing that word must appear in the search results.
+
+Search result ordering rules must be:
+
+1. First: questions that match the search term and the current user has NOT answered yet
+2. Within those unanswered matching questions: newest questions first, then older questions
+3. Last: matching questions that the current user HAS already answered
+
+So the ranking priority should be:
+
+* text match first
+* unanswered before answered
+* newer before older
+* answered-by-current-user always at the bottom
+
+Important details:
+
+* A question containing the searched word in its title must always be included in results
+* If description/body is also searchable in the current system, include matches from there too
+* Do not hide exact or clear matches below unrelated questions
+* Do not let already-answered questions outrank fresh matching unanswered questions
+
+Implementation requirements:
+
+1. Check the browse page search API and frontend sorting logic
+2. Apply ranking on the backend if possible, so pagination and consistency remain correct
+3. Detect whether the current logged-in user has answered each question
+4. Sort results using this priority:
+
+   * match score / relevance
+   * answered status for current user (unanswered first)
+   * created_at descending for unanswered results
+   * answered questions after all unanswered matches
+
+Preferred exact rule:
+For all questions matching the search term:
+
+* group A = matching questions not answered by current user
+* group B = matching questions already answered by current user
+
+Return:
+
+* group A sorted by newest first
+* then group B sorted by newest first
+
+If exact text match scoring already exists, keep it, but never allow answered questions to appear before unanswered matching questions unless there are no unanswered matches.
+
+Verification:
+Test with a keyword that exists in multiple questions.
+Confirm:
+
+* matching questions appear
+* newest unanswered matching question appears first
+* older unanswered matching questions appear next
+* answered matching questions appear last
+
+Important:
+This is not just a UI issue.
+Fix the real search ordering logic used by Browse Questions.

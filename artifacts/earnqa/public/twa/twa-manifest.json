@@ -1,0 +1,54 @@
+{
+  "_comment": "Opinoza TWA — bubblewrap configuration. Run: npx @bubblewrap/cli init --manifest https://opinoza.com/manifest.json",
+  "packageId": "com.opinoza.app",
+  "host": "opinoza.com",
+  "name": "Opinoza",
+  "launcherName": "Opinoza",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#f5b924",
+  "navigationColor": "#F8F5F0",
+  "navigationColorDark": "#F8F5F0",
+  "navigationDividerColor": "#F8F5F0",
+  "navigationDividerColorDark": "#F8F5F0",
+  "backgroundColor": "#F8F5F0",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://opinoza.com/icons/icon-512.png",
+  "maskableIconUrl": "https://opinoza.com/icons/icon-maskable-512.png",
+  "monochromeIconUrl": "https://opinoza.com/icons/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "../../../.android-signing/android.p12",
+    "alias": "opinoza"
+  },
+  "appVersionCode": 1,
+  "appVersionName": "1.0.0",
+  "shortcuts": [
+    {
+      "name": "Browse Questions",
+      "shortName": "Browse",
+      "url": "/questions",
+      "icons": [{ "src": "https://opinoza.com/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Wallet",
+      "shortName": "Wallet",
+      "url": "/wallet",
+      "icons": [{ "src": "https://opinoza.com/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "features": {},
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://opinoza.com/",
+  "minSdkVersion": 21,
+  "fingerprints": [
+    {
+      "name": "opinoza-release",
+      "value": "B0:67:A6:DB:B4:93:F5:E5:F5:9F:2C:F9:D3:53:AD:C5:BF:1D:D3:EE:5A:4A:EC:CC:FF:3D:7F:A0:93:97:81:92"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "QMDxMj0Nq-ka76nkxor1p"
+uri = "file://opinoza-deployment.zip"
+type = "unspecified"
+title = "opinoza-deployment.zip"

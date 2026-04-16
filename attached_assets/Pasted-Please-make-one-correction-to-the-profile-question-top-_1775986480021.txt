@@ -1,0 +1,65 @@
+Please make one correction to the profile-question top display behavior.
+
+CURRENT ISSUE
+The top profile question is currently selected based on whatever order the API returns. This is not reliable.
+
+REQUIRED CHANGE
+The profile questions MUST follow the exact order in which they were originally added/created in the system.
+
+When selecting the single profile question to show at the top:
+- Always pick the FIRST unanswered profile question based on creation order
+- After the user answers it, the next unanswered profile question (in the same order) should be shown
+- Do NOT pick questions randomly
+- Do NOT rely on accidental frontend array order
+
+EXPECTED EXAMPLE
+If profile questions were added in this order:
+1. Full Name
+2. Date of Birth
+3. Gender
+4. Country
+
+Then behavior must be:
+- If Full Name is unanswered → show Full Name
+- Once answered → show Date of Birth
+- Then Gender
+- Then Country
+
+CRITICAL REQUIREMENT (VERY IMPORTANT)
+This ordering MUST be enforced in the BACKEND, not just in the frontend.
+
+- The endpoint GET /api/questions/profile must return profile questions already sorted in the correct order
+- The frontend should NOT be responsible for sorting logic
+- The frontend should simply take the list and pick the first unanswered item
+
+IMPLEMENTATION DETAILS
+- Sort profile questions using a reliable field such as:
+  - created_at (ascending), OR
+  - id (ascending), OR
+  - a dedicated order/display_order field if available
+
+- Choose the field that truly represents the order in which questions were added to the system
+
+- Update the backend query so that:
+  ORDER BY created_at ASC (or equivalent)
+
+- Ensure userHasAnswered logic remains unchanged
+
+DO NOT CHANGE
+- Do not change reward amounts
+- Do not change profile question structure
+- Do not change normal public feed behavior
+- Do not implement abuse/blocking logic in this task
+- Keep the existing "show only ONE profile question at top" behavior
+
+FRONTEND BEHAVIOR
+- Continue showing only ONE profile question at the top
+- Show the normal public feed below it
+- Do not duplicate the same question again in the feed
+
+DELIVERABLE
+Please confirm:
+- which backend file/query was updated
+- which field is used for ordering (created_at / id / custom field)
+- that the API now always returns profile questions in correct order
+- that frontend no longer depends on its own sorting

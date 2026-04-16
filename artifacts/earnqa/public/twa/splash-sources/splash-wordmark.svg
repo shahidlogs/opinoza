@@ -1,0 +1,16 @@
+<!--
+  Opinoza wordmark — used as branding image at the bottom of the splash screen.
+  windowSplashScreenBrandingImage (Android 12+).
+  Dimensions: 200×48dp at 1× — export at 4× = 800×192px for xxxhdpi.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 96" width="400" height="96">
+  <text
+    x="200" y="72"
+    font-family="Inter, 'Helvetica Neue', Arial, sans-serif"
+    font-size="64"
+    font-weight="800"
+    fill="#1e3a5f"
+    text-anchor="middle"
+    letter-spacing="-1"
+  >Opinoza</text>
+</svg>

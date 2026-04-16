@@ -1,0 +1,67 @@
+Apply ONLY the following targeted fixes to the existing EarnQA platform.
+
+IMPORTANT:
+- Do NOT rebuild the whole platform
+- Do NOT change any working features
+- Do NOT redesign pages that already work
+- Do NOT modify database structure unless absolutely required for these specific fixes
+- Preserve existing Google login, wallet, dashboard, question flow, admin flow, and UI unless directly needed for the fixes below
+- Make minimal safe changes only
+
+TARGETED FIXES ONLY:
+
+1) CREATOR REWARD LOGIC
+- Keep current reward system unchanged except for this rule:
+- Give 0.5 cent to the question creator ONLY if the question is user-created and approved
+- Do NOT give creator reward for system/admin-created questions
+- If this already works, do not change it
+
+2) PROFILE QUESTIONS REWARD
+- Ensure profile/system onboarding questions also give 1 cent on first valid submission only
+- This includes questions like name, date of birth/age group, gender, country, city, education, occupation, etc.
+- On later edits, do NOT give reward
+- Do not change anything else in wallet logic
+
+3) SEARCH / VISIBILITY BUG
+- Fix the bug where some questions (example: smartphone poll) do not appear in search/feed
+- Questions must remain visible in browse/search even if already answered
+- Questions must also remain visible for users who have not answered
+- Questions must also be visible to guests/non-logged-in users for browsing
+- Only the action should change:
+  - answered user → View Result / Edit Answer
+  - unanswered user → Answer
+  - guest → show question, require Google login on action
+- Do not hide questions globally after answers are submitted
+
+4) SEARCH MATCHING IMPROVEMENT
+- Improve search so it matches:
+  - question title
+  - poll options
+  - category/tags if already available
+- Make search case-insensitive
+- Normalize spaces so "smartphone" and "smart phone" can match
+- Use partial matching if safe
+- Do not replace the whole search system if a small fix can solve it
+
+5) INPUT LIMITS
+- Review current limits and reduce only if they are too high
+- Set recommended limits:
+  - short answer max: 50 characters
+  - optional reason/review max: 200 characters
+- Add visible character counter for the reason field only if easy and safe
+- Do not change poll/rating behavior that already works
+
+6) ANSWER EDITING WITHOUT EXTRA REWARD
+- Allow users to edit/update an existing answer
+- On edit:
+  - no new reward
+  - results/aggregates must update correctly
+- Keep first submission reward behavior unchanged
+- Add only the minimum logic needed to prevent duplicate reward on edits
+
+SAFETY RULES:
+- First inspect the existing implementation
+- Change only the files directly related to these bugs
+- Avoid touching unrelated working components
+- Keep the current UI/layout unless a small UI change is needed for these fixes
+- After patching, verify that existing working features still behave the same

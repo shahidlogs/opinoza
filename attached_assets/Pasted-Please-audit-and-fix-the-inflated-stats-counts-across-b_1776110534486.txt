@@ -1,0 +1,76 @@
+Please audit and fix the inflated stats counts across both the Admin Stats page and the Home page.
+
+Current issue:
+The platform is showing suspiciously high answer-related counts. Example from admin:
+
+* Total Users: 328
+* Total Questions: 517
+* Pending Questions: 86
+* Total Answers: 14930
+* Active This Week: 14917
+
+These numbers do not make sense. With only 328 users, the answer/activity counts look inflated.
+
+I need a proper investigation and fix.
+
+Scope:
+Fix the stats everywhere they appear, including:
+
+1. Admin Stats page
+2. Home page
+3. Any shared stats endpoint/helper/service used by both
+
+Tasks:
+
+1. Find all backend/API code and frontend code involved in displaying:
+
+   * Total Users
+   * Total Questions
+   * Pending Questions
+   * Total Answers
+   * Total Earned
+   * Withdrawn
+   * Pending Withdrawals
+   * Active This Week
+   * Any answer count shown on the Home page
+2. Check whether inflated counts are caused by:
+
+   * incorrect JOINs
+   * duplicate rows
+   * COUNT(*) on expanded joined results
+   * edits being counted as new answers
+   * counting transactions instead of real answers
+   * counting pending/deleted/hidden rows incorrectly
+   * mixing different activity types into one metric
+3. “Total Answers” must mean:
+
+   * real answer records only
+   * no duplicate inflation from joins
+   * no repeated counting of edits
+4. “Active This Week” must mean:
+
+   * unique users active in the last 7 days
+   * not number of answers
+   * not number of actions
+   * use DISTINCT user ids
+5. If the Home page displays answers count, it must use the same corrected backend logic/source of truth as Admin Stats.
+6. Print/debug the raw database counts directly and compare them with:
+
+   * Admin Stats values
+   * Home page values
+7. Fix the backend first, then confirm all frontend pages are reading the corrected values.
+8. Give me a short report with:
+
+   * root cause
+   * affected files changed
+   * old logic vs new logic
+   * final query logic for each stat
+   * confirmation that Admin Stats and Home page now match
+
+Important:
+
+* Do not redesign UI
+* Do not change unrelated features
+* Fix only the counting/statistics logic
+* Prefer a single shared source of truth for platform stats
+* If seeded/system/demo/test data affects counts, clearly mention it

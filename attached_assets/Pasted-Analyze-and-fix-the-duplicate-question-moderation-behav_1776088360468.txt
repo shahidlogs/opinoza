@@ -1,0 +1,82 @@
+Analyze and fix the duplicate-question moderation behavior in Opinoza.
+
+PROBLEM TO SOLVE:
+Sometimes two very similar or duplicate questions may exist, and both may already have answers, earnings, stats, and transaction history.
+We need a safe and consistent system for what should happen when an admin wants to:
+- hide one duplicate question
+- reject one duplicate question
+- delete one duplicate question
+
+You must first inspect the current codebase and determine EXACTLY what currently happens in these cases:
+1. What happens to answerers’ earnings?
+2. What happens to the question creator’s earnings?
+3. What happens to wallet balances?
+4. What happens to transaction history?
+5. What happens to public stats / insights / counts?
+6. What happens to the user’s answer record for that question?
+7. What happens if the deleted/rejected question was already answered by many users?
+
+Then implement a SAFE solution.
+
+REQUIRED GOAL:
+No earned money should disappear incorrectly.
+No wallet balance should become inconsistent.
+No transaction history should break.
+No user record should become orphaned or misleading.
+No stats should become corrupted.
+
+RECOMMENDED BUSINESS LOGIC:
+Implement a soft-moderation approach instead of destructive deletion for questions that already have answers or earnings.
+
+Suggested behavior:
+A) If a duplicate question has NO answers and NO financial impact:
+- admin may hard delete it safely
+
+B) If a duplicate question already has answers / earnings / transactions:
+- do NOT hard delete it
+- instead mark it as:
+  - hidden_from_feed = true
+  - inactive / archived / merged_duplicate
+- remove it from public discovery/search/feed if needed
+- preserve all historical answers, transactions, and wallet records
+
+C) If admin wants to reject such a question after activity already exists:
+- do not reverse historical earnings automatically unless a specific refund/reversal flow is explicitly implemented
+- preserve transaction history
+- preserve user answer records
+- exclude the moderated question from future visibility if needed
+
+D) If two duplicate questions exist and admin chooses one as the canonical question:
+- optionally support “merge duplicate” behavior
+- old duplicate becomes hidden/archived
+- canonical question remains visible
+- do NOT blindly move or delete historical earnings unless fully safe and consistent
+
+IMPORTANT:
+Check whether the current implementation is using foreign keys, cascade deletes, soft deletes, or manual deletion.
+If current behavior is unsafe, fix it.
+
+NEEDED OUTPUT:
+1. Explain current actual behavior in the codebase
+2. Explain risks in current behavior
+3. Implement safest production-ready solution
+4. Add admin-safe handling so destructive delete is blocked when answers/earnings already exist
+5. Add clear status labels such as:
+   - active
+   - hidden
+   - rejected
+   - archived_duplicate
+6. Ensure feed/search/public pages ignore hidden/rejected duplicates
+7. Keep historical user, wallet, transaction, and reporting data consistent
+
+DO NOT:
+- break existing wallet logic
+- erase valid transaction history
+- reduce balances silently
+- delete answered questions in a way that corrupts stats
+
+FINAL REQUIREMENT:
+After implementation, give a plain-language summary:
+- what happened before
+- what happens now
+- what admin should use for duplicate questions in future

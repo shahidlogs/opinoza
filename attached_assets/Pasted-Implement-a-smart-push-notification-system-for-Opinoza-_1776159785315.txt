@@ -1,0 +1,93 @@
+Implement a smart push notification system for Opinoza using OneSignal.
+
+GOAL:
+Send useful, event-based push notifications, but strictly limit notifications so that each user receives a maximum of 3 push notifications in any rolling 24-hour period.
+
+IMPORTANT RULE:
+- Maximum 3 notifications per user per 24 hours
+- Do not exceed this limit under any condition
+- If multiple events happen, prioritize the most important notifications
+- Avoid spam
+
+NOTIFICATION TYPES TO SUPPORT:
+
+1. Question approved
+When a user's submitted question is approved, send a push notification.
+
+Example:
+Title: Your question was approved ✅
+Message: Your question is now live and users can start answering it.
+
+2. New question available
+When new questions are added, notify users who can answer them.
+
+Example:
+Title: New question available 🔥
+Message: Answer now and earn rewards.
+
+3. Someone answered your question
+When another user answers a question created by a user, notify the creator.
+
+Example:
+Title: Your question got a new answer 👀
+Message: Someone just answered your question. Check it now.
+
+4. Invitation accepted
+When a referred/invited user accepts the invitation or successfully joins, notify the inviter.
+
+Example:
+Title: Your invitation was accepted 🎉
+Message: A new user joined through your invitation.
+
+5. Bonus received
+When a user gets a bonus, notify them.
+
+Example:
+Title: Bonus received 💰
+Message: You received a bonus in your account.
+
+PRIORITY ORDER:
+If notification limit is near or multiple events happen, use this priority order:
+1. Bonus received
+2. Question approved
+3. Someone answered your question
+4. Invitation accepted
+5. New question available
+
+DELIVERY LOGIC:
+- Store notification history per user with timestamp
+- Before sending any push, check how many notifications that user has received in the last 24 hours
+- If already 3, do not send another one
+- If under limit, send normally
+- Use a rolling 24-hour window, not calendar day reset only
+- Prevent duplicate notifications for the same event
+
+OPTIONAL DIGEST LOGIC:
+If several low-priority events happen but user is near the limit, combine them into one summary notification instead of multiple pushes.
+
+Example:
+Title: You have new updates on Opinoza
+Message: New activity is waiting for you. Open the app to check.
+
+TARGETING:
+- Only send relevant notifications to the affected user
+- Do not broadcast all event notifications to all users unless it is specifically a “new question available” campaign
+- “New question available” should also respect the 3-per-24-hours cap
+
+SYSTEM REQUIREMENTS:
+- Integrate with existing OneSignal setup
+- Keep notification sending server-side and event-driven
+- Add clean helper/service layer for notification sending
+- Add logging for sent, skipped, rate-limited, and failed notifications
+- Make it easy to add new notification types later
+
+ADMIN CONTROL:
+- Add an easy way to enable/disable each notification type from admin settings or config
+- Add configurable daily cap (default = 3)
+
+OUTPUT REQUIRED:
+1. Implement the notification system
+2. Show which files were changed
+3. Explain how the 24-hour cap is enforced
+4. Provide test scenarios for each notification type
+5. Confirm there is no notification spam

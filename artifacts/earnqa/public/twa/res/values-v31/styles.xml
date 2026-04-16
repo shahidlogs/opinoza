@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Opinoza TWA — Android 12+ (API 31+) splash screen theme.
+  Drop into: app/src/main/res/values-v31/styles.xml
+  Uses the new SplashScreen API for full-fidelity branded launch.
+-->
+<resources>
+
+    <style name="SplashTheme" parent="Theme.SplashScreen">
+
+        <!-- Warm off-white background — matches the website background exactly -->
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+
+        <!--
+          Coin icon shown centered on the splash.
+          Android draws this in a 240dp circle; the icon fills ~83% of that.
+          Source: res/drawable/ic_splash_icon.png (see generated assets)
+        -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_icon</item>
+
+        <!--
+          White circle behind the icon (the "icon background").
+          Gives the coin a clean white plate, matching the app's card style.
+        -->
+        <item name="windowSplashScreenIconBackgroundColor">@color/splash_icon_background</item>
+
+        <!--
+          "Opinoza" wordmark shown at the bottom of the splash screen.
+          See: res/drawable/splash_branding.png
+        -->
+        <item name="windowSplashScreenBrandingImage">@drawable/splash_branding</item>
+
+        <!-- Fade-out transition to main content -->
+        <item name="postSplashScreenTheme">@style/AppTheme</item>
+
+    </style>
+
+</resources>

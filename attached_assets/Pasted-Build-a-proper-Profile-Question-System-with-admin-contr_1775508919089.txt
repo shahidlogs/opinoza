@@ -1,0 +1,81 @@
+Build a proper Profile Question System with admin control and separate profile flow.
+
+Goal:
+Some questions (such as country, religion, education, marital status, children, language, etc.) should be treated as profile questions instead of normal feed questions.
+
+Requirements:
+
+1. Add admin control for profile questions:
+
+* Add a boolean field like: is_profile_question
+* Only admin can mark or unmark a question as a profile question
+* In admin panel, add a checkbox or toggle:
+  "Mark as Profile Question"
+
+2. Feed behavior:
+
+* If a question is marked as a profile question, it must NOT appear in the main feed
+* It should appear only inside the user profile question flow
+
+3. Profile question flow:
+   Create a dedicated profile-question experience inside the profile area or onboarding flow.
+
+Suggested structure:
+A) Basic Profile Questions
+
+* Show the most important profile questions first
+* Example: name, country, gender, language, age, religion
+
+B) More Profile Questions
+
+* After the basic questions, show additional unanswered profile questions
+* Display them in a simple scrollable flow or small batches
+
+4. Question display logic:
+
+* After the user completes the basic profile questions, continue showing unanswered profile questions automatically
+* Show them in batches of 4 or 5 at a time
+* As the user answers them, load/show the next unanswered profile questions
+* Keep this smooth and simple for the user
+
+5. Stats behavior:
+
+* For profile questions, after the user answers, show stats inline under the same question
+* Do NOT redirect to a separate page
+* Use grouped answer stats similar to text-answer question aggregation
+* Do NOT show stats for the Name question
+* Poll and star-rating question behavior must remain unchanged
+
+6. Reward behavior:
+
+* Profile questions should give 2 cents on first answer only
+* No reward on edit
+* Existing rewards for non-profile questions should remain unchanged unless already configured
+
+7. Editing:
+
+* Users can edit profile answers later
+* Editing must not give additional rewards
+
+8. Data handling:
+
+* Keep storing answers in the same answers table
+* Profile questions are identified by question.is_profile_question = true
+
+9. UI/UX:
+
+* Make the profile question flow feel separate from the feed
+* It can be inside the profile section or shown after signup as:
+  "Complete your profile & earn more"
+* The flow should be clean, mobile-friendly, and easy to continue later
+
+10. Production:
+
+* Make sure all of this works in production, not just development
+
+Goal summary:
+Admin can decide which questions are profile questions.
+Those questions do not appear in the main feed.
+They appear only in a separate profile-question flow.
+Users answer the basic ones first, then see more unanswered profile questions in batches of 4 or 5.
+Profile questions show inline stats after answering, except for Name.

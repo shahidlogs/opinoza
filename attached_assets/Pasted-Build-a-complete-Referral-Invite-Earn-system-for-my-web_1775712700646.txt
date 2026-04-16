@@ -1,0 +1,381 @@
+Build a complete **Referral / Invite & Earn system** for my web app (Opinoza-style platform).
+
+The system must be SIMPLE for users (no visible verification steps), but must include **strong hidden anti-fraud protections in the backend**.
+
+---
+
+# 🎯 CORE BUSINESS RULES
+
+1. Every user has a unique referral code and invite link.
+
+2. When a NEW user joins using a referral link AND signs in with Google:
+   → The inviter earns **10 cents instantly**
+
+3. When that invited user submits answers:
+   → The inviter earns **0.5 cent per valid answer**
+
+4. The inviter MUST NOT earn anything from:
+
+   * invited user’s referrals
+   * question creation
+   * profile actions
+   * any other activity
+
+5. This is ONLY:
+
+   * signup bonus
+   * answer bonus
+
+---
+
+# 🔗 REFERRAL LINK SYSTEM
+
+Each user gets:
+
+* referral_code (unique)
+* referral_link:
+  /signup?ref=CODE
+
+Example:
+https://example.com/signup?ref=ABC123
+
+---
+
+# 📥 REFERRAL FLOW
+
+## Step 1: User clicks invite link
+
+* Capture referral_code from URL
+
+* Store in:
+
+  * session
+  * cookie (7 days)
+
+* Log click in database
+
+---
+
+## Step 2: Google Signup/Login
+
+If user is NEW:
+
+* Assign referred_by_user_id
+* Create referral record
+* Instantly give inviter **10 cents**
+
+If user already exists:
+
+* Ignore referral
+
+---
+
+## Step 3: Answer Reward
+
+When invited user submits a valid answer:
+
+* Check:
+
+  * user has referrer
+  * answer is valid (not deleted/spam)
+
+* Give inviter:
+  +0.5 cent per answer
+
+---
+
+# 🧠 IMPORTANT RULE
+
+Each invited user is permanently linked to ONLY ONE referrer.
+
+No switching allowed.
+
+---
+
+# 🛡️ HIDDEN ANTI-FRAUD SYSTEM (VERY IMPORTANT)
+
+Do NOT ask users for verification.
+
+Instead implement SILENT backend checks:
+
+---
+
+## 1. Self-referral detection
+
+Block or flag if:
+
+* same device fingerprint
+* same browser
+* same behavior pattern
+
+---
+
+## 2. IP monitoring
+
+Track:
+
+* signup IP
+* referral click IP
+
+Flag if:
+
+* too many signups from same IP
+* rapid account creation
+
+---
+
+## 3. Device fingerprinting
+
+Store:
+
+* user_agent
+* device hash (basic fingerprint)
+
+Flag if:
+
+* same device creates multiple accounts
+
+---
+
+## 4. Google account uniqueness
+
+Ensure:
+
+* one Google account = one user
+
+---
+
+## 5. Suspicious pattern detection
+
+Flag accounts if:
+
+* multiple accounts created quickly
+* no activity after signup
+* repeated referral farming behavior
+
+---
+
+## 6. Reward control
+
+Even though reward is "instant":
+
+System must support:
+
+* reversing rewards
+* marking referral as:
+
+  * pending
+  * approved
+  * flagged
+  * rejected
+
+---
+
+## 7. Silent protection
+
+DO NOT:
+
+* show captcha
+* show verification screens
+* block normal users
+
+Only flag in backend.
+
+---
+
+# 💾 DATABASE STRUCTURE
+
+## users table additions:
+
+* referral_code (string, unique)
+* referred_by_user_id (nullable)
+* referred_at (timestamp)
+* signup_ip
+* user_agent
+* device_hash
+
+---
+
+## referrals table:
+
+* id
+* referrer_user_id
+* referred_user_id
+* referral_code_used
+* clicks_count
+* signup_bonus_cents (default 10)
+* answer_bonus_cents_total
+* signup_bonus_granted_at
+* status (pending/approved/flagged/rejected)
+* fraud_flags (json)
+* created_at
+
+---
+
+## referral_clicks table:
+
+* id
+* referral_code
+* referrer_user_id
+* ip_address
+* user_agent
+* session_id
+* created_at
+
+---
+
+## transactions table (add types):
+
+* referral_signup_bonus
+* referral_answer_bonus
+
+---
+
+# 💰 WALLET LOGIC
+
+On signup:
+
+* Add +10 cents to inviter
+
+On answer:
+
+* Add +0.5 cent to inviter
+
+All must be recorded in transactions.
+
+---
+
+# 📊 USER INTERFACE (VERY IMPORTANT)
+
+Create a full page:
+
+## "Invite & Earn" Page
+
+---
+
+## TOP SECTION:
+
+* Your Invite Link
+* Copy button
+* Share buttons:
+
+  * WhatsApp
+  * Facebook
+
+---
+
+## STATS:
+
+* Total clicks
+* Total signups
+* Signup earnings
+* Answer earnings
+* Total earnings
+
+---
+
+## REFERRALS LIST:
+
+Table:
+
+* Username
+* Joined date
+* Total answers
+* Earnings from this user
+* Status (active / flagged)
+
+---
+
+# 🧑‍💻 ADMIN PANEL
+
+Create referral admin dashboard:
+
+---
+
+## Overview:
+
+* total referral signups
+* total payout
+* top inviters
+* suspicious accounts
+
+---
+
+## Referral table:
+
+For each referral:
+
+* referrer
+* referred user
+* signup date
+* IP
+* device info
+* total answers
+* total earned
+
+---
+
+## Actions:
+
+* approve referral
+* reject referral
+* reverse rewards
+* mark as fraud
+
+---
+
+# ⚠️ FRAUD HANDLING
+
+If referral is flagged:
+
+* allow admin to:
+
+  * reverse 10 cents
+  * reverse answer bonuses
+
+* optionally:
+
+  * block user
+
+---
+
+# ⚙️ OPTIONAL SAFETY (RECOMMENDED)
+
+Add soft limits:
+
+* max earnings per referred user (optional)
+* max referrals per day per user (optional)
+
+---
+
+# 🧩 PERFORMANCE RULES
+
+* Use efficient queries
+* Do not slow down answer submission
+* Referral reward must be async-safe
+
+---
+
+# 🧾 USER-FACING TEXT
+
+Display:
+
+"Invite friends and earn rewards.
+You get 10¢ when a new user joins with your link and signs in with Google.
+You also earn 0.5¢ when they answer questions.
+Fake or duplicate accounts are not eligible."
+
+---
+
+# 🚀 FINAL GOAL
+
+The system must:
+
+* feel instant and simple for users
+* require ZERO verification steps
+* still prevent abuse using hidden backend logic
+* be scalable and production-ready
+
+---
+
+Build complete backend + frontend + admin system.

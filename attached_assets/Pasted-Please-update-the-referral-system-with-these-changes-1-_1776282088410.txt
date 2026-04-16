@@ -1,0 +1,81 @@
+Please update the referral system with these changes.
+
+### 1) Stop flagging `same_ip_as_click`
+
+Remove the fraud flag/check that marks a referral as suspicious just because the signup IP matches the referral click IP.
+
+This is too aggressive and is flagging normal users who:
+
+* open the invite link
+* then sign up on the same phone/device/network
+
+This should no longer create a flagged status by itself.
+
+---
+
+### 2) Add a 24-hour referral attribution window
+
+If someone opens a referral link, then creates an account anytime within the next **24 hours**, it should still count as that referrer’s referral.
+
+### Required behavior
+
+* When a referral link is opened, store the referral attribution in a way that survives normal browsing/session changes
+* If the user signs up within **24 hours** of that referral click, apply that referral automatically
+* This should work even if the user does not sign up immediately on the first page view
+* After 24 hours, the referral attribution should expire
+
+---
+
+### 3) Backfill old missed referrals if they match this logic
+
+Please also check previous users/signups and recover old referrals where possible.
+
+If in past data:
+
+* a user opened a referral link
+* and then signed up within **24 hours**
+* but the referral was missed only because of the old tracking/flagging logic
+
+Then:
+
+* add that user into the correct inviter’s referral list
+* create the correct referral record
+* add the correct earning as well
+* make sure the earning appears in wallet/transactions too
+
+### Important for backfill
+
+* Do this carefully using real production data
+* Do not create duplicate referral records
+* Do not give duplicate rewards if reward was already given
+* Only backfill cases that can be confidently matched from existing click + signup data
+* If a referral cannot be confidently matched, do not guess
+
+---
+
+### Keep unchanged
+
+* One account per email
+* No duplicate referral rewards
+* Existing invite reward logic stays the same:
+
+  * first 5 successful invites = 10¢
+  * after that = 20¢
+
+---
+
+### Do not add friction
+
+* Do not ask users to manually enter a referral code
+* Do not add extra questions in signup flow
+* Keep everything automatic
+
+---
+
+### Goal
+
+* same_ip_as_click should no longer create false fraud flags
+* referral attribution should survive for 24 hours
+* signup within 24 hours should count correctly
+* old missed referrals should be restored where the data clearly supports it
+* inviter should see those restored referrals in their list with the proper earnings included

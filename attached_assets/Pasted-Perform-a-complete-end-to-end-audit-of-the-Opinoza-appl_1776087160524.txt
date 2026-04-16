@@ -1,0 +1,65 @@
+Perform a complete end-to-end audit of the Opinoza application.
+
+1. FUNCTIONAL TESTING (CRITICAL)
+Thoroughly test ALL core features of the platform, including but not limited to:
+- User signup, login, logout
+- Profile creation and profile questions
+- Question creation (admin & user)
+- Answer submission (short answers, polls, ratings)
+- Reward system (1¢, 0.5¢, bonuses, wallet updates)
+- Referral system (if implemented)
+- Wallet, transactions, withdrawals
+- Notifications (in-app + email)
+- Admin controls (approve/reject questions, withdrawals, reports)
+- Search functionality (especially new backend search with ranking)
+- Category system
+- Public insight pages (graphs, gender split, stats)
+
+Identify ANY bugs, inconsistencies, or broken flows.
+Fix all issues directly in the code.
+
+2. DATA & LOGIC VALIDATION
+- Ensure reward calculations are correct and not duplicated
+- Prevent abuse (duplicate answers, spam inputs, invalid data)
+- Ensure user earnings, transactions, and balances are always consistent
+- Verify profile name logic (same name used across platform, locking rules, etc.)
+- Ensure unanswered vs answered sorting works correctly in search/feed
+
+3. UI/UX FIXES
+- Fix any broken layouts (especially mobile view issues like gender stats)
+- Ensure all pages render properly (no blank/loading bugs)
+- Improve clarity where needed without changing core design
+
+4. ERROR HANDLING & LOGGING
+- Add proper error handling where missing
+- Ensure backend APIs return clean, structured responses
+- Log errors clearly for debugging
+
+5. DIGITALOCEAN DEPLOYMENT ISSUES (IMPORTANT)
+We previously downloaded the project and faced issues deploying it on DigitalOcean.
+
+Fix ALL deployment-related problems:
+- Ensure project builds correctly (no missing dependencies)
+- Fix environment variables (.env issues)
+- Ensure correct production configuration
+- Fix database connection issues
+- Ensure migrations/seeding work properly on production DB
+- Ensure static assets (images/storage) load correctly
+- Ensure server runs properly (PM2 / Node / ports)
+- Fix any path issues (especially /storage, uploads, etc.)
+
+Provide:
+- Clean production-ready build setup
+- Exact deployment steps (commands if needed)
+- Ensure app runs without errors on DigitalOcean
+
+6. FINAL VALIDATION
+- Run a final full test after fixes
+- Confirm app is stable, functional, and production-ready
+
+IMPORTANT:
+Do NOT remove any existing features.
+Do NOT break working logic.
+Only fix, stabilize, and improve.
+
+Goal: Make Opinoza fully bug-free, stable, and ready for smooth production deployment.

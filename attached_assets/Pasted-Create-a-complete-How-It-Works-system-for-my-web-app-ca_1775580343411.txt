@@ -1,0 +1,154 @@
+Create a complete "How It Works" system for my web app called Opinoza.
+
+Goals:
+
+* Clearly explain how users can ask questions, answer with one click, share, and earn.
+* Highlight that users can earn coins instantly without writing long content.
+* Explain question ownership and rejection rules clearly.
+* Keep everything simple, engaging, and beginner-friendly.
+
+---
+
+1. CREATE PAGE
+
+Create a new page with title:
+"How It Works"
+
+Write content in a simple, engaging tone.
+
+---
+
+2. STRONG HIGHLIGHT (TOP SECTION)
+
+Add a highlighted section at the top:
+
+"💰 No blogs. No videos. No hard work.
+Just click, answer, and earn coins instantly."
+
+---
+
+3. MAIN CONTENT
+
+Section 1: Ask a Question
+
+* Create a simple question in seconds.
+* No long writing required.
+* IMPORTANT:
+  Each question on Opinoza is unique.
+  If your question is approved, only YOU will earn from it.
+  No one else can duplicate your question.
+
+Section 2: Answer with One Click
+
+* Answer questions instantly with just one click.
+* No long typing required.
+* Optional: add a short reason if you want.
+* Emphasize: "Click and earn coins instantly"
+
+Section 3: Get Answers
+
+* Other users answer your question.
+* They can also add reasons.
+* More answers = more earnings for you.
+
+Section 4: Share Your Question
+
+* Share on WhatsApp, Facebook, Twitter, etc.
+* More people = more answers = more income.
+
+Section 5: Earn Coins
+
+* You earn when people answer your question.
+* 10 answers → 10¢
+* 50 answers → $1
+* Every next 50 answers → $1
+
+Section 6: Earn Forever
+
+* Your question stays live.
+* It keeps earning as long as people answer.
+
+Section 7: Withdraw Earnings
+
+* Minimum withdrawal: $10
+
+---
+
+4. IMPORTANT RULES (VERY CLEAR SECTION)
+
+Title: "Important Rules"
+
+* Always search before asking a question.
+* Duplicate questions are not allowed.
+* If a similar question already exists, your question may be rejected.
+
+Reasons why a question can be rejected:
+
+1. Duplicate Question
+
+   * Same or very similar question already exists
+
+2. Unclear or Low-Quality Question
+
+   * Question is confusing or too vague
+
+3. Spam or Meaningless Content
+
+   * Random text or no real value
+
+4. Offensive or Inappropriate Content
+
+   * Hate, abuse, or harmful topics
+
+5. Too Short or Not Understandable
+
+   * Question must be clear and meaningful
+
+---
+
+5. UI DESIGN
+
+* Use clean sections/cards
+* Add simple icons (question, click, share, coin)
+* Keep spacing modern
+* Mobile responsive
+* Avoid long paragraphs
+
+---
+
+6. ADD NAVIGATION ACCESS
+
+* Header is full → create "More" dropdown
+* Add:
+  → How It Works
+
+OR place inside Profile dropdown
+
+---
+
+7. ADD FOOTER LINK
+
+* Add "How It Works" in footer
+
+---
+
+8. ADD HOMEPAGE ENTRY
+
+Add section/button:
+
+"💡 New here? Learn how Opinoza works"
+
+Also show:
+"Earn coins by just answering questions with one click."
+
+---
+
+FINAL GOAL:
+
+User should instantly understand:
+
+👉 Ask a unique question → earn only you
+👉 Others answer → you earn
+👉 Or click and answer → earn instantly
+
+Keep it simple, clear, and powerful.

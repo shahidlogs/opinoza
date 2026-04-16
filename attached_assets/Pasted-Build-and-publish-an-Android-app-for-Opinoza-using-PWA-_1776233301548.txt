@@ -1,0 +1,211 @@
+Build and publish an Android app for Opinoza using PWA + Trusted Web Activity (TWA), not a WebView wrapper and not a native rebuild.
+
+Goal:
+Turn the existing live Opinoza website into a proper Android app that behaves like an installed Chrome web app, with full-screen app experience, Play Store-ready packaging, and reuse of the existing branding/splash assets.
+
+Main Rule:
+- Do NOT create a WebView app.
+- Do NOT rebuild the platform as a native app.
+- Use Trusted Web Activity (TWA) with Bubblewrap.
+- Reuse the existing live production website and the already prepared splash/icon/branding assets.
+
+==================================================
+1. WEBSITE / PWA REQUIREMENTS
+==================================================
+
+First, verify and complete all PWA requirements on the live Opinoza production website.
+
+Ensure the website has:
+
+1. A valid web app manifest
+   - short_name: Opinoza
+   - name: Opinoza
+   - display: standalone
+   - start_url: /
+   - scope: /
+   - theme_color: use current brand color
+   - background_color: use current splash/background color
+   - icons: include all required sizes for Android installability, including maskable icons if possible
+
+2. A working service worker
+   - Register correctly
+   - Cache essential shell/assets safely
+   - Do not break dynamic authenticated pages
+   - Provide graceful offline fallback page or offline message
+   - Avoid stale login/account/session issues
+
+3. Installability requirements
+   - HTTPS only
+   - Valid manifest linked correctly
+   - Valid icons
+   - Service worker active
+   - No console errors blocking installability
+
+4. Mobile app-like behavior
+   - No broken layout on small screens
+   - Good viewport handling
+   - No horizontal overflow
+   - Proper safe spacing for mobile navigation and dialogs
+
+5. Basic offline/no-internet handling
+   - If offline, show a clean branded message such as:
+     "No internet connection. Please reconnect and try again."
+   - Include retry behavior if appropriate
+
+6. Existing branding
+   - Use the already prepared splash screen, logo, app name, theme colors, and icons
+   - Do not redesign them unless absolutely necessary for technical compatibility
+
+==================================================
+2. TWA / ANDROID APP REQUIREMENTS
+==================================================
+
+Use Bubblewrap to generate a Trusted Web Activity Android project.
+
+Requirements:
+- Package the live production Opinoza website as a TWA
+- Full-screen experience without browser UI
+- Proper Android app name: Opinoza
+- Proper package name (set a clean production package name and document it clearly)
+- Modern target SDK
+- Release-ready Android project
+- Adaptive launcher icon
+- Android splash configuration aligned with the existing splash branding
+- Stable launch experience
+- No bare-browser feel
+- No WebView fallback unless absolutely unavoidable for a specific edge case, and if any fallback is used, document exactly where and why
+
+==================================================
+3. DIGITAL ASSET LINKS / DOMAIN VERIFICATION
+==================================================
+
+Set up full TWA verification correctly.
+
+Tasks:
+- Generate signing key if needed for release
+- Obtain SHA256 certificate fingerprint
+- Create and deploy assetlinks.json on the website at:
+  /.well-known/assetlinks.json
+- Ensure the assetlinks file correctly matches:
+  - app package name
+  - release signing certificate fingerprint
+- Verify that Digital Asset Links pass properly
+- Ensure the TWA opens as a verified app experience, not an unverified browser-like fallback
+
+==================================================
+4. AUTH / SESSION / USER EXPERIENCE
+==================================================
+
+Opinoza has user login and account-based flows, so preserve correct session behavior.
+
+Requirements:
+- Login must work inside the installed app
+- Session persistence must work correctly
+- Users should remain logged in appropriately
+- Logout/login flow must not break inside TWA
+- Auth cookies/tokens must behave properly on Android
+- External auth/payment/legal links should open correctly when needed
+- Internal navigation should stay inside the app experience where appropriate
+
+Also verify:
+- Question feed loads correctly
+- Search works
+- Answer submission works
+- Create question works
+- Wallet/profile pages work
+- Notifications pages work if present
+- No broken modals, overlays, or mobile menus
+
+==================================================
+5. PLAY STORE READINESS
+==================================================
+
+Prepare the app for same-day Play Store submission.
+
+Deliver:
+- Release-ready Android source project
+- Signed AAB for Play Store upload
+- APK for direct device testing
+- Final app icon
+- Feature graphic guidance if needed
+- Version code and version name set correctly
+- App label set correctly
+- Basic release notes draft
+
+Ensure:
+- Build succeeds cleanly
+- App installs on Android device
+- Launch is fast and stable
+- No obvious policy-risk implementation such as a trivial browser shell look
+- App feels like a branded product, not just a wrapped site
+
+==================================================
+6. TESTING CHECKLIST
+==================================================
+
+Before finishing, test and confirm all of these:
+
+PWA:
+- Manifest valid
+- Service worker registered
+- Site installable
+- Icons load correctly
+- Offline message works
+- No major console errors
+
+TWA:
+- App opens full screen
+- No browser bar visible in normal flow
+- Domain verification works
+- Splash shows correctly
+- Back navigation works normally
+- External links behave correctly
+- Login/session persists
+- Main user flows work
+
+Android build:
+- APK generated
+- AAB generated
+- Release signing complete
+- Package name documented
+- SHA256 fingerprint documented
+- assetlinks.json deployed and verified
+
+==================================================
+7. FINAL DELIVERABLES
+==================================================
+
+Provide all of the following:
+
+1. The complete updated website changes needed for PWA support
+2. The full Android TWA source code/project
+3. The signed APK
+4. The signed AAB
+5. The final package name
+6. The SHA256 signing certificate fingerprint
+7. The exact assetlinks.json content used
+8. Exact location where assetlinks.json was deployed
+9. Step-by-step instructions for future updates:
+   - how to change app icon
+   - how to change splash
+   - how to change website URL
+   - how to rebuild APK/AAB
+10. A short final report showing:
+   - what was changed on the website
+   - what was changed in Android
+   - whether domain verification passed
+   - whether the app is ready for Play Store submission today
+
+==================================================
+8. IMPORTANT CONSTRAINTS
+==================================================
+
+- Do not rebuild the site as native Android screens
+- Do not use WebView as the main approach
+- Do not redesign branding assets that already exist
+- Do not break backend logic
+- Keep implementation minimal, stable, and production-focused
+- Prioritize shipping today with a clean and reliable TWA release
+- If any blocking issue prevents full TWA verification, clearly state the exact blocker and apply the fastest proper fix rather than changing architecture
+
+Start by auditing the current production site for PWA readiness, then complete missing PWA pieces, then generate and configure the TWA with Bubblewrap, then produce signed APK/AAB and final deployment notes.

@@ -1,0 +1,120 @@
+Please review and fix the withdrawal system based on the **live production site data**, not assumptions from local/dev data.
+
+There are issues in the current implementation, especially around the **Transferred** status logic and how withdrawal records appear to users.
+
+### What to fix
+
+#### 1) Use live production data
+
+Please inspect how withdrawal records are actually stored and displayed on the live site, then fix the logic accordingly.
+
+Do not assume the current local implementation is correct.
+Do not hardcode behavior based on example screenshots.
+The fix must match the real production data and current live admin/user flows.
+
+---
+
+#### 2) Fix the admin withdrawal status flow
+
+The current handling of **Transferred** is wrong.
+
+The correct workflow should be:
+
+* **Pending**
+
+  * Admin can **Approve**
+  * Admin can **Reject**
+
+* **Approved**
+
+  * It should remain clearly marked as **Approved**
+  * A separate clickable **Transfer** button should appear
+  * It must **not** automatically become Transferred
+
+* **Transferred**
+
+  * Only after admin clicks the **Transfer** button
+  * Then save it as **Transferred**
+  * Save transferred date/time if supported
+  * After that, show only one non-clickable **Transferred** label/button
+
+* **Rejected**
+
+  * Show only **Rejected**
+
+### Important correction
+
+Right now the system is incorrectly making records appear as transferred too early, or showing transferred state in a confusing way.
+
+That must be fixed.
+
+An **Approved** withdrawal should only show:
+
+* Approved status
+* clickable Transfer button
+
+A **Transferred** withdrawal should only show:
+
+* one final non-clickable Transferred label
+
+Do not show duplicate transferred UI states.
+
+---
+
+#### 3) Fix user Withdrawal History to match real withdrawal records
+
+The user’s **Withdrawal History** must reflect the real withdrawal records stored in production.
+
+It should correctly show records with statuses such as:
+
+* Pending
+* Approved
+* Rejected
+* Transferred
+
+If a user has withdrawals in production, they must appear in Withdrawal History.
+If a user has no withdrawals, then show:
+
+* **0 Withdrawals**
+
+Please verify the history query, filtering, and relation against the live production data.
+
+---
+
+#### 4) Keep Transaction History and Withdrawal History separate
+
+Transaction History and Withdrawal History should remain separate sections/buttons.
+
+Withdrawal History should show actual withdrawal requests and their statuses.
+It should not depend on whether a transaction entry exists in some unrelated way.
+
+---
+
+#### 5) Test against real live records
+
+Before finishing, verify on production data that:
+
+* pending withdrawals behave correctly
+* approved withdrawals stay approved until Transfer is clicked
+* transferred withdrawals show only final transferred state
+* rejected withdrawals show correctly
+* user Withdrawal History matches actual stored withdrawals
+
+### Goal
+
+The final system should be consistent and clear:
+
+#### Admin side
+
+* Pending → Approve / Reject
+* Approved → Approved + clickable Transfer button
+* Transfer clicked → Transferred only
+* Rejected → Rejected only
+
+#### User side
+
+* Withdrawal History shows actual live withdrawal records
+* Statuses are accurate
+* If none exist, show 0 Withdrawals
+
+Please fix this by checking the **real production behavior and real production data structure** first, then updating the backend and UI accordingly.

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>Opinoza</title>
+    <meta name="description" content="Share your opinions and earn real money on Opinoza. Answer polls, ratings, and questions to earn 1¢ per answer. Join thousands of users today." />
+    <link rel="canonical" href="https://opinoza.com" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- PWA manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- PWA theme / status-bar color -->
+    <meta name="theme-color" content="#f5b924" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- iOS Safari standalone PWA support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Opinoza" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+    <!-- Default Open Graph tags (overridden server-side for question pages) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Opinoza" />
+    <meta property="og:title" content="Opinoza – Answer Questions &amp; Earn Money" />
+    <meta property="og:description" content="Share your opinions on any topic and earn 1¢ per answer. Join thousands of users on Opinoza." />
+    <meta property="og:image" content="https://opinoza.com/opengraph.jpg" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <meta property="og:url" content="https://opinoza.com" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Opinoza – Answer Questions &amp; Earn Money" />
+    <meta name="twitter:description" content="Share your opinions on any topic and earn 1¢ per answer. Join thousands of users on Opinoza." />
+    <meta name="twitter:image" content="https://opinoza.com/opengraph.jpg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-60R69DNFQB"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-60R69DNFQB');
+    </script>
+
+    <!-- OneSignal Web Push SDK -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "1779561a-7866-42c1-8b8a-99cc9d4630af",
+          serviceWorkerPath: "sw.js",
+          serviceWorkerParam: { scope: "/" },
+          notifyButton: { enable: false },
+          allowLocalhostAsSecureOrigin: true,
+        });
+      });
+    </script>
+
+    <!-- Service Worker registration (also used by OneSignal above) -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .catch(function () {});
+        });
+      }
+    </script>
+
+    <!-- Google AdSense -->
+    <meta name="google-adsense-account" content="ca-pub-7570612317064155">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7570612317064155"
+         crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

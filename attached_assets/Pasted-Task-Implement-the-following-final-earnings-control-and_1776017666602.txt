@@ -1,0 +1,56 @@
+Task: Implement the following final earnings-control and profile-lock rules exactly as described. Do not change other existing earning logic unless required for these rules to work correctly.
+
+1. One-time bonus at 50 answers on a question
+
+* If any question reaches 50 answers, give the question creator a one-time bonus.
+* This bonus must be awarded only once per question.
+* After that, any additional answers on that same question should continue to give only the normal per-answer earning that already exists in the system.
+* No second, third, or repeated milestone bonus should ever be given for that question.
+
+2. Downrank questions created by users who have already earned $1 in a day
+
+* If a user’s total earnings for the current day reach $1.00, then all questions created by that user should be pushed very low in the normal feed.
+* These questions should not be deleted or hidden completely.
+* They should still appear if someone keeps scrolling far enough.
+* They should also still appear normally in direct search results when someone specifically searches for that question.
+* Apply this as a ranking/downranking rule in the feed only.
+
+3. At $5 total earnings: send notification and email to confirm profile name
+
+* When a user’s total lifetime earnings reach $5.00, send:
+
+  * one in-app notification
+  * one email
+* Message should clearly tell the user:
+
+  * Please confirm your profile name.
+  * Your payment account must be in the same real name.
+  * If the payment account name does not match the confirmed profile name, payment will not be transferred.
+* This alert should trigger only once per user when they first cross $5.
+
+4. At $10 total earnings: lock profile name
+
+* When a user’s total lifetime earnings reach $10.00, lock the profile name field.
+* After that, the user must not be able to edit their name anymore.
+* Only admin can change it after lock.
+* This lock should happen automatically once the user reaches $10.
+* Make sure both frontend and backend enforce this, so it cannot be bypassed.
+
+Important implementation requirements
+
+* Reuse current earning logic wherever possible.
+* Add proper database fields/flags if needed, such as:
+
+  * whether 50-answer bonus was already paid for a question
+  * whether $5 notification/email was already sent
+  * whether name is locked
+* Make the logic safe against duplicate payouts from retries, refreshes, or race conditions.
+* Keep current normal answer earnings unchanged except for the new one-time 50-answer bonus rule.
+* Do not break search, admin controls, existing transactions, or existing profile features.
+
+After implementation, provide:
+
+1. A list of all files changed
+2. A short explanation of how each rule was implemented
+3. Any new database fields/migrations added
+4. Any edge cases handled

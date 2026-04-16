@@ -1,0 +1,83 @@
+Please implement a clean and controlled email notification system.
+
+GOAL
+Send important emails to users for key events, while avoiding spam by limiting frequency.
+
+==================================================
+EVENT-BASED EMAILS (INSTANT)
+==================================================
+
+Send emails immediately for these events:
+
+1. Signup
+- When a user creates an account
+- Send a welcome email
+
+2. Question approved
+- When a user's question is approved
+- Send a notification email
+
+3. Question rejected
+- When a user's question is rejected
+- Send an email
+- ALSO include a link to the guidelines page so the user understands why it was rejected
+
+Example line:
+"Please review our guidelines to understand why questions may be rejected: [GUIDELINES_LINK]"
+
+4. Withdrawal approved
+- When a withdrawal request is approved
+- Send an email confirming approval
+
+5. Answer flagged
+- When a user's answer is flagged
+- Send an email informing them that their answer needs correction
+
+==================================================
+ANSWER NOTIFICATION (RATE LIMITED)
+==================================================
+
+6. When someone answers a user's question:
+
+- Send email notification BUT with strict limit:
+
+RULE:
+- A user should receive ONLY ONE email per 24 hours for answers on their questions
+- Even if multiple people answer their questions in that time, only one email should be sent
+
+Message example:
+"You have new answers on your question. Check them now."
+
+==================================================
+IMPORTANT RULES
+==================================================
+
+- Do NOT send multiple emails for the same type repeatedly in a short time
+- Especially limit answer-notification emails (max 1 per 24 hours per user)
+- Other emails (signup, approval, rejection, withdrawal, flag) are allowed instantly
+
+- Do NOT block the main API response if email fails
+- Emails should be "fire-and-forget" with proper error logging
+
+==================================================
+IMPLEMENTATION NOTES
+==================================================
+
+- Track last_answer_notification_email_at per user
+- Before sending "new answer" email:
+  - Check if 24 hours have passed
+  - If not → skip sending
+
+- Reuse existing email service if available
+- Keep templates clean and simple
+
+==================================================
+DELIVERABLE
+==================================================
+
+Please confirm:
+- which email events were implemented
+- where rate-limiting logic is applied
+- how 24-hour tracking is stored
+- that rejection email includes guidelines link
+- that no duplicate emails are sent within 24 hours for answers

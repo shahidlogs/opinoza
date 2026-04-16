@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Opinoza TWA — Theme definitions
+  Drop into: app/src/main/res/values/styles.xml
+  (Merge with existing styles if file already exists)
+-->
+<resources>
+
+    <!--
+      SplashTheme — applied during app cold start (pre-Android-12).
+      Used by bubblewrap / LauncherActivity as the initial theme.
+    -->
+    <style name="SplashTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:statusBarColor">@color/opinoza_background</item>
+        <item name="android:navigationBarColor">@color/opinoza_background</item>
+    </style>
+
+</resources>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Opinoza TWA — Color definitions
+  Drop into: app/src/main/res/values/colors.xml
+-->
+<resources>
+    <!-- Brand colors -->
+    <color name="opinoza_gold">#F5B924</color>
+    <color name="opinoza_gold_dark">#D97706</color>
+    <color name="opinoza_navy">#1E3A5F</color>
+    <color name="opinoza_background">#F8F5F0</color>
+    <color name="opinoza_white">#FFFFFF</color>
+
+    <!-- Splash screen specific -->
+    <color name="splash_background">#F8F5F0</color>
+    <color name="splash_icon_background">#FFFFFF</color>
+
+    <!-- Status bar / navigation bar -->
+    <color name="status_bar_color">#F5B924</color>
+    <color name="navigation_bar_color">#F8F5F0</color>
+</resources>

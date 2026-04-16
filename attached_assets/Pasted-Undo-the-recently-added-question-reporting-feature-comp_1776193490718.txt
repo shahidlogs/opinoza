@@ -1,0 +1,47 @@
+Undo the recently added question-reporting feature completely.
+
+Important clarification:
+We do NOT want users to report/flag questions.
+Questions are already controlled through the admin approval system, so question reporting is unnecessary.
+
+What we actually wanted:
+Fix the EXISTING answer-flag workflow only:
+- Users can flag/report another user’s ANSWER
+- Admin receives that flagged answer in the existing moderation/report system
+- Admin can take actions on the flagged answer
+- If the admin removes that flagged answer, the blocked user should be unblocked automatically
+- If the admin rejects/archives/removes the related question in the existing flow, the user should also be unblocked if that was the source of the pending restriction
+
+Now do this:
+
+1. Remove all newly added question-reporting code completely
+- Remove the new question_reports table/schema
+- Remove any migration or manual SQL related to question_reports
+- Remove the POST /api/questions/:id/report endpoint
+- Remove any admin endpoints related to question reports
+- Remove the "Report" button/modal from the question detail UI
+- Remove the "Q Reports" tab and all related frontend/admin UI
+- Remove any related types, state, fetches, handlers, and imports
+
+2. Keep and preserve the ORIGINAL answer-flag/report system
+- Users should still be able to flag/report other users’ ANSWERS
+- Admin should still receive those answer flags exactly as before
+- Do not break the existing answer moderation flow
+
+3. Keep the unblock fix
+- Only unresolved active flagged-answer cases should block answering
+- If admin removes the flagged answer, the user should be unblocked
+- If admin rejects/archives/removes the related question, stale pending flags should not keep the user blocked
+- Keep that fix, but do not mix it with question reporting
+
+4. After undoing, verify these exact behaviors:
+- Users can flag another user’s answer
+- Admin can see flagged answers
+- Admin can remove flagged answers
+- Once removed, the affected user is unblocked
+- No question reporting UI or backend remains anywhere
+
+5. Before finishing, provide a short summary:
+- exactly which files were reverted
+- whether the database table was dropped
+- whether the original answer-flag workflow is still intact

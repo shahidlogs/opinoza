@@ -1,0 +1,138 @@
+Refactor the entire category system across the platform and synchronize it everywhere.
+
+Phase 1 — Define Final Category List
+Replace ALL existing categories with the following clean, optimized list:
+
+Technology
+Food & Dining
+Health & Wellness
+Transport & Travel
+Entertainment
+Shopping & Brands
+Education
+Finance & Economy
+Environment
+Sports
+Politics & World Affairs
+Lifestyle
+Social & Society
+Personal Profile
+Other
+
+Rules:
+- These are the ONLY valid categories
+- No duplicates
+- No extra categories allowed
+
+---
+
+Phase 2 — Remove Invalid Categories
+Delete or migrate these categories completely:
+- Fun
+- Personal (rename to "Personal Profile")
+- Healthcare (merge into "Health & Wellness")
+- Transportation (merge into "Transport & Travel")
+- Travel (merge into "Transport & Travel")
+- Finance (rename to "Finance & Economy")
+- Shopping (rename to "Shopping & Brands")
+- Politics (rename to "Politics & World Affairs")
+- Social (rename to "Social & Society")
+
+---
+
+Phase 3 — Migrate Existing Questions
+For ALL existing questions:
+
+- Automatically reassign each question to the most relevant category based on:
+  - title
+  - description
+  - tags (if available)
+
+Examples:
+- airlines → Transport & Travel
+- banks / crypto → Finance & Economy
+- restaurants → Food & Dining
+- hospitals / fitness → Health & Wellness
+- phones / apps → Technology
+- movies / music → Entertainment
+- politicians / countries → Politics & World Affairs
+
+Fallback:
+- If no clear match → assign to "Other"
+
+IMPORTANT:
+- Do NOT lose any questions
+- Preserve all data, answers, earnings, stats
+
+---
+
+Phase 4 — Homepage Category Sync
+Update homepage "Browse by Category" section:
+
+- Show ONLY these categories (max 10–12 visible):
+  Technology
+  Food & Dining
+  Health & Wellness
+  Transport & Travel
+  Entertainment
+  Shopping & Brands
+  Education
+  Finance & Economy
+  Sports
+  Lifestyle
+  Social & Society
+
+- EXCLUDE:
+  Personal Profile (not public)
+  Other (only fallback)
+
+- Keep layout clean and mobile-friendly
+
+---
+
+Phase 5 — Category Images
+Assign a relevant icon/image to each category:
+
+Technology → 💻 or device icon  
+Food & Dining → 🍔  
+Health & Wellness → 🏥 or 💪  
+Transport & Travel → ✈️ or 🚗  
+Entertainment → 🎬  
+Shopping & Brands → 🛍️  
+Education → 🎓  
+Finance & Economy → 💰  
+Environment → 🌱  
+Sports → ⚽  
+Politics & World Affairs → 🏛️  
+Lifestyle → 🌟  
+Social & Society → 👥  
+
+- Use consistent icon style
+- Keep visual balance
+
+---
+
+Phase 6 — Data Integrity
+- Do NOT break existing:
+  - questions
+  - answers
+  - wallet/earnings
+  - stats
+- Only category field should change
+
+---
+
+Phase 7 — Validation
+After implementation:
+- Ensure no question has an invalid category
+- Ensure homepage categories match system categories
+- Ensure counts per category are correct
+- Ensure UI works on mobile
+
+---
+
+Final Output:
+- Confirm categories updated
+- Confirm questions migrated
+- Confirm homepage updated
+- Confirm no data loss

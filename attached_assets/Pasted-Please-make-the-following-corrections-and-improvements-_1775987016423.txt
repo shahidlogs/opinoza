@@ -1,0 +1,87 @@
+Please make the following corrections and improvements to the profile-question system.
+
+==================================================
+PART 1: FIX PROFILE QUESTION ORDER (BACKEND)
+==================================================
+
+CURRENT ISSUE
+The top profile question is currently selected based on arbitrary API order.
+
+REQUIRED CHANGE
+Profile questions MUST follow the exact order in which they were originally added/created in the system.
+
+- Always pick the FIRST unanswered profile question based on creation order
+- After answering, the next unanswered one in the same order should appear
+- Do NOT rely on frontend array order
+- Do NOT pick questions randomly
+
+CRITICAL (VERY IMPORTANT)
+This ordering MUST be enforced in the BACKEND.
+
+- Update GET /api/questions/profile to return questions sorted correctly
+- The frontend should NOT handle sorting
+
+IMPLEMENTATION
+- Use a reliable field such as:
+  - created_at ASC, OR
+  - id ASC, OR
+  - display_order if available
+
+- Ensure query uses ORDER BY ascending
+
+==================================================
+PART 2: FULL NAME PAYMENT NOTE (BOTH STATES)
+==================================================
+
+GOAL
+Ensure users clearly understand that their name must be correct because payments depend on it.
+
+REQUIREMENTS
+
+1. When the Full Name profile question is shown (unanswered state):
+- Show a note near the input field:
+  "Please enter your real full name with correct spelling. This is important because your payments will be made using this name."
+
+2. When the Full Name is ALREADY ANSWERED (user has already entered a name):
+- STILL show a small note near the displayed answer (read-only or edit state)
+- This ensures users can re-check and correct their name if needed
+
+Suggested text:
+"This name should be correct because your payments will be made using this name."
+
+3. This note must appear in BOTH:
+- question-detail page (input + answered view)
+- any profile display section where the name is visible (if applicable)
+
+4. Detection logic:
+- Prefer using a reliable identifier (e.g. question type / key / slug for "full_name")
+- Avoid relying only on title text like "full name" if possible
+
+==================================================
+DO NOT CHANGE
+==================================================
+
+- Do not change reward amounts
+- Do not change earning logic
+- Do not change question structure
+- Do not change public feed behavior (except top profile question)
+- Do not implement abuse/blocking logic in this task
+
+==================================================
+FRONTEND BEHAVIOR (KEEP EXISTING)
+==================================================
+
+- Show only ONE profile question at the top
+- Show normal public feed below
+- No duplication of the same question
+
+==================================================
+DELIVERABLE
+==================================================
+
+Please confirm:
+- which backend file/query was updated
+- which field is used for ordering
+- that API now returns profile questions in correct order
+- where the full-name note was added (files/components)
+- that the note appears in BOTH unanswered and answered states

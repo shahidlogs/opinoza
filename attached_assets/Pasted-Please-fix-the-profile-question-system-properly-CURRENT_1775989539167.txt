@@ -1,0 +1,73 @@
+Please fix the profile question system properly.
+
+CURRENT ISSUE
+The first four basic questions are not being treated as real profile questions by the system. Because of that, they are behaving differently and showing 1 cent instead of being handled like the other profile questions.
+
+REQUIRED CHANGE
+
+Make these four questions real profile questions too:
+1. Full Name
+2. City
+3. Gender
+4. Age Group
+
+They must be treated exactly like the other profile questions in the system.
+
+WHAT TO CHANGE
+
+1. Convert these four basic questions into proper profile questions
+- They should use the same profile-question logic as the rest of the profile questions
+- They should appear in the profile question section like the others
+- They should no longer behave as separate/basic/non-profile questions
+
+2. Reward logic
+- These four questions should also become 2-cent profile questions
+- Keep the rest of the reward logic unchanged
+- Other questions that are already 2 cents should remain 2 cents
+- Do not break any existing earning logic
+
+3. Browse/questions page behavior
+- On the browse/questions page, show only ONE unanswered profile question at the top
+- The order must be:
+  1. Full Name
+  2. City
+  3. Gender
+  4. Age Group
+  5. then the rest of the profile questions
+- Below that, keep showing the normal public/default feed as usual
+
+4. Profile page behavior
+- On the profile page, all profile questions should still be visible in the profile area
+- They can appear above/below and be scrollable as normal
+- If needed, slightly improve the profile page UI/layout so the profile question section looks clean and consistent
+- Do not remove the ability to answer profile questions from the profile page
+
+5. Full Name warning
+- The Full Name question must show a clear warning/note:
+  "Please enter your real full name with correct spelling. Your payments will be made using this name."
+- This warning should appear where appropriate on the profile side as well
+- Keep it visible enough that users notice it
+
+IMPORTANT
+- This is not just a browse-page display fix
+- The first four basic questions must actually become real profile questions in the system
+- Do not hack this only in the frontend
+- Make the data/model/query behavior consistent everywhere needed
+
+DO NOT BREAK
+- existing answers
+- profile data
+- earning records
+- answer history
+- normal public feed
+- other profile questions
+
+DELIVERABLE
+Please provide:
+- exact files changed
+- what was changed in each file
+- whether any database update/migration was needed
+- how those first four questions are now marked/treated as profile questions
+- confirmation that they now pay 2 cents
+- confirmation that browse page shows only one unanswered profile question at top in the correct order
+- confirmation that profile page still shows all profile questions normally

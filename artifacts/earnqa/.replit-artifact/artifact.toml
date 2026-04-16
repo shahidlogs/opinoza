@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "EarnQA"
+version = "1.0.0"
+id = "artifacts/earnqa"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18491
+
+[services.development]
+run = "pnpm --filter @workspace/earnqa run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/earnqa", "run", "build" ]
+publicDir = "artifacts/earnqa/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18491"
+BASE_PATH = "/"

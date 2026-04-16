@@ -1,0 +1,89 @@
+Project: Opinoza
+Task: Update withdrawal system UI + admin withdrawals listing/details
+
+Please make the following changes carefully and do not change unrelated functionality.
+
+## 1) Remove Gift Card completely
+
+Remove the **Gift Card** withdrawal option from everywhere it appears:
+
+* withdrawal modal / form
+* any validation
+* any backend enum/type/options list
+* any admin display logic related to gift card
+* any text/help message mentioning gift cards
+
+After this change, the only withdrawal methods should be:
+
+* **PayPal**
+* **Bank Transfer**
+
+## 2) Bank Transfer must require Account Title
+
+When the user selects **Bank Transfer**:
+
+* show an additional required field: **Account Title**
+* this field must be mandatory both in frontend and backend validation
+* the withdrawal request must not submit if Account Title is empty
+* save Account Title in the database with the withdrawal request
+* show Account Title in admin withdrawal details/list where appropriate
+
+Behavior by method:
+
+* **PayPal**: only require the PayPal-relevant payment detail field
+* **Bank Transfer**: require:
+
+  * account number / IBAN
+  * account title
+
+Also make the UI field labels/placeholders clear and method-specific.
+Example:
+
+* PayPal → placeholder like `PayPal email`
+* Bank Transfer → placeholders like `Account number / IBAN` and `Account title`
+
+## 3) In admin withdrawal requests, show clickable user name
+
+In the admin side where withdrawal requests are listed or viewed:
+
+* show the **user name** alongside each withdrawal request
+* the user name should be **clickable**, just like it is clickable in the user list
+* clicking the user name should open that user’s detail page/profile/admin user view
+* if there is already an existing admin route/page for user details, reuse it
+* do not create a broken or dead link
+
+## 4) Admin withdrawal detail should help identify the requester
+
+Where an admin opens a withdrawal request, make sure the following are visible:
+
+* user name (clickable)
+* user email if already available in that admin context
+* withdrawal amount
+* payment method
+* payment details
+* account title for bank transfer requests
+
+## 5) Validation + backward compatibility
+
+* do not break existing old withdrawal records
+* if old records do not have account_title, they should still load safely
+* only **new Bank Transfer requests** must require account_title
+* update any TypeScript/Zod/Drizzle/schema/server validation accordingly
+* update database schema/migration if needed
+
+## 6) Deliverables
+
+After making the changes, provide:
+
+1. list of files changed
+2. migration details if any
+3. short summary of what was changed
+4. anything I need to republish/run (for example migration command)
+
+Important:
+
+* keep the current design style
+* do not make unrelated UI changes
+* do not modify payout logic beyond what is required above
+* do not remove PayPal
+* do not add new features beyond these tasks

@@ -1,0 +1,106 @@
+The main issue is still not fully fixed.
+
+### What is correct now
+
+* User Withdrawal History is now showing records
+* Rejected records are visible
+
+### What is still wrong
+
+1. On the **user side**, some records are showing **Completed** even though the intended logic is:
+
+   * if admin has only approved the withdrawal, user should see **Approved**
+   * only after admin clicks **Transfer**, user should see **Completed** (or Transferred, depending on final naming)
+
+2. On the **admin side**, transferred records are still showing duplicate transfer labels/badges.
+   There should not be two transferred indicators.
+
+3. Old existing records also need proper handling:
+
+   * old records that were only approved should appear as **Approved**
+   * and should have a clickable **Transfer** button next to them
+   * they should not automatically appear as transferred unless they were actually transferred
+
+---
+
+## Required final behavior
+
+### Admin side
+
+#### Pending
+
+* Show:
+
+  * Approve
+  * Reject
+
+#### Approved
+
+* Show:
+
+  * **Approved** label
+  * one clickable **Transfer** button
+* Do NOT show transferred state yet
+
+#### After Transfer click
+
+* Update status to final transferred/completed state
+* Then show only **one** final non-clickable label
+* No duplicate transferred badges/buttons
+
+#### Rejected
+
+* Show only **Rejected**
+
+---
+
+### User side
+
+#### If withdrawal is only approved
+
+* Show **Approved**
+
+#### If admin clicks Transfer
+
+* Then show **Completed** for the user
+
+#### If rejected
+
+* Show **Rejected**
+
+---
+
+## Important
+
+Please also fix the handling of **old existing records in production**.
+
+Old records should not all be treated as already transferred.
+If an old record is only approved, it must display as:
+
+* **Approved** on admin side
+* with clickable **Transfer** button
+* and **Approved** on user side
+
+Only truly transferred records should display final completed/transferred state.
+
+---
+
+## Final mapping
+
+Please make the logic consistent like this:
+
+### Admin labels/actions
+
+* Pending → Approve / Reject
+* Approved → Approved + clickable Transfer
+* Transferred/Completed final → one non-clickable final label only
+* Rejected → Rejected
+
+### User labels
+
+* Pending → Pending
+* Approved → Approved
+* Rejected → Rejected
+* After admin clicks Transfer → Completed
+
+Please fix this based on the current live production data and existing old records as well.

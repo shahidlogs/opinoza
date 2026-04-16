@@ -1,0 +1,102 @@
+Fix the category system completely so that the entire app uses only one final category list everywhere.
+
+Context:
+We already finalized the correct categories. These are the only categories that should exist across the whole platform. The category dropdown used while creating a question is the correct source of truth.
+
+Final allowed categories:
+
+* Technology
+* Food & Dining
+* Health & Wellness
+* Transport & Travel
+* Entertainment
+* Shopping & Brands
+* Education
+* Finance & Economy
+* Environment
+* Sports
+* Politics & World Affairs
+* Lifestyle
+* Social & Society
+* Personal Profile
+* Other
+
+What needs to happen:
+
+1. Create a single shared category source
+
+* Define one central constant / config / helper that contains the final category list.
+* All frontend dropdowns, filters, category chips, admin forms, search filters, and any category display logic must use this same shared source.
+* Remove any duplicate hardcoded category arrays from the codebase.
+
+2. Replace old categories everywhere
+   Search the whole codebase and replace all old/outdated category lists so every place uses only the final categories above.
+   This includes at minimum:
+
+* Ask question page
+* Search page filters
+* Home page category filters
+* Admin pages
+* Public insights pages
+* Any API validation
+* Any helper or seed logic
+* Any analytics/category count logic
+
+3. Migrate existing question categories in the database
+   Map all old categories into the new final categories so that no old category names remain in stored questions.
+
+Use intelligent mapping like this:
+
+* Fun -> Entertainment
+* Preferences -> Personal Profile
+* Personal -> Personal Profile
+* Social -> Social & Society
+* Transportation -> Transport & Travel
+* Travel -> Transport & Travel
+* Finance -> Finance & Economy
+* Politics -> Politics & World Affairs
+* Health & Fitness -> Health & Wellness
+* Healthcare -> Health & Wellness
+* Shopping -> Shopping & Brands
+  Any unknown or leftover category -> Other
+
+If there are already categories close to the final ones, normalize them exactly to the final names.
+
+4. Enforce backend validation
+
+* Backend/API/database save flow must only allow the final category list.
+* If an invalid category is submitted, reject it or safely normalize it to Other, depending on current architecture.
+* No new outdated category should ever be able to enter the database again.
+
+5. Update category counts and filters
+
+* Search/filter counts must be recalculated from the migrated categories.
+* The search dropdown should show only the final categories and their correct counts.
+* No old category label should appear anywhere in the UI.
+
+6. Check seeds/mock/system questions too
+
+* If seed files, mock data, or system-created questions use old category names, update them too.
+* Ensure fresh deployments also only use the final categories.
+
+7. Final verification
+   After changes:
+
+* Search dropdown must show only the final category list
+* Ask Question dropdown must show the same exact list
+* Existing old-category questions must now appear under the mapped final categories
+* No old category names should remain in database records or UI
+* No hardcoded duplicate category arrays should remain in the codebase
+
+Important:
+
+* Do not partially patch only one page.
+* Make this a full system-wide cleanup and normalization.
+* Keep the existing UI styling unchanged unless required.
+* Do not break question creation, search, or category counts.
+* At the end, report:
+
+  1. which files were changed
+  2. how database categories were migrated
+  3. the exact final category source file/path
+  4. confirmation that old categories no longer appear anywhere

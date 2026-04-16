@@ -1,0 +1,96 @@
+🟢 Final Prompt (Complete Feature Set)
+
+Implement the following features in the Opinoza platform:
+
+1) Hourly Answer Limit (20 answers/hour)
+Each user can submit maximum 20 answers per rolling 60 minutes.
+
+Once limit is reached:
+
+Block further answers.
+Show this message:
+
+“You’ve reached the hourly answer limit. Please try again later.”
+
+No countdown timer or counter should be shown.
+Applies to all answer types.
+2) Add Flag Option on Short Answers
+Add a small “Flag” option at the end of every short answer.
+Visible to all logged-in users.
+Placement: subtle, not prominent.
+When a user clicks Flag:
+
+Show a popup with reasons:
+
+Meaningless or unclear
+Spam or repeated text
+Abusive or inappropriate
+Spelling/capitalization issue
+
+Allow only one flag per user per answer.
+
+3) Flagged Answer Restrictions (User Side)
+
+If a user's short answer is flagged:
+
+User cannot submit any more short answers until the issue is fixed.
+
+When user tries to answer:
+
+Disable the input field.
+Show:
+
+“Your short answer has been flagged and needs correction before you can submit more short answers. Please review and edit it.”
+
+Include buttons:
+“Review flagged answers”
+“Edit now”
+4) Flagged Answer Editing
+
+Flagged answer should show a label:
+
+“Flagged – needs revision”
+
+User can edit the answer.
+
+Provide improvement hints:
+
+Use meaningful words
+Avoid random text
+Fix spelling
+Capitalize names correctly (e.g. “Ahmed” not “ahmed”)
+
+Once the user edits and saves:
+
+Remove short-answer restriction immediately.
+5) Admin Flag Monitoring Panel
+
+Add an admin moderation panel that shows:
+
+Total flagged answers
+Number of pending flagged answers
+Number of resolved (fixed by user)
+Number removed by admin
+
+For each flagged item show:
+
+The flagged answer text
+Username
+Flag reason
+Number of flags received
+Status: Pending / Fixed / Removed
+Actions:
+Remove answer
+Ignore flag
+Warn user (optional)
+6) Admin Controls
+Admin can:
+Remove a flagged answer
+Clear a flag
+Ignore a flag
+See flag history per user
+7) Edge Cases & Protections
+Each user can flag an answer only once.
+Multiple flags increase visibility but do not auto-delete.
+False or abusive flagging should be tracked.
+System should not duplicate penalties.

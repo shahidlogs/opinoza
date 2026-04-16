@@ -1,0 +1,52 @@
+<!--
+  Full splash screen preview — shows how the launch screen looks.
+  Dimensions: 360×780dp (standard portrait phone) at 1×.
+  This is a DESIGN PREVIEW only — not used directly by Android.
+  The actual splash is assembled by the Android system from:
+  - windowSplashScreenBackground (#F8F5F0)
+  - windowSplashScreenAnimatedIcon (the coin, centered)
+  - windowSplashScreenBrandingImage ("Opinoza" wordmark, bottom)
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 780" width="360" height="780">
+  <!-- Background -->
+  <rect width="360" height="780" fill="#F8F5F0"/>
+
+  <!-- Status bar simulation -->
+  <rect width="360" height="28" fill="#F8F5F0"/>
+
+  <!-- Coin icon — centered vertically, slightly above center -->
+  <g transform="translate(180, 350)">
+    <defs>
+      <radialGradient id="coin2" cx="38%" cy="30%" r="75%" fx="38%" fy="30%">
+        <stop offset="0%"   stop-color="#fef3c7"/>
+        <stop offset="42%"  stop-color="#fbbf24"/>
+        <stop offset="100%" stop-color="#d97706"/>
+      </radialGradient>
+      <radialGradient id="edge2" cx="50%" cy="50%" r="50%">
+        <stop offset="80%"  stop-color="#d97706" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#92400e" stop-opacity="0.5"/>
+      </radialGradient>
+    </defs>
+    <!-- Coin — 120dp radius = design matches Android 12 splash icon size -->
+    <circle cx="0" cy="0" r="92" fill="url(#coin2)"/>
+    <circle cx="0" cy="0" r="92" fill="url(#edge2)"/>
+    <circle cx="0" cy="0" r="92" fill="none" stroke="#b45309" stroke-width="3" opacity="0.55"/>
+    <!-- O ring -->
+    <circle cx="0" cy="0" r="54" fill="none" stroke="#1e3a5f" stroke-width="21"/>
+    <circle cx="0" cy="0" r="54" fill="none" stroke="#fbbf24" stroke-width="3" opacity="0.25"/>
+    <!-- Shine -->
+    <path d="M -63 -46 A 52 52 0 0 1 8 -74" stroke="white" stroke-width="10" fill="none" opacity="0.45" stroke-linecap="round"/>
+  </g>
+
+  <!-- Wordmark — branding at bottom -->
+  <text
+    x="180" y="718"
+    font-family="Inter, 'Helvetica Neue', Arial, sans-serif"
+    font-size="38"
+    font-weight="800"
+    fill="#1e3a5f"
+    text-anchor="middle"
+    letter-spacing="-0.5"
+    opacity="0.85"
+  >Opinoza</text>
+</svg>

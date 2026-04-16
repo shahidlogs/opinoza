@@ -1,0 +1,94 @@
+Please fix the withdrawal status system and add a proper user withdrawal history feature.
+
+### Admin side — required workflow
+
+In the admin withdrawals section, the statuses and actions should work like this:
+
+#### Statuses
+
+* Pending
+* Approved
+* Rejected
+* Transferred
+
+#### Required behavior
+
+When a withdrawal is first created, it should be **Pending**.
+
+Admin should have these actions for a pending withdrawal:
+
+* Approve
+* Reject
+
+If admin clicks **Approve**:
+
+* The withdrawal status becomes **Approved**
+* After that, a separate clickable **Transfer** button should appear for that withdrawal
+
+If admin later clicks **Transfer**:
+
+* That means the payment has actually been sent
+* The withdrawal status must become **Transferred**
+* Save the transferred date/time as well
+* After this, instead of a clickable Transfer button, show a non-clickable **Transferred** label/button for that withdrawal
+
+If admin clicks **Reject**:
+
+* The withdrawal status becomes **Rejected**
+
+### Important correction
+
+Do **not** treat Approved as the final payment status.
+
+Correct flow should be:
+**Pending → Approved → Transferred**
+
+And separately:
+**Pending → Rejected**
+
+---
+
+### User side — Withdrawal History button
+
+#### Placement
+
+Add a visible **Withdrawal History** button **next to Transaction History** on the wallet page.
+
+#### Important condition
+
+* Even if the user has **0 withdrawals**, the section/page must still be visible
+* Show clearly: **“0 Withdrawals”** instead of hiding or showing an empty screen
+
+#### Behavior
+
+When the user clicks the Withdrawal History button, they should see a list/table of all their withdrawal requests.
+
+For each withdrawal, show:
+
+* Amount
+* Method
+* Account / IBAN
+* Account Title
+* Bank / Wallet Name (if available)
+* Status
+* Request date
+* Approved / Transferred date (if available)
+
+The user must be able to clearly see whether each withdrawal is:
+
+* Pending
+* Approved
+* Rejected
+* Transferred
+
+---
+
+### Goal
+
+Users should be able to track their withdrawals themselves from a Withdrawal History page.
+
+Admins should have a proper workflow where:
+
+* Approve means approved but not yet paid
+* Transfer means payment has actually been sent
+* Once transferred, it should display as **Transferred** and no longer be clickable

@@ -1,0 +1,59 @@
+Please implement only this one feature for now. Do not change anything related to answer abuse, moderation, blocking, rewards, or other systems yet.
+
+GOAL
+When a user opens the questions/browse feed, show only ONE unanswered profile question at the top, not all profile questions. Below that, show the normal public/default feed as usual.
+
+REQUIRED BEHAVIOR
+
+1. Show only one pending profile question at a time
+- If the user has unanswered profile questions, display only the first one at the top of the feed
+- Do NOT display all pending profile questions together
+- After that single profile question, continue rendering the normal public/default feed below it
+
+2. Normal feed must still appear below
+- The public/default question feed should still load normally underneath
+- Do not hide or replace the normal feed
+- The profile question should act like a top priority card/item above the standard feed
+
+3. Next time, show the next unanswered profile question
+- Once the user answers the currently shown profile question, that question should no longer appear at the top
+- The next time they open or refresh the feed, show the next unanswered profile question at the top
+- If all profile questions have already been answered, then show only the normal public/default feed with no profile question on top
+
+4. Full Name question note
+- For the profile question "What is your full name?", add a clear note/description near the input:
+  "Please enter your real full name with correct spelling. This is important because your payments will be made using this name."
+- This is only a UI note. Do not add any blocking or extra validation in this task.
+
+5. Keep reward amounts unchanged
+- If that profile question is worth 2 cents, it must still remain 2 cents
+- Do not change any reward logic
+- Do not change creator rewards or any existing earning rules
+
+6. Do not break existing systems
+- Do not affect answer history
+- Do not affect profile question status
+- Do not affect question visibility rules except for this top placement behavior
+- Do not affect public/default feed ordering except that one profile question should appear above it
+- Do not implement abuse flags or user blocking in this task
+
+IMPLEMENTATION GUIDANCE
+- Reuse the existing profile question structure if possible
+- Determine the first unanswered profile question for the current user
+- Inject only that one question at the top of the feed response/UI
+- Then append the normal feed items below it
+- Make sure the same profile question is not duplicated again lower in the feed if it already appears at the top
+- Keep the change modular and minimal
+
+EDGE CASES
+- If there is no unanswered profile question, show only the normal feed
+- If the top profile question somehow also belongs to the normal feed query, avoid duplicate rendering
+- If the user answers it successfully, the next unanswered profile question should become the top one on the next load/refresh
+
+DELIVERABLE
+Please provide:
+- exact files changed
+- what changed in each file
+- whether any migration was needed
+- whether any query/feed logic was updated
+- a short summary of final behavior

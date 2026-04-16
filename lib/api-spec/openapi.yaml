@@ -1,0 +1,1443 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: EarnQA API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: questions
+    description: Question operations
+  - name: answers
+    description: Answer operations
+  - name: wallet
+    description: Wallet operations
+  - name: users
+    description: User operations
+  - name: admin
+    description: Admin operations
+  - name: analytics
+    description: Analytics operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /questions:
+    get:
+      operationId: listQuestions
+      tags: [questions]
+      summary: List questions
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: type
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: offset
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: List of questions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListQuestionsResponse"
+    post:
+      operationId: createQuestion
+      tags: [questions]
+      summary: Create a custom question (costs 100 cents)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuestionBody"
+      responses:
+        "201":
+          description: Question created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "402":
+          description: Insufficient funds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /questions/{id}:
+    get:
+      operationId: getQuestion
+      tags: [questions]
+      summary: Get a question by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Question details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionWithStats"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /questions/featured:
+    get:
+      operationId: getFeaturedQuestions
+      tags: [questions]
+      summary: Get featured/trending questions
+      responses:
+        "200":
+          description: Featured questions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListQuestionsResponse"
+
+  /questions/categories:
+    get:
+      operationId: getCategories
+      tags: [questions]
+      summary: Get all question categories with counts
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListCategoriesResponse"
+
+  /answers:
+    post:
+      operationId: submitAnswer
+      tags: [answers]
+      summary: Submit an answer to a question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitAnswerBody"
+      responses:
+        "201":
+          description: Answer submitted and earnings credited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnswerResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already answered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /answers/my:
+    get:
+      operationId: getMyAnswers
+      tags: [answers]
+      summary: Get the current user's answers
+      responses:
+        "200":
+          description: User's answers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListAnswersResponse"
+
+  /wallet:
+    get:
+      operationId: getWallet
+      tags: [wallet]
+      summary: Get the current user's wallet
+      responses:
+        "200":
+          description: Wallet info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+
+  /wallet/transactions:
+    get:
+      operationId: getTransactions
+      tags: [wallet]
+      summary: Get wallet transaction history
+      responses:
+        "200":
+          description: Transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListTransactionsResponse"
+
+  /wallet/withdrawals:
+    get:
+      operationId: getWithdrawalHistory
+      tags: [wallet]
+      summary: Get withdrawal history for the authenticated user
+      responses:
+        "200":
+          description: Withdrawal transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListTransactionsResponse"
+
+  /wallet/withdraw:
+    post:
+      operationId: requestWithdrawal
+      tags: [wallet]
+      summary: Request a withdrawal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WithdrawalRequestBody"
+      responses:
+        "201":
+          description: Withdrawal requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Bad request or insufficient funds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+    patch:
+      operationId: updateMe
+      tags: [users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileBody"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/me/stats:
+    get:
+      operationId: getMyStats
+      tags: [users]
+      summary: Get current user's statistics
+      responses:
+        "200":
+          description: User stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserStats"
+
+  /admin/questions:
+    get:
+      operationId: adminListQuestions
+      tags: [admin]
+      summary: Admin list all questions (including pending)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: All questions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListQuestionsResponse"
+
+  /admin/questions/{id}/approve:
+    post:
+      operationId: approveQuestion
+      tags: [admin]
+      summary: Approve a pending question
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/questions/{id}/reject:
+    post:
+      operationId: rejectQuestion
+      tags: [admin]
+      summary: Reject a pending question
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rejectionReason:
+                  type: string
+              required:
+                - rejectionReason
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users:
+    get:
+      operationId: adminListUsers
+      tags: [admin]
+      summary: Admin list all users
+      responses:
+        "200":
+          description: All users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListUsersResponse"
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get platform-wide admin stats
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/growth:
+    get:
+      operationId: getAdminGrowth
+      tags: [admin]
+      summary: Get growth time-series data for charts
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Growth data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminGrowthData"
+
+  /admin/withdrawals:
+    get:
+      operationId: adminListWithdrawals
+      tags: [admin]
+      summary: Admin list withdrawal requests
+      responses:
+        "200":
+          description: Withdrawal requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListTransactionsResponse"
+
+  /admin/withdrawals/{id}/approve:
+    post:
+      operationId: approveWithdrawal
+      tags: [admin]
+      summary: Approve a withdrawal request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+
+  /admin/withdrawals/{id}/reject:
+    post:
+      operationId: rejectWithdrawalAdmin
+      tags: [admin]
+      summary: Reject a withdrawal request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+
+  /admin/withdrawals/{id}/transfer:
+    post:
+      operationId: transferWithdrawal
+      tags: [admin]
+      summary: Mark a withdrawal as transferred (payment sent)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Transferred
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+
+  /analytics/by-category:
+    get:
+      operationId: getAnalyticsByCategory
+      tags: [analytics]
+      summary: Get answer analytics grouped by category
+      parameters:
+        - name: questionId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Analytics by category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryAnalytics"
+
+  /analytics/by-gender:
+    get:
+      operationId: getAnalyticsByGender
+      tags: [analytics]
+      summary: Get answer analytics grouped by gender
+      parameters:
+        - name: questionId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Analytics by gender
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenderAnalytics"
+
+  /analytics/by-age:
+    get:
+      operationId: getAnalyticsByAge
+      tags: [analytics]
+      summary: Get answer analytics grouped by age group
+      parameters:
+        - name: questionId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Analytics by age
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgeAnalytics"
+
+  /analytics/by-city:
+    get:
+      operationId: getAnalyticsByCity
+      tags: [analytics]
+      summary: Get answer analytics grouped by city
+      parameters:
+        - name: questionId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Analytics by city
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CityAnalytics"
+
+  /analytics/platform-summary:
+    get:
+      operationId: getPlatformSummary
+      tags: [analytics]
+      summary: Get high-level platform engagement summary
+      responses:
+        "200":
+          description: Platform summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformSummary"
+
+  /referrals/me:
+    get:
+      operationId: getMyReferrals
+      tags: [referrals]
+      summary: Get current user's referral code, link, and stats
+      responses:
+        "200":
+          description: Referral info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyReferralsResponse"
+
+  /referrals/click:
+    post:
+      operationId: logReferralClick
+      tags: [referrals]
+      summary: Log a referral link click
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReferralClickBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required:
+                  - ok
+
+  /referrals/claim:
+    post:
+      operationId: claimReferral
+      tags: [referrals]
+      summary: Claim a referral code after signup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReferralClaimBody"
+      responses:
+        "200":
+          description: Claim result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferralClaimResponse"
+
+  /referrals/admin/stats:
+    get:
+      operationId: getAdminReferralStats
+      tags: [referrals]
+      summary: Admin — referral system overview stats
+      responses:
+        "200":
+          description: Referral stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferralAdminStats"
+
+  /referrals/admin/list:
+    get:
+      operationId: getAdminReferralList
+      tags: [referrals]
+      summary: Admin — list all referrals
+      responses:
+        "200":
+          description: List of referrals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReferralListResponse"
+
+  /referrals/admin/{id}/status:
+    patch:
+      operationId: patchAdminReferralStatus
+      tags: [referrals]
+      summary: Admin — update a referral's status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReferralStatusPatchBody"
+      responses:
+        "200":
+          description: Updated referral
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferralEntry"
+
+  /referrals/admin/{id}/reverse:
+    post:
+      operationId: reverseAdminReferral
+      tags: [referrals]
+      summary: Admin — reverse a referral and reclaim bonuses
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reversal result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  reversedCents:
+                    type: number
+                required:
+                  - ok
+                  - reversedCents
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Question:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [short_answer, poll, rating]
+        category:
+          type: string
+        status:
+          type: string
+          enum: [active, pending, rejected]
+        pollOptions:
+          type: ["array", "null"]
+          items:
+            type: string
+        creatorId:
+          type: ["string", "null"]
+        creatorName:
+          type: ["string", "null"]
+        isCustom:
+          type: boolean
+        totalAnswers:
+          type: integer
+        rejectionReason:
+          type: ["string", "null"]
+        rejectedAt:
+          type: ["string", "null"]
+        rejectedBy:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - title
+        - type
+        - category
+        - status
+        - isCustom
+        - totalAnswers
+        - createdAt
+
+    QuestionWithStats:
+      allOf:
+        - $ref: "#/components/schemas/Question"
+        - type: object
+          properties:
+            ratingAverage:
+              type: ["number", "null"]
+            pollResults:
+              type: ["array", "null"]
+              items:
+                type: object
+                properties:
+                  option:
+                    type: string
+                  count:
+                    type: integer
+                  percentage:
+                    type: number
+                required:
+                  - option
+                  - count
+                  - percentage
+            userHasAnswered:
+              type: boolean
+          required:
+            - userHasAnswered
+
+    ListQuestionsResponse:
+      type: object
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Question"
+        total:
+          type: integer
+      required:
+        - questions
+        - total
+
+    CreateQuestionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [short_answer, poll, rating]
+        category:
+          type: string
+        pollOptions:
+          type: ["array", "null"]
+          items:
+            type: string
+      required:
+        - title
+        - type
+        - category
+
+    SubmitAnswerBody:
+      type: object
+      properties:
+        questionId:
+          type: integer
+        answerText:
+          type: ["string", "null"]
+        pollOption:
+          type: ["string", "null"]
+        rating:
+          type: ["integer", "null"]
+        reason:
+          type: ["string", "null"]
+      required:
+        - questionId
+
+    Answer:
+      type: object
+      properties:
+        id:
+          type: integer
+        questionId:
+          type: integer
+        questionTitle:
+          type: string
+        userId:
+          type: string
+        answerText:
+          type: ["string", "null"]
+        pollOption:
+          type: ["string", "null"]
+        rating:
+          type: ["integer", "null"]
+        reason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - questionId
+        - questionTitle
+        - userId
+        - createdAt
+
+    AnswerResult:
+      type: object
+      properties:
+        answer:
+          $ref: "#/components/schemas/Answer"
+        earnedCents:
+          type: integer
+        newBalance:
+          type: integer
+      required:
+        - answer
+        - earnedCents
+        - newBalance
+
+    ListAnswersResponse:
+      type: object
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Answer"
+      required:
+        - answers
+
+    Wallet:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        balanceCents:
+          type: integer
+        totalEarnedCents:
+          type: integer
+        totalWithdrawnCents:
+          type: integer
+      required:
+        - id
+        - userId
+        - balanceCents
+        - totalEarnedCents
+        - totalWithdrawnCents
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        type:
+          type: string
+          enum: [earning, withdrawal, question_creation, creator_bonus, creator_reward, referral_signup_bonus, referral_answer_bonus, referral_reversal, profile_reward]
+        amountCents:
+          type: number
+        description:
+          type: string
+        status:
+          type: string
+          enum: [completed, pending, rejected, approved, transferred]
+        accountTitle:
+          type: string
+          nullable: true
+        bankName:
+          type: string
+          nullable: true
+        approvedAt:
+          type: string
+          nullable: true
+        transferredAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - userId
+        - type
+        - amountCents
+        - description
+        - status
+        - createdAt
+
+    ListTransactionsResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+      required:
+        - transactions
+
+    WithdrawalRequestBody:
+      type: object
+      properties:
+        amountCents:
+          type: integer
+        paymentMethod:
+          type: string
+        paymentDetails:
+          type: string
+        accountTitle:
+          type: string
+        bankName:
+          type: string
+      required:
+        - amountCents
+        - paymentMethod
+        - paymentDetails
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        clerkId:
+          type: string
+        email:
+          type: string
+        name:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        ageGroup:
+          type: ["string", "null"]
+        gender:
+          type: ["string", "null"]
+        isAdmin:
+          type: boolean
+        balanceCents:
+          type: number
+        questionCount:
+          type: number
+        answerCount:
+          type: number
+        earningsCents:
+          type: number
+        referralCode:
+          type: ["string", "null"]
+        referredByUserId:
+          type: ["string", "null"]
+        isNew:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - clerkId
+        - email
+        - isAdmin
+        - isNew
+        - createdAt
+
+    UpdateProfileBody:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        ageGroup:
+          type: ["string", "null"]
+        gender:
+          type: ["string", "null"]
+
+    UserStats:
+      type: object
+      properties:
+        totalAnswers:
+          type: integer
+        questionsCreated:
+          type: integer
+        totalEarnedCents:
+          type: integer
+        currentBalanceCents:
+          type: integer
+        creatorBonusCents:
+          type: integer
+        answersThisWeek:
+          type: integer
+      required:
+        - totalAnswers
+        - questionsCreated
+        - totalEarnedCents
+        - currentBalanceCents
+        - creatorBonusCents
+        - answersThisWeek
+
+    GrowthPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        count:
+          type: number
+        total:
+          type: number
+      required:
+        - date
+
+    AdminGrowthData:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrowthPoint"
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrowthPoint"
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrowthPoint"
+        earnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrowthPoint"
+      required:
+        - users
+        - questions
+        - answers
+        - earnings
+
+    AdminStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        totalQuestions:
+          type: integer
+        pendingQuestions:
+          type: integer
+        totalAnswers:
+          type: integer
+        totalEarnedCents:
+          type: integer
+        totalWithdrawnCents:
+          type: integer
+        pendingWithdrawalCents:
+          type: integer
+        activeUsersThisWeek:
+          type: integer
+      required:
+        - totalUsers
+        - totalQuestions
+        - pendingQuestions
+        - totalAnswers
+        - totalEarnedCents
+        - totalWithdrawnCents
+        - pendingWithdrawalCents
+        - activeUsersThisWeek
+
+    ListUsersResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProfile"
+      required:
+        - users
+
+    CategoryBreakdown:
+      type: object
+      properties:
+        category:
+          type: string
+        count:
+          type: integer
+        percentage:
+          type: number
+      required:
+        - category
+        - count
+        - percentage
+
+    CategoryAnalytics:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryBreakdown"
+      required:
+        - data
+
+    GenderBreakdown:
+      type: object
+      properties:
+        gender:
+          type: string
+        count:
+          type: integer
+        percentage:
+          type: number
+      required:
+        - gender
+        - count
+        - percentage
+
+    GenderAnalytics:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/GenderBreakdown"
+      required:
+        - data
+
+    AgeBreakdown:
+      type: object
+      properties:
+        ageGroup:
+          type: string
+        count:
+          type: integer
+        percentage:
+          type: number
+      required:
+        - ageGroup
+        - count
+        - percentage
+
+    AgeAnalytics:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgeBreakdown"
+      required:
+        - data
+
+    CityBreakdown:
+      type: object
+      properties:
+        city:
+          type: string
+        count:
+          type: integer
+        percentage:
+          type: number
+      required:
+        - city
+        - count
+        - percentage
+
+    CityAnalytics:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CityBreakdown"
+      required:
+        - data
+
+    PlatformSummary:
+      type: object
+      properties:
+        totalAnswersToday:
+          type: integer
+        totalAnswersThisWeek:
+          type: integer
+        totalActiveQuestions:
+          type: integer
+        totalCentsEarnedToday:
+          type: integer
+        topCategories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryBreakdown"
+        recentActivity:
+          type: array
+          items:
+            type: object
+            properties:
+              questionTitle:
+                type: string
+              answerCount:
+                type: integer
+            required:
+              - questionTitle
+              - answerCount
+      required:
+        - totalAnswersToday
+        - totalAnswersThisWeek
+        - totalActiveQuestions
+        - totalCentsEarnedToday
+        - topCategories
+        - recentActivity
+
+    ListCategoriesResponse:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryBreakdown"
+      required:
+        - categories
+
+    ReferralEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        referrerUserId:
+          type: string
+        referredUserId:
+          type: string
+        referralCodeUsed:
+          type: string
+        signupBonusCents:
+          type: number
+        answerBonusCentsTotal:
+          type: number
+        signupBonusGrantedAt:
+          type: ["string", "null"]
+        referrerClickIp:
+          type: ["string", "null"]
+        referredSignupIp:
+          type: ["string", "null"]
+        referredUserAgent:
+          type: ["string", "null"]
+        status:
+          type: string
+        fraudFlags:
+          type: array
+          items:
+            type: string
+        referrerName:
+          type: string
+        referrerEmail:
+          type: string
+        referredName:
+          type: string
+        referredEmail:
+          type: string
+        referredUserName:
+          type: string
+        referredUserEmail:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - referrerUserId
+        - referredUserId
+        - referralCodeUsed
+        - signupBonusCents
+        - answerBonusCentsTotal
+        - status
+        - createdAt
+        - updatedAt
+
+    MyReferralsResponse:
+      type: object
+      properties:
+        referralCode:
+          type: string
+        referralLink:
+          type: string
+        totalSignups:
+          type: integer
+        totalEarnedCents:
+          type: number
+        pendingCount:
+          type: integer
+        referrals:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReferralEntry"
+      required:
+        - referralCode
+        - referralLink
+        - totalSignups
+        - totalEarnedCents
+        - pendingCount
+        - referrals
+
+    ReferralClickBody:
+      type: object
+      properties:
+        referralCode:
+          type: string
+      required:
+        - referralCode
+
+    ReferralClaimBody:
+      type: object
+      properties:
+        referralCode:
+          type: string
+      required:
+        - referralCode
+
+    ReferralClaimResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        alreadyClaimed:
+          type: boolean
+        status:
+          type: string
+        fraudFlags:
+          type: array
+          items:
+            type: string
+      required:
+        - ok
+
+    ReferralAdminStats:
+      type: object
+      properties:
+        totalReferrals:
+          type: integer
+        approvedCount:
+          type: integer
+        flaggedCount:
+          type: integer
+        rejectedCount:
+          type: integer
+        totalPaidCents:
+          type: number
+      required:
+        - totalReferrals
+        - approvedCount
+        - flaggedCount
+        - rejectedCount
+        - totalPaidCents
+
+    AdminReferralListResponse:
+      type: object
+      properties:
+        referrals:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReferralEntry"
+      required:
+        - referrals
+
+    ReferralStatusPatchBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [approved, flagged, rejected, pending]
+      required:
+        - status
