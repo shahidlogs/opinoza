@@ -18,6 +18,7 @@ export const questionsTable = pgTable("questions", {
   isFeatured: boolean("is_featured").notNull().default(false),
   featuredPosition: integer("featured_position"),
   totalAnswers: integer("total_answers").notNull().default(0),
+  lang: text("lang"),
   rejectionReason: text("rejection_reason"),
   rejectedAt: timestamp("rejected_at", { withTimezone: true }),
   rejectedBy: text("rejected_by"),

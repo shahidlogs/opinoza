@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 
 const FROM_NAME = "Opinoza";
-const FROM_EMAIL = "support.opinoza@gmail.com";
+const FROM_EMAIL = "support@opinoza.com";
 
 // Base URL for all links in emails. Set APP_BASE_URL in environment variables
 // to override (e.g. the real production domain). No trailing slash.
@@ -30,6 +30,13 @@ export async function sendEmail(opts: {
   html: string;
   text?: string;
 }): Promise<boolean> {
+  // ── Automated emails temporarily disabled ────────────────────────────────
+  // All communication is handled manually via support@opinoza.com.
+  // Re-enable by removing this early return and restoring the SMTP block below.
+  console.info(`[email] Disabled — would have sent "${opts.subject}" to ${opts.to}`);
+  return false;
+
+  /* eslint-disable no-unreachable */
   const transporter = createTransporter();
 
   if (!transporter) {
@@ -49,6 +56,42 @@ export async function sendEmail(opts: {
     return true;
   } catch (err) {
     console.error("[email] Send failed:", err);
+    return false;
+  }
+  /* eslint-enable no-unreachable */
+}
+
+/**
+ * Sends an email bypassing the global disable flag.
+ * Use only for critical transactional emails (e.g. payment confirmation).
+ */
+export async function sendEmailDirect(opts: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  attachments?: Array<{ filename: string; path: string; contentType?: string }>;
+}): Promise<boolean> {
+  const transporter = createTransporter();
+
+  if (!transporter) {
+    console.warn("[email:direct] SMTP_USER / SMTP_PASSWORD not set — email skipped");
+    return false;
+  }
+
+  try {
+    const info = await transporter.sendMail({
+      from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+      to: opts.to,
+      subject: opts.subject,
+      html: opts.html,
+      text: opts.text,
+      attachments: opts.attachments,
+    });
+    console.info(`[email:direct] Sent to ${opts.to} — messageId: ${info.messageId}`);
+    return true;
+  } catch (err) {
+    console.error("[email:direct] Send failed:", err);
     return false;
   }
 }
@@ -138,7 +181,7 @@ export function questionAnsweredEmail(opts: {
 
               <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.5;">
                 Questions? Reach us at
-                <a href="mailto:support.opinoza@gmail.com" style="color:#d97706;text-decoration:none;">support.opinoza@gmail.com</a>.
+                <a href="mailto:support@opinoza.com" style="color:#d97706;text-decoration:none;">support@opinoza.com</a>.
               </p>
             </td>
           </tr>
@@ -258,7 +301,7 @@ export function withdrawalApprovedEmail(opts: {
 
               <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.5;">
                 Questions? Reach us at
-                <a href="mailto:support.opinoza@gmail.com" style="color:#d97706;text-decoration:none;">support.opinoza@gmail.com</a>.
+                <a href="mailto:support@opinoza.com" style="color:#d97706;text-decoration:none;">support@opinoza.com</a>.
               </p>
             </td>
           </tr>
@@ -292,7 +335,7 @@ The payment will be transferred to your account within 7 days. Please ensure you
 
 View your wallet: ${APP_BASE_URL}/wallet
 
-Questions? Email us at support.opinoza@gmail.com
+Questions? Email us at support@opinoza.com
 
 — The Opinoza Team
 `;
@@ -340,7 +383,7 @@ export function withdrawalRejectedEmail(opts: {
                   <td style="padding:16px 20px;">
                     <p style="margin:0;font-size:14px;color:#7c2d12;line-height:1.6;">
                       If you believe this is an error or need more information, please contact us at
-                      <a href="mailto:support.opinoza@gmail.com" style="color:#ea580c;">support.opinoza@gmail.com</a>.
+                      <a href="mailto:support@opinoza.com" style="color:#ea580c;">support@opinoza.com</a>.
                     </p>
                   </td>
                 </tr>
@@ -374,7 +417,7 @@ export function withdrawalRejectedEmail(opts: {
 
 Your withdrawal request of $${dollars} could not be processed at this time.
 
-The full amount has been returned to your wallet balance. If you believe this is an error, please contact us at support.opinoza@gmail.com.
+The full amount has been returned to your wallet balance. If you believe this is an error, please contact us at support@opinoza.com.
 
 View your wallet: ${APP_BASE_URL}/wallet
 
@@ -383,6 +426,179 @@ View your wallet: ${APP_BASE_URL}/wallet
 
   return {
     subject: "Update on your withdrawal request",
+    html,
+    text,
+  };
+}
+
+export function paymentTransferredEmail(opts: {
+  name?: string | null;
+  amountCents: number;
+  paymentMethod: string;
+  referralCode?: string | null;
+}): { subject: string; html: string; text: string } {
+  const greeting = opts.name ? `Dear ${opts.name}` : "Dear User";
+  const dollars = (opts.amountCents / 100).toFixed(2);
+  const referralLink = opts.referralCode
+    ? `${APP_BASE_URL}/?ref=${opts.referralCode}`
+    : `${APP_BASE_URL}/`;
+  const posterUrl = `${APP_BASE_URL}/payment.png`;
+
+  const shareText = encodeURIComponent(
+    `🎉 I just received my payment from Opinoza!\nJoin using my link and start earning by answering simple questions 💰`
+  );
+  const whatsappLink = `https://wa.me/?text=${shareText}%20${encodeURIComponent(referralLink)}`;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Opinoza payment has been transferred</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ef;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1e3a5f 0%,#2d5282 100%);padding:28px 40px;text-align:center;">
+              <span style="font-size:26px;font-weight:900;color:#f59e0b;letter-spacing:-0.5px;">Opinoza</span>
+            </td>
+          </tr>
+
+          <!-- Payment Poster Image -->
+          <tr>
+            <td style="padding:0;">
+              <img src="${posterUrl}" alt="Payment Received" style="max-width:600px;width:100%;display:block;border-radius:0;" />
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 40px 28px;">
+              <h1 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#1e3a5f;">${greeting},</h1>
+              <p style="margin:0 0 6px;font-size:22px;font-weight:800;color:#1e3a5f;">Congratulations! 🎉</p>
+              <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6;">
+                Your withdrawal request has been successfully processed, and the amount has been transferred to your provided account.
+              </p>
+              <p style="margin:0 0 20px;font-size:15px;color:#64748b;line-height:1.6;">
+                We truly appreciate your activity and contribution on Opinoza.
+              </p>
+
+              <!-- Payment details box -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:28px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <table cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="padding:4px 0;font-size:14px;color:#166534;font-weight:500;">Amount Transferred</td>
+                        <td align="right" style="padding:4px 0;font-size:20px;font-weight:800;color:#15803d;">$${dollars}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;font-size:13px;color:#166534;">Payment Method</td>
+                        <td align="right" style="padding:4px 0;font-size:13px;color:#15803d;font-weight:600;">${opts.paymentMethod === "USDT" ? "USDT (Crypto)" : opts.paymentMethod}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Referral section -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef9ec;border:1px solid #fde68a;border-radius:12px;margin-bottom:24px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0 0 10px;font-size:15px;font-weight:700;color:#92400e;">🎁 Earn More with Referrals!</p>
+                    <p style="margin:0 0 10px;font-size:14px;color:#78350f;line-height:1.6;">Invite others and increase your earnings:</p>
+                    <p style="margin:0 0 6px;font-size:14px;color:#92400e;">💰 Earn <strong>$0.10</strong> for every new user who joins using your invitation link</p>
+                    <p style="margin:0 0 14px;font-size:14px;color:#92400e;">💸 Earn <strong>$0.005</strong> on every answer they submit</p>
+                    <hr style="border:none;border-top:1px solid #fde68a;margin:0 0 14px;" />
+                    <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;">📢 Share &amp; Earn</p>
+                    <p style="margin:0 0 12px;font-size:13px;color:#78350f;line-height:1.6;font-style:italic;">
+                      "🎉 I just received my payment from Opinoza!<br/>
+                      Join using my link and start earning by answering simple questions 💰"
+                    </p>
+                    <p style="margin:0 0 8px;font-size:12px;font-weight:600;color:#92400e;">Your invitation link:</p>
+                    <a href="${referralLink}" style="display:block;font-size:13px;color:#d97706;word-break:break-all;text-decoration:underline;margin-bottom:14px;">${referralLink}</a>
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="background:#25d366;border-radius:8px;">
+                          <a href="${whatsappLink}" style="display:inline-block;padding:9px 20px;font-size:13px;font-weight:700;color:#ffffff;text-decoration:none;">
+                            Share on WhatsApp
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
+                If you have any questions, feel free to contact us anytime at
+                <a href="mailto:support@opinoza.com" style="color:#d97706;text-decoration:none;">support@opinoza.com</a>.
+              </p>
+
+              <p style="margin:0 0 6px;font-size:14px;color:#64748b;">Thank you for being a valued part of Opinoza.</p>
+              <p style="margin:0;font-size:14px;font-weight:600;color:#1e3a5f;">Best regards,<br/>Opinoza Team</p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 40px;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#94a3b8;">
+                © 2026 Opinoza ·
+                <a href="${APP_BASE_URL}/privacy" style="color:#94a3b8;text-decoration:none;">Privacy</a> ·
+                <a href="${APP_BASE_URL}/terms" style="color:#94a3b8;text-decoration:none;">Terms</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`.trim();
+
+  const text = `${greeting},
+
+Congratulations! 🎉
+
+Your withdrawal request has been successfully processed, and the amount has been transferred to your provided account.
+
+Amount Transferred: $${dollars}
+Payment Method: ${opts.paymentMethod === "USDT" ? "USDT (Crypto)" : opts.paymentMethod}
+
+We truly appreciate your activity and contribution on Opinoza.
+
+🎁 Earn More with Referrals!
+
+Invite others and increase your earnings:
+💰 Earn $0.10 for every new user who joins using your invitation link
+💸 Earn $0.005 on every answer they submit
+
+📢 Share & Earn
+"🎉 I just received my payment from Opinoza!
+Join using my link and start earning by answering simple questions 💰"
+
+Your invitation link:
+${referralLink}
+
+If you have any questions, feel free to contact us anytime at support@opinoza.com.
+
+Thank you for being a valued part of Opinoza.
+
+Best regards,
+Opinoza Team
+`;
+
+  return {
+    subject: "🎉 Your Opinoza payment has been transferred",
     html,
     text,
   };
@@ -469,7 +685,7 @@ export function welcomeEmail(opts: { name?: string | null; email: string }): {
 
               <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.5;">
                 If you have any questions, reply to this email or reach us at
-                <a href="mailto:support.opinoza@gmail.com" style="color:#d97706;text-decoration:none;">support.opinoza@gmail.com</a>.
+                <a href="mailto:support@opinoza.com" style="color:#d97706;text-decoration:none;">support@opinoza.com</a>.
               </p>
             </td>
           </tr>
@@ -507,7 +723,7 @@ How it works:
 
 Start browsing: ${APP_BASE_URL}/questions
 
-Questions? Email us at support.opinoza@gmail.com
+Questions? Email us at support@opinoza.com
 
 — The Opinoza Team
 `;
@@ -593,7 +809,7 @@ export function confirmNameEmail(opts: {
       Once your earnings reach <strong>$10</strong>, your name will be locked and cannot be changed without contacting support.
     </p>
     ${ctaButton(`${APP_BASE_URL}/profile`, "Review My Profile")}
-    <p style="margin:0;font-size:13px;color:#94a3b8;">Questions? <a href="mailto:support.opinoza@gmail.com" style="color:#d97706;text-decoration:none;">support.opinoza@gmail.com</a></p>
+    <p style="margin:0;font-size:13px;color:#94a3b8;">Questions? <a href="mailto:support@opinoza.com" style="color:#d97706;text-decoration:none;">support@opinoza.com</a></p>
   `;
 
   return {
@@ -611,7 +827,7 @@ Review your profile: ${APP_BASE_URL}/profile
 
 Once your earnings reach $10, your name will be locked and cannot be changed without contacting support.
 
-Questions? Email us at support.opinoza@gmail.com
+Questions? Email us at support@opinoza.com
 
 — The Opinoza Team`,
   };
@@ -641,7 +857,7 @@ export function questionApprovedEmail(opts: {
       </td></tr>
     </table>
     ${ctaButton(`${APP_BASE_URL}/questions`, "View Your Question")}
-    <p style="margin:0;font-size:13px;color:#94a3b8;">Questions? <a href="mailto:support.opinoza@gmail.com" style="color:#d97706;text-decoration:none;">support.opinoza@gmail.com</a></p>
+    <p style="margin:0;font-size:13px;color:#94a3b8;">Questions? <a href="mailto:support@opinoza.com" style="color:#d97706;text-decoration:none;">support@opinoza.com</a></p>
   `;
 
   return {
@@ -659,7 +875,6 @@ export function questionRejectedEmail(opts: {
 }): { subject: string; html: string; text: string } {
   const greeting = opts.name ? `Hi ${opts.name}` : "Hi there";
   const shortTitle = opts.questionTitle.length > 70 ? opts.questionTitle.substring(0, 70) + "…" : opts.questionTitle;
-  const refundNote = opts.refunded ? " Your 20¢ creation fee has been refunded to your wallet." : "";
   const guidelinesUrl = `${APP_BASE_URL}/guidelines`;
 
   const reasonBlock = opts.reason
@@ -668,7 +883,7 @@ export function questionRejectedEmail(opts: {
 
   const body = `
     <h1 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#1e3a5f;">${greeting}</h1>
-    <p style="margin:0 0 20px;font-size:15px;color:#64748b;line-height:1.6;">Your question was rejected.${refundNote}</p>
+    <p style="margin:0 0 20px;font-size:15px;color:#64748b;line-height:1.6;">Your question was rejected because it appears to be spam, low-quality, unclear, a duplicate, or against platform rules.</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #dc2626;border-radius:8px;margin-bottom:24px;">
       <tr><td style="padding:16px 20px;">
         <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Question</p>
@@ -676,20 +891,21 @@ export function questionRejectedEmail(opts: {
       </td></tr>
     </table>
     ${reasonBlock}
-    ${opts.refunded ? `<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:24px;"><tr><td style="padding:14px 20px;font-size:14px;color:#166534;font-weight:500;">✓ 20¢ has been refunded to your wallet.</td></tr></table>` : ""}
+    ${opts.refunded ? `<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:24px;"><tr><td style="padding:14px 20px;"><p style="margin:0 0 6px;font-size:14px;color:#166534;font-weight:600;">✓ 20¢ has been refunded to your wallet.</p><p style="margin:0;font-size:13px;color:#166534;">A 5¢ processing penalty was retained from your 25¢ submission fee.</p></td></tr></table>` : ""}
     <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
       Please review our guidelines and submit a new question:<br/>
       <a href="${guidelinesUrl}" style="color:#d97706;font-weight:600;text-decoration:none;">${guidelinesUrl}</a>
     </p>
     ${ctaButton(`${APP_BASE_URL}/questions/new`, "Try a New Question")}
-    <p style="margin:0;font-size:13px;color:#94a3b8;">Questions? <a href="mailto:support.opinoza@gmail.com" style="color:#d97706;text-decoration:none;">support.opinoza@gmail.com</a></p>
+    <p style="margin:0;font-size:13px;color:#94a3b8;">Questions? <a href="mailto:support@opinoza.com" style="color:#d97706;text-decoration:none;">support@opinoza.com</a></p>
   `;
 
+  const refundText = opts.refunded ? "\n\n20¢ has been refunded to your wallet. 5¢ was kept as a processing penalty." : "";
   const reasonText = opts.reason ? `\n\nReason:\n${opts.reason}` : "";
   return {
     subject: "Your question was rejected",
     html: emailShell("Question rejected", body),
-    text: `${greeting},\n\nYour question was rejected.${refundNote}${reasonText}\n\nPlease review our guidelines and submit a new question.\n\n${guidelinesUrl}\n\n— The Opinoza Team`,
+    text: `${greeting},\n\nYour question was rejected because it appears to be spam, low-quality, unclear, a duplicate, or against platform rules.${reasonText}${refundText}\n\nPlease review our guidelines and submit a new question.\n\n${guidelinesUrl}\n\n— The Opinoza Team`,
   };
 }
 
@@ -715,7 +931,7 @@ export function answerFlaggedEmail(opts: {
       Please review and edit your answer to ensure it meets our quality standards. Once corrected, your account will be fully unblocked.
     </p>
     ${ctaButton(questionUrl, "Fix My Answer")}
-    <p style="margin:0;font-size:13px;color:#94a3b8;">Questions? <a href="mailto:support.opinoza@gmail.com" style="color:#d97706;text-decoration:none;">support.opinoza@gmail.com</a></p>
+    <p style="margin:0;font-size:13px;color:#94a3b8;">Questions? <a href="mailto:support@opinoza.com" style="color:#d97706;text-decoration:none;">support@opinoza.com</a></p>
   `;
 
   return {

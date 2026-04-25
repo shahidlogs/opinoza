@@ -20,7 +20,7 @@ runButton = "Project"
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
-integrations = ["github:1.0.0"]
+integrations = ["github:1.0.0", "google-drive:1.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
@@ -29,3 +29,8 @@ timeoutMs = 20000
 [nix]
 channel = "stable-25_05"
 packages = ["zip"]
+
+[userenv]
+
+[userenv.production]
+VITE_CLERK_PROXY_URL = "https://opinoza.com/api/__clerk"

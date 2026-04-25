@@ -1,0 +1,80 @@
+Create 3 high-quality blog articles for my website Opinoza and integrate them cleanly into the homepage without disturbing the UI.
+
+==================================
+BLOG ARTICLES REQUIREMENTS
+==================================
+
+Create 3 SEO-friendly, original articles (1000–1500 words each):
+
+1. What is Opinoza and how it works
+2. How to earn money online using opinion platforms
+3. Best survey apps in 2026
+
+Each article must:
+- Be unique and human-like (not robotic)
+- Be well structured (headings, paragraphs)
+- Provide real value (not thin content)
+- Include internal linking between articles
+- Be AdSense-friendly (no spam or keyword stuffing)
+
+==================================
+BLOG STRUCTURE
+==================================
+
+Create a blog system:
+
+- /blog page (list of all articles)
+- Individual article pages:
+  /blog/opinoza-how-it-works
+  /blog/earn-money-opinion-platforms
+  /blog/best-survey-apps-2026
+
+==================================
+HOMEPAGE INTEGRATION (IMPORTANT)
+==================================
+
+Do NOT create a messy layout.
+
+Instead:
+
+- Add 1 small, clean section in the homepage (middle or near bottom)
+- Title it something like:
+  "Learn", "Guides", or "Blog"
+
+- Inside it, add ONLY short links (1–2 words max per link), like:
+  Learn
+  Guides
+  Blog
+
+- Each word should be clickable and linked to the blog or articles
+
+- Keep UI minimal and clean
+- Do NOT add long paragraphs on homepage
+- Do NOT break existing layout
+
+==================================
+INTERNAL LINKING
+==================================
+
+Inside each article:
+- Link to the other articles naturally
+- Add 2–3 internal links
+
+==================================
+SEO + ADSENSE REQUIREMENTS
+==================================
+
+- Add meta titles and descriptions
+- Use proper headings (H1, H2, H3)
+- Ensure content is indexable
+- Avoid duplicate content
+- Make everything mobile-friendly
+
+==================================
+FINAL TASK
+==================================
+
+After implementation:
+- Confirm all pages are live
+- Confirm homepage links are working
+- Confirm blog pages are accessible without login

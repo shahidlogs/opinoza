@@ -18,6 +18,7 @@ async function buildAll() {
     entryPoints: [
       path.resolve(artifactDir, "src/index.ts"),
       path.resolve(artifactDir, "src/seed-standalone.ts"),
+      path.resolve(artifactDir, "src/test-drive-upload.ts"),
     ],
     platform: "node",
     bundle: true,

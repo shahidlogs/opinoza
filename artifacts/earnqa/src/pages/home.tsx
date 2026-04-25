@@ -118,9 +118,17 @@ export default function Home() {
 
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-sm font-semibold mb-7 shadow-inner">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-sm font-semibold mb-6 shadow-inner">
               <StarIcon size={12} className="text-amber-400" />
               Earn real money — 1¢ per answer
+            </div>
+
+            {/* ── System alert banner ── */}
+            <div className="w-full max-w-2xl mx-auto mb-7 rounded-xl px-5 py-4 text-white text-sm sm:text-base leading-relaxed" style={{ backgroundColor: "#e02424" }}>
+              <p className="font-bold mb-1">⚠️ System Alert</p>
+              <p className="font-normal opacity-95">
+                Multiple accounts from the same device are not allowed. Rewards for such accounts have been blocked. ID verification is now required for withdrawals.
+              </p>
             </div>
 
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.08] mb-6 tracking-tight">
@@ -334,6 +342,55 @@ export default function Home() {
             </motion.button>
           </Link>
         </motion.div>
+      </section>
+
+      {/* ── Blog / Guides ── */}
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+        <SectionHeader>
+          <div className="flex items-end justify-between mb-7 gap-4">
+            <div>
+              <div className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-2">Learn</div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground">Guides &amp; Articles</h2>
+            </div>
+            <Link href="/blog">
+              <motion.button
+                whileHover={{ x: 3 }}
+                className="text-sm font-semibold text-amber-600 hover:text-amber-700 transition-colors flex items-center gap-1.5 shrink-0"
+              >
+                All articles
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </motion.button>
+            </Link>
+          </div>
+        </SectionHeader>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { href: "/blog/opinoza-how-it-works", tag: "Guide", title: "What Is Opinoza and How Does It Work?", blurb: "A plain-English walkthrough of the platform — who it's for, how earning works, and how to get started." },
+            { href: "/blog/earn-money-opinion-platforms", tag: "Strategy", title: "How to Earn Money Using Opinion Platforms", blurb: "The strategies that actually move the needle on opinion platforms — without wasting your time." },
+            { href: "/blog/best-survey-apps-2026", tag: "Comparison", title: "Best Survey Apps in 2026", blurb: "An honest comparison of the top platforms by pay rate, payout speed, and ease of use." },
+          ].map((item, i) => (
+            <motion.div
+              key={item.href}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ delay: i * 0.1, duration: 0.45 }}
+            >
+              <Link href={item.href}>
+                <div className="group h-full bg-card border border-card-border rounded-2xl p-5 cursor-pointer card-hover flex flex-col">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 self-start mb-3">{item.tag}</span>
+                  <h3 className="font-bold text-foreground text-sm leading-snug mb-2 flex-1 group-hover:text-amber-700 transition-colors">{item.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{item.blurb}</p>
+                  <div className="mt-3 text-xs font-semibold text-amber-600 flex items-center gap-1">
+                    Read →
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
       </section>
 
       {/* ── CTA Banner ── */}

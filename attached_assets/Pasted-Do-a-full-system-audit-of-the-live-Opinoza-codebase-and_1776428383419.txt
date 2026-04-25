@@ -1,0 +1,114 @@
+Do a full system audit of the live Opinoza codebase and confirm that all recently changed features are working correctly.
+
+Main goal:
+I want you to carefully verify all core user reward, referral, question limit, and restriction logic end-to-end, and then give me one complete summary of the current live rules.
+
+Tasks:
+
+1. Full functionality verification
+Check and confirm that these systems are working correctly in the current live code:
+- Question creation limits
+- Referral signup rewards
+- Referral per-answer rewards
+- Creator rewards
+- Answer rewards
+- Bonus rewards
+- Withdrawal eligibility logic
+- Withdrawal request flow
+- Admin exceptions / admin bypass rules
+- Pending / approved / rejected question counting logic
+- 24-hour time-based restrictions
+- Duplicate reward prevention
+- Wallet balance updates
+- Transaction recording
+
+2. Check all recent changes specifically
+Verify these exact current rules are correctly implemented:
+
+A) Referral signup reward
+- Invited user comes through referral link
+- If they sign up within 24 hours, referrer gets 10 cents immediately
+- No 5+5 split reward
+- No 10-answer milestone reward
+- 0.5 cent referral answer bonus still remains active if that rule still exists separately
+
+B) Question creation limits
+- Default: users can create up to 5 questions per 24 hours
+- After a user has 30 or more total questions:
+  - Count only approved + pending
+  - Rejected questions must NOT count
+  - User can only create 1 question every 24 hours
+- Admin users must be excluded from this restriction
+
+C) Rewards
+Verify exactly which actions currently give money to users, including:
+- Answer rewards
+- Creator rewards
+- Referral signup rewards
+- Referral answer rewards
+- Bonus rewards
+- Any other reward source currently active
+
+D) Restrictions
+Verify exactly what restrictions currently exist on users, including:
+- Daily question limits
+- Post-30-question restriction
+- Any answer limits
+- Any referral limits
+- Any withdrawal limits
+- Any profile name/payment restrictions
+- Any anti-abuse or duplicate prevention rules
+- Any admin-only exceptions
+
+3. Output format
+After checking everything, give me a FULL clear summary in this structure:
+
+A. Active reward rules
+List every way users can currently earn money
+For each one, include:
+- trigger
+- amount
+- when it is granted
+- any conditions
+- any duplicate-prevention logic
+
+B. Active user limits and restrictions
+List every current user limit/restriction
+For each one, include:
+- what is limited
+- exact rule
+- when it applies
+- what is counted
+- what is excluded
+- admin exception or not
+
+C. Current withdrawal rules
+Explain:
+- minimum withdrawal threshold
+- pending request handling
+- wallet eligibility
+- any payment/profile rules if active
+
+D. Current admin exceptions
+List all places where admin users are exempt from normal user rules
+
+E. Current transaction / wallet flows
+Explain how money is written into:
+- wallet
+- transactions
+- referrals
+- withdrawals
+
+F. Files checked
+List the main files you audited
+
+4. Important
+- Do NOT make changes yet
+- First audit and verify only
+- If anything is inconsistent, broken, duplicated, risky, or outdated in UI text, explicitly report it
+- If any old rule is still present anywhere in code or UI, mention it clearly
+
+5. Final result
+At the very end, give me:
+- a short “All core systems look correct” or “These issues still remain” conclusion
+- plus a bullet list of anything that still needs fixing

@@ -3,6 +3,10 @@ import { logger } from "./lib/logger";
 import { migrateCategories } from "./lib/migrate-categories";
 import { seedStarterQuestions } from "./lib/seed";
 import { backfillApproveReferrals } from "./lib/backfill";
+import { backfillLang } from "./lib/backfillLang";
+import { ensureIndexes } from "./lib/ensureIndexes";
+import { scheduleBackup } from "./lib/backup.js";
+import { scheduleEngagementPush } from "./lib/daily-engagement.js";
 
 const rawPort = process.env["PORT"];
 
@@ -24,6 +28,10 @@ migrateCategories()
   .catch(err => logger.error({ err }, "Seed step failed"))
   .then(() => backfillApproveReferrals())
   .catch(err => logger.error({ err }, "Referral backfill failed"))
+  .then(() => backfillLang())
+  .catch(err => logger.error({ err }, "Lang backfill failed"))
+  .then(() => ensureIndexes())
+  .catch(err => logger.error({ err }, "Index setup failed"))
   .finally(() => {
     app.listen(port, (err) => {
       if (err) {
@@ -32,5 +40,8 @@ migrateCategories()
       }
 
       logger.info({ port }, "Server listening");
+
+      scheduleBackup();
+      scheduleEngagementPush();
     });
   });

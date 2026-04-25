@@ -1,0 +1,89 @@
+You made incorrect moderation decisions in the previous run.
+
+Now do a POST-PUBLISH CLEANUP on the LIVE production site using the real production data source.
+
+IMPORTANT:
+- Work only on the LIVE production database/source
+- Apply changes to already published/approved questions where needed
+- Do not use development or test data
+
+==================================================
+CLEANUP GOALS
+==================================================
+
+1. For APPROVED/PUBLISHED questions that were published WITHOUT a description:
+   - Add a proper short description
+   - Keep the question in its original language
+   - Do not translate non-English questions into English
+   - Description should be simple, relevant, and natural for Opinoza
+
+2. For APPROVED/PUBLISHED questions that are DUPLICATES or very similar duplicates:
+   - Archive them
+   - Use archive reason / label: "Dup"
+   - Keep only the best single version active
+   - Prefer keeping the clearer, cleaner, better-written version
+   - Archive the weaker duplicate versions
+
+3. For VERY BAD pending/unprocessed questions:
+   - Do NOT try to fix them
+   - Reject them directly
+   - Very bad means:
+     - meaningless
+     - spam
+     - extremely poor / broken wording
+     - useless poll options
+     - cannot become a good public survey question even after editing
+
+==================================================
+DUPLICATE RULE
+==================================================
+
+A duplicate means:
+- same question with small wording changes
+- same meaning/topic with only slight phrasing differences
+- repeated poll with nearly identical options
+
+When duplicates are found among approved/published questions:
+- keep the best one active
+- archive all others as "Dup"
+
+==================================================
+DESCRIPTION RULE
+==================================================
+
+For approved/published questions missing descriptions:
+- add a short useful description
+- keep it in the same language as the question
+- do not leave approved questions without descriptions if they can reasonably have one
+
+==================================================
+BAD QUESTION RULE
+==================================================
+
+If a question is very bad, do not repair it.
+Reject it.
+
+Do not waste time fixing clearly poor questions.
+
+==================================================
+EXECUTION RULES
+==================================================
+
+- First scan all published/approved questions that were affected by the previous run
+- Add descriptions where missing
+- Archive approved duplicates as "Dup"
+- Reject very bad questions instead of fixing them
+- Do not disturb good unique approved questions
+- Return a final summary
+
+==================================================
+RETURN SUMMARY
+==================================================
+
+{
+  "descriptions_added": number,
+  "duplicates_archived_as_dup": number,
+  "very_bad_questions_rejected": number,
+  "kept_active": number,
+  "notes": "brief summary of cleanup actions"
+}

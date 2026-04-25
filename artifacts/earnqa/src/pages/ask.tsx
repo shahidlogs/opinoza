@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useGetWallet, getGetWalletQueryKey, useCreateQuestion, useGetMe, VALID_CATEGORIES } from "@workspace/api-client-react";
 import { useMyQuestions } from "@/hooks/useMyQuestions";
 
-const QUESTION_COST_CENTS = 20;
+const QUESTION_COST_CENTS = 25;
 
 const STATUS_CONFIG = {
   pending: { label: "Under Review", color: "bg-amber-100 text-amber-700 border-amber-200", icon: "⏳" },
@@ -65,7 +65,7 @@ export default function Ask() {
   const cooldownSecs = (cooldownSecsLeft % 60).toString().padStart(2, "0");
 
   const balance = wallet?.balanceCents ?? 0;
-  const canAfford = isAdmin || balance >= QUESTION_COST_CENTS;
+  const canAfford = balance >= QUESTION_COST_CENTS;
 
   const myQuestions = myQuestionsData?.questions ?? [];
 
@@ -134,41 +134,26 @@ export default function Ask() {
         )}
       </AnimatePresence>
 
-      {/* Cost info */}
-      {isAdmin ? (
-        <div className="rounded-xl p-4 mb-6 flex items-center justify-between gap-4 bg-blue-50 border border-blue-200">
-          <div>
-            <p className="font-semibold text-blue-700 flex items-center gap-1.5">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              Admin — Question creation is free
-            </p>
-            <p className="text-sm mt-0.5 text-blue-600">No cost deducted · Question goes live immediately after submission</p>
-          </div>
-          <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(217 91% 60%)" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </div>
-        </div>
-      ) : (
-        <div className={`rounded-xl p-4 mb-6 flex items-center justify-between gap-4 ${canAfford ? "bg-amber-50 border border-amber-200" : "bg-red-50 border border-red-200"}`}>
-          <div>
-            <p className={`font-semibold ${canAfford ? "text-amber-700" : "text-red-700"}`}>
-              Cost: 20 cents (20¢)
-            </p>
-            <p className={`text-sm mt-0.5 ${canAfford ? "text-amber-600" : "text-red-600"}`}>
-              {canAfford
-                ? `Your balance: ${balance}¢ — You can afford this`
-                : `Your balance: ${balance}¢ — Need ${QUESTION_COST_CENTS - balance}¢ more. Answer questions to earn.`
-              }
-            </p>
-          </div>
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${canAfford ? "gold-gradient" : "bg-red-100"}`}>
+      {/* Cost info — applies to all users including admins */}
+      <div className={`rounded-xl p-4 mb-6 flex items-center justify-between gap-4 ${canAfford ? "bg-amber-50 border border-amber-200" : "bg-red-50 border border-red-200"}`}>
+        <div>
+          <p className={`font-semibold ${canAfford ? "text-amber-700" : "text-red-700"}`}>
+            Cost: 25 cents (25¢)
+          </p>
+          <p className={`text-sm mt-0.5 ${canAfford ? "text-amber-600" : "text-red-600"}`}>
             {canAfford
-              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-white"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"/></svg>
-              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(0 84% 60%)" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              ? `Your balance: ${balance}¢ — You can afford this`
+              : `Your balance: ${balance}¢ — Need ${QUESTION_COST_CENTS - balance}¢ more to submit.`
             }
-          </div>
+          </p>
         </div>
-      )}
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${canAfford ? "gold-gradient" : "bg-red-100"}`}>
+          {canAfford
+            ? <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-white"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"/></svg>
+            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(0 84% 60%)" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          }
+        </div>
+      </div>
 
       {/* Toggle form */}
       {!showForm ? (
@@ -284,7 +269,7 @@ export default function Ask() {
               <label className="block text-sm font-semibold text-foreground mb-3">Question Type *</label>
               <div className="grid grid-cols-3 gap-3">
                 {([
-                  { key: "short_answer", emoji: "✍️", label: "Short Answer", desc: "Open text response" },
+                  { key: "short_answer", emoji: "✍️", label: "Short Answer", desc: "1–3 word reply" },
                   { key: "poll", emoji: "📊", label: "Poll", desc: "Multiple choice" },
                   { key: "rating", emoji: "⭐", label: "Rating", desc: "1–5 star scale" },
                 ] as const).map(t => (
@@ -366,13 +351,13 @@ export default function Ask() {
                   : isOnCooldown
                     ? `Wait ${cooldownMins}:${cooldownSecs} before submitting again`
                     : isAdmin
-                      ? "Publish Question (Free · Goes Live Immediately)"
+                      ? `Publish Question (${QUESTION_COST_CENTS}¢ charged · Goes Live Immediately)`
                       : `Submit for Review (${QUESTION_COST_CENTS}¢ charged)`}
               </button>
               <p className="text-xs text-muted-foreground mt-3 text-center">
                 {isAdmin
-                  ? "As admin, questions are published instantly with no cost deducted."
-                  : `Reviewed within 24–48 hours. If rejected, ${QUESTION_COST_CENTS}¢ is refunded. You earn 0.5¢ per answer once live.`}
+                  ? `25¢ is deducted from your wallet. As admin, questions are published instantly.`
+                  : `Reviewed within 24–48 hours. If rejected, 20¢ is refunded (5¢ penalty retained). You earn 0.5¢ per answer once live.`}
               </p>
               {createQuestion.isError && (
                 <p className="text-sm text-destructive text-center mt-2">
@@ -408,7 +393,7 @@ export default function Ask() {
                       <p className="text-xs text-amber-600 mt-1">{q.totalAnswers} answers · {q.totalAnswers} × 0.5¢ earned so far</p>
                     )}
                     {q.status === "rejected" && (
-                      <p className="text-xs text-muted-foreground mt-1">{QUESTION_COST_CENTS}¢ refunded to your wallet</p>
+                      <p className="text-xs text-muted-foreground mt-1">20¢ refunded · 5¢ penalty retained</p>
                     )}
                     {q.status === "pending" && (
                       <p className="text-xs text-muted-foreground mt-1">Submitted {new Date(q.createdAt).toLocaleDateString()}</p>
@@ -440,7 +425,7 @@ export default function Ask() {
           </div>
           <div className="flex gap-3">
             <span className="font-bold text-amber-600">3.</span>
-            <span>If approved, your question goes live. If rejected, {QUESTION_COST_CENTS}¢ is refunded</span>
+            <span>If approved, your question goes live and the 25¢ fee is kept. If rejected, 20¢ is refunded and 5¢ is kept as a penalty.</span>
           </div>
           <div className="flex gap-3">
             <span className="font-bold text-amber-600">4.</span>

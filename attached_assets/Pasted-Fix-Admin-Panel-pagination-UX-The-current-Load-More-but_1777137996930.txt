@@ -1,0 +1,95 @@
+Fix Admin Panel pagination UX.
+
+The current Load More button UX is not what I want.
+
+Goal:
+Use automatic infinite scrolling + background preloading instead of manual Load More buttons.
+
+Requirements:
+
+1. Remove/replace Load More buttons
+For these admin tabs:
+- Users
+- Pending Review
+- All Questions
+- Withdrawals
+- Flags
+- Referrals
+- Verifications
+
+Do not require admin to click “Load More”.
+
+2. Initial load size
+When a tab opens, load 50 records immediately.
+
+3. Infinite scroll
+When admin scrolls near the bottom of the list:
+- Automatically fetch the next 50 records
+- Show a small loader at the bottom while loading
+- Prevent duplicate parallel requests
+- Stop when hasMore = false
+
+4. Background preloading
+If admin stays on the same tab and the browser is idle:
+- Continue preloading next pages slowly in the background
+- Do not freeze UI
+- Do not send too many requests at once
+- Use a safe delay between background loads, e.g. 1–2 seconds
+- Stop when all data is loaded or tab changes
+
+5. Users tab filters/sorting — fix this
+The existing user filters/sorts at the top must work correctly with server-side data.
+
+Support server-side sort/filter for Users:
+- Most Questions
+- Most Answers
+- Highest Earnings
+- Highest Balance
+- Newest
+- Oldest
+- Banned users
+- Verified users if filter exists
+- Search by name/email
+
+Important:
+Sorting/filtering must happen on backend query before pagination.
+Do NOT sort only the currently loaded 50 users on frontend.
+
+6. API requirements
+All heavy admin endpoints should support:
+- limit=50
+- cursor or page
+- search
+- sort
+- filter
+- hasMore
+- totalCount if needed
+
+Example:
+GET /admin/users?limit=50&page=1&sort=highest_earnings&search=amir
+
+7. Frontend behavior
+- When search/filter/sort changes, reset list and fetch page 1 again.
+- Keep already loaded data cached per tab/filter where reasonable.
+- Show loader at bottom during auto-load.
+- Show retry if a page fails.
+- No blank page while loading next page.
+
+8. Counts/badges
+Keep counts as lightweight separate requests.
+Do not fetch all records just to calculate tab badges.
+
+9. Performance
+Initial admin page should remain fast.
+Only active tab loads records.
+But inside active tab, loading should feel automatic and smooth.
+
+10. Final verification
+- Users tab opens with 50 users.
+- Scrolling down automatically loads next 50.
+- No Load More button required.
+- “Highest Earnings” sort shows highest earning users from the whole database, not only loaded users.
+- “Most Questions” sort works from the whole database.
+- Search works server-side.
+- Other tabs auto-load on scroll too.
+- Existing admin actions still work.

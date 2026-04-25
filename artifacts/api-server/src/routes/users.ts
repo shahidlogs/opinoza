@@ -1,9 +1,12 @@
 import { Router, type IRouter } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
 import { db, usersTable, walletsTable, answersTable, questionsTable, transactionsTable } from "@workspace/db";
-import { eq, count, sum, and, gte, desc, ne, or, isNull } from "drizzle-orm";
+import { eq, count, sum, and, gte, desc, ne, or, isNull, sql } from "drizzle-orm";
 import { sendEmail, welcomeEmail } from "../lib/email.js";
 import { randomBytes } from "crypto";
+import { uploadIdDocumentToDrive } from "../lib/drive-upload.js";
+import { checkIpBan, IP_BAN_MESSAGE } from "../lib/banCheck";
+import { getClientIp } from "../lib/clientIp";
 
 const router: IRouter = Router();
 
@@ -101,11 +104,26 @@ router.get("/users/me", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+
+  // Block banned IPs from accessing the platform (prevents evading user bans via new accounts)
+  const clientIp = getClientIp(req);
+  if (await checkIpBan(clientIp)) {
+    res.status(403).json({ error: IP_BAN_MESSAGE, code: "ip_banned" });
+    return;
+  }
+
   const emailFromClaims = (auth as any)?.sessionClaims?.email as string | undefined;
   const nameFromClaims = (auth as any)?.sessionClaims?.name as string | undefined;
-  const signupIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket?.remoteAddress || null;
+  const signupIp = clientIp;
   const signupUa = req.headers["user-agent"] || null;
   const { user, isNew } = await getOrCreateUser(auth.userId, emailFromClaims || "", nameFromClaims, signupIp, signupUa);
+
+  // Update lastIp on every login (best-effort; helps admin identify IPs)
+  if (clientIp) {
+    db.update(usersTable).set({ lastIp: clientIp }).where(eq(usersTable.clerkId, auth.userId))
+      .catch(err => console.error("[users] Failed to update lastIp:", err));
+  }
+
   res.json({
     id: user.id,
     clerkId: user.clerkId,
@@ -115,14 +133,20 @@ router.get("/users/me", async (req, res): Promise<void> => {
     ageGroup: user.ageGroup,
     gender: user.gender,
     isAdmin: user.isAdmin,
+    isEditor: user.isEditor,
     nameRewarded: user.nameRewarded,
     cityRewarded: user.cityRewarded,
     ageGroupRewarded: user.ageGroupRewarded,
     genderRewarded: user.genderRewarded,
+    phoneNumber: user.phoneNumber ?? null,
     referralCode: user.referralCode,
     referredByUserId: user.referredByUserId,
     lastQuestionAt: user.lastQuestionAt ?? null,
     nameLocked: user.nameLocked,
+    verificationStatus: user.verificationStatus,
+    verifiedName: user.verifiedName ?? null,
+    idDocumentType: user.idDocumentType ?? null,
+    verificationRejectionReason: user.verificationRejectionReason ?? null,
     isNew,
     createdAt: user.createdAt,
   });
@@ -135,7 +159,7 @@ router.patch("/users/me", async (req, res): Promise<void> => {
     return;
   }
 
-  const { name, city, ageGroup, gender } = req.body;
+  const { name, city, ageGroup, gender, phoneNumber } = req.body;
 
   // Ensure user exists before patching
   let [existingUser] = await db.select().from(usersTable).where(eq(usersTable.clerkId, auth.userId));
@@ -151,6 +175,7 @@ router.patch("/users/me", async (req, res): Promise<void> => {
   if (city !== undefined) updates.city = city?.trim() || null;
   if (ageGroup !== undefined) updates.ageGroup = ageGroup || null;
   if (gender !== undefined) updates.gender = gender || null;
+  if (phoneNumber !== undefined) updates.phoneNumber = phoneNumber?.trim() || null;
 
   // Rule 4: if name is locked, reject any attempt to change it (admin bypasses lock)
   if (updates.name !== undefined && existingUser.nameLocked && !existingUser.isAdmin) {
@@ -207,19 +232,16 @@ router.patch("/users/me", async (req, res): Promise<void> => {
       gender: "Gender",
     };
 
-    // Ensure wallet exists
-    let [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, auth.userId));
-    if (!wallet) {
-      [wallet] = await db.insert(walletsTable).values({ userId: auth.userId }).returning();
-    }
-
-    // Credit wallet
-    await db.update(walletsTable)
-      .set({
-        balanceCents: wallet.balanceCents + earnedCents,
-        totalEarnedCents: wallet.totalEarnedCents + earnedCents,
-      })
-      .where(eq(walletsTable.userId, auth.userId));
+    // Atomic upsert — race-safe regardless of concurrent requests
+    await db.insert(walletsTable)
+      .values({ userId: auth.userId, balanceCents: earnedCents, totalEarnedCents: earnedCents })
+      .onConflictDoUpdate({
+        target: walletsTable.userId,
+        set: {
+          balanceCents: sql`wallets.balance_cents + ${earnedCents}`,
+          totalEarnedCents: sql`wallets.total_earned_cents + ${earnedCents}`,
+        },
+      });
 
     // Log one transaction per field
     for (const field of newlyEarned) {
@@ -241,7 +263,9 @@ router.patch("/users/me", async (req, res): Promise<void> => {
     city: user.city,
     ageGroup: user.ageGroup,
     gender: user.gender,
+    phoneNumber: user.phoneNumber ?? null,
     isAdmin: user.isAdmin,
+    isEditor: user.isEditor,
     nameRewarded: user.nameRewarded,
     cityRewarded: user.cityRewarded,
     ageGroupRewarded: user.ageGroupRewarded,
@@ -305,6 +329,121 @@ router.get("/users/me/questions", async (req, res): Promise<void> => {
     .orderBy(desc(questionsTable.createdAt));
 
   res.json({ questions });
+});
+
+// ── Identity Verification ──────────────────────────────────────────────────
+
+// GET /users/me/verification — returns current verification status for the user
+router.get("/users/me/verification", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  if (!auth?.userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [user] = await db.select({
+    verificationStatus: usersTable.verificationStatus,
+    verifiedName: usersTable.verifiedName,
+    idDocumentType: usersTable.idDocumentType,
+    verificationRejectionReason: usersTable.verificationRejectionReason,
+    verificationReviewedAt: usersTable.verificationReviewedAt,
+  }).from(usersTable).where(eq(usersTable.clerkId, auth.userId));
+
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  res.json({
+    verificationStatus: user.verificationStatus,
+    verifiedName: user.verifiedName ?? null,
+    idDocumentType: user.idDocumentType ?? null,
+    verificationRejectionReason: user.verificationRejectionReason ?? null,
+    verificationReviewedAt: user.verificationReviewedAt ?? null,
+  });
+});
+
+// POST /users/me/verification — submit identity document for verification
+// Body: { documentType, verifiedName, documentBase64, documentMimeType, documentFilename }
+const ACCEPTED_DOC_TYPES = [
+  "National ID / CNIC",
+  "Driving License",
+  "Passport",
+  "Student Card / Student ID",
+  "Other valid ID",
+] as const;
+
+const ACCEPTED_MIME_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+] as const;
+
+const ACCEPTED_MIME_LABEL = "JPG, PNG, WebP, HEIC or PDF";
+
+router.post("/users/me/verification", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  if (!auth?.userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { documentType, verifiedName, documentBase64, documentMimeType, documentFilename } = req.body;
+
+  if (!documentType || !ACCEPTED_DOC_TYPES.includes(documentType)) {
+    res.status(400).json({ error: `documentType must be one of: ${ACCEPTED_DOC_TYPES.join(", ")}` });
+    return;
+  }
+  if (!verifiedName || typeof verifiedName !== "string" || !verifiedName.trim()) {
+    res.status(400).json({ error: "verifiedName (name as it appears on your ID) is required" });
+    return;
+  }
+  if (!documentBase64 || typeof documentBase64 !== "string") {
+    res.status(400).json({ error: "documentBase64 is required" });
+    return;
+  }
+  if (!documentMimeType || !ACCEPTED_MIME_TYPES.includes(documentMimeType)) {
+    res.status(400).json({
+      error: `Unsupported file type: "${documentMimeType || "unknown"}". Accepted formats: ${ACCEPTED_MIME_LABEL}.`,
+    });
+    return;
+  }
+
+  // Check current status — don't allow re-upload if already approved
+  const [existingUser] = await db.select({ verificationStatus: usersTable.verificationStatus })
+    .from(usersTable).where(eq(usersTable.clerkId, auth.userId));
+  if (existingUser?.verificationStatus === "approved") {
+    res.status(409).json({ error: "Your identity is already verified." });
+    return;
+  }
+
+  // Decode base64 and upload to Google Drive
+  let fileId: string;
+  try {
+    const fileBuffer = Buffer.from(documentBase64, "base64");
+    const fileSizeMB = (fileBuffer.length / 1024 / 1024).toFixed(1);
+    if (fileBuffer.length > 10 * 1024 * 1024) {
+      res.status(400).json({ error: `Document too large (${fileSizeMB} MB). Maximum 10 MB. Please compress the image or use a smaller file.` });
+      return;
+    }
+    const filename = documentFilename || `document.${documentMimeType.split("/")[1] || "jpg"}`;
+    const result = await uploadIdDocumentToDrive(auth.userId, fileBuffer, documentMimeType, filename);
+    fileId = result.fileId;
+  } catch (err) {
+    console.error("[verification] Drive upload failed:", err);
+    res.status(500).json({ error: "Failed to upload document. Please try again." });
+    return;
+  }
+
+  await db.update(usersTable).set({
+    verificationStatus: "pending",
+    verifiedName: verifiedName.trim(),
+    idDocumentType: documentType,
+    idDocumentPath: fileId,
+    verificationRejectionReason: null,
+    verificationReviewedBy: null,
+    verificationReviewedAt: null,
+  }).where(eq(usersTable.clerkId, auth.userId));
+
+  res.status(201).json({
+    verificationStatus: "pending",
+    message: "Your identity document has been submitted for review. We will notify you once it is verified.",
+  });
 });
 
 export default router;

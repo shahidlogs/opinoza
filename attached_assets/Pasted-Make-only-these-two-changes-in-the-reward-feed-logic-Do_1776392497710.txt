@@ -1,0 +1,36 @@
+Make only these two changes in the reward/feed logic. Do not change anything else.
+
+1) Stop the 50-answer creator milestone bonus going forward only
+- The one-time $1.00 (100¢) creator bonus for reaching 50 unique non-creator answers must be disabled from now on.
+- Important: do NOT claw back, reverse, delete, or alter any milestone bonuses that were already granted in the past.
+- Existing historical payouts must remain exactly as they are.
+- Only prevent any future awarding of this 50-answer $1 bonus.
+- Remove/disable the code path that grants this bonus going forward.
+- Keep all other earnings exactly as they are:
+  - Regular answerer earning
+  - Profile question earning
+  - Creator per-answer earning
+  - Referral earnings
+  - Lifetime milestones at $5 and $10
+  - Question creation cost/refund
+  - All limits/caps/cooldowns
+- If there is any UI text, admin text, helper text, or comments promising this 50-answer $1 bonus for future questions, remove/update that text.
+
+2) Ensure feed downranking logic is active and correct
+- In the normal feed, creators who have earned >= $1.00 today should have their custom questions ranked lower than creators who have earned < $1.00 today.
+- This is ranking only, not blocking.
+- Questions from creators below the $1.00-today threshold should appear above questions from creators at or above the threshold.
+- Within each group, preserve the existing ordering logic as much as possible.
+- Apply this to the normal feed only unless this logic already intentionally applies elsewhere.
+- Verify this logic is actually working in code. If it already exists, fix it only if broken or incomplete.
+
+Requirements:
+- Do not change DB schema unless absolutely necessary.
+- Do not modify unrelated reward logic.
+- Do not alter old transactions/history for already-awarded 50-answer bonuses.
+- After changes, provide:
+  1. Exact files changed
+  2. Exact logic disabled for future 50-answer bonuses
+  3. Confirmation that old bonuses remain untouched
+  4. Where the feed ranking logic runs
+  5. A short example showing that a creator who made $1 today is ranked below one who has not

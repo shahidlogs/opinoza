@@ -203,7 +203,10 @@ export interface UserProfile {
   ageGroup?: string | null;
   /** @nullable */
   gender?: string | null;
+  /** @nullable */
+  phoneNumber?: string | null;
   isAdmin: boolean;
+  isEditor: boolean;
   balanceCents?: number;
   questionCount?: number;
   answerCount?: number;
@@ -225,6 +228,8 @@ export interface UpdateProfileBody {
   ageGroup?: string | null;
   /** @nullable */
   gender?: string | null;
+  /** @nullable */
+  phoneNumber?: string | null;
 }
 
 export interface UserStats {
@@ -258,6 +263,66 @@ export interface AdminStats {
   totalWithdrawnCents: number;
   pendingWithdrawalCents: number;
   activeUsersThisWeek: number;
+}
+
+export interface EarningsSourceBreakdown {
+  name: string;
+  value: number;
+}
+
+export interface WalletRangeItem {
+  name: string;
+  count: number;
+}
+
+export interface EarnerCategoryItem {
+  name: string;
+  count: number;
+}
+
+export interface TopEarner {
+  userId: string;
+  name: string;
+  email: string;
+  balanceCents: number;
+  totalEarnedCents: number;
+  answerCents: number;
+  creatorCents: number;
+  referralCents: number;
+  isWithdrawable: boolean;
+}
+
+export interface AdminEarningsAnalytics {
+  range: string;
+  totalDistributedCents: number;
+  answerEarningsCents: number;
+  creatorRewardCents: number;
+  referralSignupCents: number;
+  referralAnswerCents: number;
+  questionPurchaseSpendingCents: number;
+  questionPurchaseCount: number;
+  totalAnswerCount: number;
+  answerEarnerCount: number;
+  avgAnswerEarningsPerUser: number;
+  avgAnswersPerEarner: number;
+  creatorEarnerCount: number;
+  avgCreatorEarningsPerUser: number;
+  referralEarnerCount: number;
+  referralSignupEarners: number;
+  referralAnswerEarners: number;
+  avgReferralEarningsPerEarner: number;
+  totalWithdrawnCents: number;
+  pendingWithdrawalCents: number;
+  pendingWithdrawalCount: number;
+  completedWithdrawalCount: number;
+  avgWithdrawalCents: number;
+  totalWalletBalanceCents: number;
+  withdrawableBalanceCents: number;
+  nonWithdrawableBalanceCents: number;
+  earningsSourceBreakdown: EarningsSourceBreakdown[];
+  walletRangeDistribution: WalletRangeItem[];
+  earnerCategoryDistribution: EarnerCategoryItem[];
+  topEarners: TopEarner[];
 }
 
 export interface ListUsersResponse {

@@ -44,8 +44,15 @@ A full-stack Q&A platform where users earn real money (in cents) for sharing the
 - **Bonus Progress Box** shown only to the question creator: animated progress bar, current/next milestone, cents needed
 - Bonus progress box auto-refreshes when the creator submits an answer on any question
 
+## Authentication
+- Clerk handles all auth. Provider config is in the **Auth pane** in the workspace toolbar.
+- **Email + password** and **forgot password** are available natively once enabled in the Auth pane.
+- **Account linking** (same email across Google + email/password) is handled automatically by Clerk.
+- Clerk branded with Opinoza amber palette (`hsl(43,96%,56%)` primary), warm cream bg, and Opinoza logo (`public/logo.svg`).
+- Custom auth pane comments required on SignInPage/SignUpPage per skill spec.
+
 ## Database Schema (`lib/db/src/schema/index.ts`)
-- `users` — Clerk user ID, email, name, city, ageGroup, gender, isAdmin, referralCode (unique), referredByUserId, signupIp, userAgent
+- `users` — Clerk user ID, email, name, city, ageGroup, gender, phoneNumber (optional), isAdmin, referralCode (unique), referredByUserId, signupIp, userAgent
 - `questions` — title, description, type (short_answer/poll/rating), category, status, pollOptions[], isCustom, isProfileQuestion, totalAnswers, creatorId, creatorName
 - `answers` — questionId, userId, answerText, pollOption, rating, reason
 - `wallets` — userId, balanceCents, totalEarnedCents, totalWithdrawnCents

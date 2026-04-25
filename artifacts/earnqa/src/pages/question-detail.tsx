@@ -11,6 +11,7 @@ import {
   getGetMyStatsQueryKey,
   getGetMyAnswersQueryKey,
 } from "@workspace/api-client-react";
+import { type Translation, translationCache } from "@/lib/translationCache";
 
 const TYPE_LABELS: Record<string, string> = {
   short_answer: "Short Answer",
@@ -630,16 +631,17 @@ function ShareButtons({ questionTitle, questionUrl, isCreator }: { questionTitle
   );
 }
 
-// ── Bonus Progress Box (creator only) ────────────────────────────────────────
+// ── Bonus Progress Box (creator only) — shows historical payouts only ─────────
 
 interface BonusProgress {
   uniqueAnswerers: number;
   nextMilestone: number | null;
   nextRewardCents: number | null;
-  needed: number | null;
+  needed: number;
   progressPercent: number;
   rewardedMilestones: number[];
   totalRewardedCents: number;
+  bonusAlreadyPaid: boolean;
 }
 
 function BonusProgressBox({ questionId, refreshKey }: { questionId: number; refreshKey: number }) {
@@ -657,11 +659,9 @@ function BonusProgressBox({ questionId, refreshKey }: { questionId: number; refr
   if (loading) return null;
   if (!data) return null;
 
-  const allComplete = data.nextMilestone === null;
+  // Only render if there are historical milestone payouts to show
+  if (data.totalRewardedCents === 0) return null;
 
-  const rewardLabel = (!allComplete && data.nextRewardCents != null)
-    ? (data.nextRewardCents >= 100 ? `$${(data.nextRewardCents / 100).toFixed(2)}` : `${data.nextRewardCents}¢`)
-    : null;
   const totalLabel = data.totalRewardedCents >= 100
     ? `$${(data.totalRewardedCents / 100).toFixed(2)}`
     : `${data.totalRewardedCents}¢`;
@@ -672,42 +672,15 @@ function BonusProgressBox({ questionId, refreshKey }: { questionId: number; refr
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(43 96% 46%)" strokeWidth="2">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
         </svg>
-        <span className="font-bold text-amber-800 text-sm">Your Bonus Progress</span>
-        {data.totalRewardedCents > 0 && (
-          <span className="ml-auto text-xs text-amber-600 font-medium bg-amber-100 px-2 py-0.5 rounded-full">
-            {totalLabel} earned so far
-          </span>
-        )}
+        <span className="font-bold text-amber-800 text-sm">Milestone Bonus Earned</span>
+        <span className="ml-auto text-xs text-amber-600 font-medium bg-amber-100 px-2 py-0.5 rounded-full">
+          {totalLabel} earned
+        </span>
       </div>
 
-      {/* Progress bar */}
-      <div className="mb-3">
-        <div className="flex justify-between text-xs text-amber-700 mb-1.5 font-medium">
-          <span>{data.uniqueAnswerers} {allComplete ? "answers" : `/ ${data.nextMilestone} answers`}</span>
-          <span>{data.progressPercent}%</span>
-        </div>
-        <div className="h-3 rounded-full bg-amber-100 overflow-hidden border border-amber-200">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${data.progressPercent}%` }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-400"
-          />
-        </div>
+      <div className="text-sm text-amber-800 font-medium">
+        🎉 Your question earned a milestone bonus.
       </div>
-
-      {allComplete ? (
-        <div className="text-sm text-amber-800 font-medium">
-          🎉 Bonus completed! You've earned all available rewards.
-        </div>
-      ) : (
-        <div className="text-sm text-amber-800">
-          <span className="font-semibold">Next reward: {rewardLabel}</span>
-          <span className="text-amber-600"> at {data.nextMilestone} answers</span>
-          <span className="mx-2 text-amber-300">•</span>
-          <span className="text-amber-700">You need <strong>{data.needed}</strong> more {data.needed === 1 ? "answer" : "answers"}</span>
-        </div>
-      )}
 
       {data.rewardedMilestones.length > 0 && (
         <div className="mt-3 pt-3 border-t border-amber-200 flex flex-wrap gap-1.5">
@@ -725,6 +698,11 @@ function BonusProgressBox({ questionId, refreshKey }: { questionId: number; refr
 
 // ── Main page component ──────────────────────────────────────────────────────
 
+// Detect browser language once (e.g. "en", "es", "fr").
+const userLang: string = (() => {
+  try { return navigator.language?.split("-")[0] ?? "en"; } catch { return "en"; }
+})();
+
 export default function QuestionDetail() {
   const { id } = useParams<{ id: string }>();
   const questionId = parseInt(id || "0", 10);
@@ -733,6 +711,39 @@ export default function QuestionDetail() {
 
   const { data: question, isLoading, isError } = useGetQuestion(questionId);
   const submitAnswer = useSubmitAnswer();
+
+  // ── Translation state ────────────────────────────────────────────────────────
+  const cacheKey = `${questionId}:${userLang}`;
+  const [translation, setTranslation] = useState<Translation | null>(
+    () => translationCache.get(cacheKey) ?? null,
+  );
+  const [translating, setTranslating] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(false);
+
+  const base = (import.meta as any).env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+  const handleTranslate = async () => {
+    if (translation) { setShowOriginal(false); return; }
+    setTranslating(true);
+    try {
+      const res = await fetch(`${base}/api/questions/${questionId}/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetLang: userLang }),
+      });
+      if (!res.ok) throw new Error("Translation failed");
+      const data: Translation = await res.json();
+      translationCache.set(cacheKey, data);
+      setTranslation(data);
+      setShowOriginal(false);
+    } catch {
+      // silent — button stays available to retry
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const handleShowOriginal = () => setShowOriginal(v => !v);
 
   useEffect(() => {
     if (question?.title) {
@@ -867,6 +878,13 @@ export default function QuestionDetail() {
     (question.type === "rating" && (rating > 0 || notFamiliar))
   );
 
+  // ── Translation display values ───────────────────────────────────────────────
+  const needsTranslation = !!(question.lang && question.lang !== userLang);
+  const isTranslated = !!translation && !showOriginal;
+  const displayTitle       = isTranslated ? translation!.title        : question.title;
+  const displayDesc        = isTranslated ? translation!.description  : question.description;
+  const displayPollOptions = isTranslated ? translation!.pollOptions  : question.pollOptions;
+
   const handleSubmit = () => {
     if (!canSubmit) return;
     submitAnswer.mutate({
@@ -980,31 +998,34 @@ export default function QuestionDetail() {
       {/* Poll */}
       {question.type === "poll" && question.pollOptions && (
         <div className="space-y-2.5">
-          {question.pollOptions.map(opt => (
-            <label
-              key={opt}
-              className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                pollOption === opt
-                  ? "border-amber-400 bg-amber-50 shadow-sm"
-                  : "border-border hover:border-amber-200 hover:bg-muted/50"
-              }`}
-            >
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                pollOption === opt ? "border-amber-400 bg-amber-400" : "border-muted-foreground"
-              }`}>
-                {pollOption === opt && <div className="w-2 h-2 rounded-full bg-white" />}
-              </div>
-              <input
-                type="radio"
-                name="poll"
-                value={opt}
-                checked={pollOption === opt}
-                onChange={() => setPollOption(opt)}
-                className="sr-only"
-              />
-              <span className="font-medium text-foreground">{opt}</span>
-            </label>
-          ))}
+          {question.pollOptions.map((opt, idx) => {
+            const label = displayPollOptions?.[idx] ?? opt;
+            return (
+              <label
+                key={opt}
+                className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  pollOption === opt
+                    ? "border-amber-400 bg-amber-50 shadow-sm"
+                    : "border-border hover:border-amber-200 hover:bg-muted/50"
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                  pollOption === opt ? "border-amber-400 bg-amber-400" : "border-muted-foreground"
+                }`}>
+                  {pollOption === opt && <div className="w-2 h-2 rounded-full bg-white" />}
+                </div>
+                <input
+                  type="radio"
+                  name="poll"
+                  value={opt}
+                  checked={pollOption === opt}
+                  onChange={() => setPollOption(opt)}
+                  className="sr-only"
+                />
+                <span className="font-medium text-foreground">{label}</span>
+              </label>
+            );
+          })}
         </div>
       )}
 
@@ -1149,9 +1170,63 @@ export default function QuestionDetail() {
           )}
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3 leading-snug">{question.title}</h1>
-        {question.description && (
-          <p className="text-muted-foreground leading-relaxed">{question.description}</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3 leading-snug">
+          {displayTitle}
+          {isTranslated && (
+            <span className="ml-2 text-xs font-normal text-blue-400 align-middle">[translated]</span>
+          )}
+        </h1>
+        {displayDesc && (
+          <p className="text-muted-foreground leading-relaxed">{displayDesc}</p>
+        )}
+
+        {/* Translate / Original toggle */}
+        {needsTranslation && (
+          <div className="mt-3 flex items-center gap-2">
+            {isTranslated ? (
+              <button
+                onClick={handleShowOriginal}
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors font-medium"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+                Show original
+              </button>
+            ) : showOriginal && translation ? (
+              <button
+                onClick={handleShowOriginal}
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors font-medium"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 3h14M12 3v18M5 21h14" strokeLinecap="round"/>
+                </svg>
+                Show translated
+              </button>
+            ) : (
+              <button
+                onClick={handleTranslate}
+                disabled={translating}
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors font-medium disabled:opacity-50"
+              >
+                {translating ? (
+                  <>
+                    <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <circle cx="12" cy="12" r="10" className="opacity-25"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    Translating…
+                  </>
+                ) : (
+                  <>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M5 3h14M12 3v18M5 21h14" strokeLinecap="round"/>
+                    </svg>
+                    Translate to {userLang.toUpperCase()}
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         )}
 
         <div className="flex items-center flex-wrap gap-4 mt-5 pt-5 border-t border-border text-sm text-muted-foreground">

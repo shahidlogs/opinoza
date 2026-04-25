@@ -12,15 +12,21 @@ function timeAgo(dateStr: string): string {
 }
 
 const TYPE_ICON: Record<string, string> = {
-  question_approved: "✅",
-  question_rejected: "❌",
-  question_answered: "💬",
-  creator_bonus:     "⭐",
-  can_ask_question:  "🪙",
+  question_approved:        "✅",
+  question_rejected:        "❌",
+  question_answered:        "💬",
+  creator_bonus:            "⭐",
+  can_ask_question:         "🪙",
+  withdrawal_submitted:     "📤",
+  withdrawal_approved:      "✅",
+  withdrawal_transferred:   "💸",
+  withdrawal_rejected:      "❌",
+  referral_signup:          "🎉",
 };
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const ref = useRef<HTMLDivElement>(null);
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
 
@@ -35,6 +41,19 @@ export default function NotificationBell() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  function handleNotifClick(n: AppNotification) {
+    if (!n.isRead) markRead(n.id);
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(n.id)) {
+        next.delete(n.id);
+      } else {
+        next.add(n.id);
+      }
+      return next;
+    });
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -79,27 +98,35 @@ export default function NotificationBell() {
                 No notifications yet
               </div>
             ) : (
-              notifications.map((n: AppNotification) => (
-                <button
-                  key={n.id}
-                  onClick={() => { if (!n.isRead) markRead(n.id); }}
-                  className={`w-full text-left px-4 py-3 flex gap-3 hover:bg-muted/40 transition-colors border-b border-border/50 last:border-b-0 ${!n.isRead ? "bg-amber-50/60" : ""}`}
-                >
-                  <span className="text-base shrink-0 mt-0.5">{TYPE_ICON[n.type] ?? "🔔"}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className={`text-sm leading-snug ${!n.isRead ? "font-semibold text-foreground" : "font-medium text-foreground/80"}`}>
-                        {n.title}
+              notifications.map((n: AppNotification) => {
+                const isExpanded = expanded.has(n.id);
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => handleNotifClick(n)}
+                    className={`w-full text-left px-4 py-3 flex gap-3 hover:bg-muted/40 transition-colors border-b border-border/50 last:border-b-0 ${!n.isRead ? "bg-amber-50/60" : ""}`}
+                  >
+                    <span className="text-base shrink-0 mt-0.5">{TYPE_ICON[n.type] ?? "🔔"}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={`text-sm leading-snug ${!n.isRead ? "font-semibold text-foreground" : "font-medium text-foreground/80"}`}>
+                          {n.title}
+                        </p>
+                        {!n.isRead && (
+                          <span className="shrink-0 w-2 h-2 rounded-full bg-amber-500 mt-1" />
+                        )}
+                      </div>
+                      <p className={`text-xs text-muted-foreground mt-0.5 whitespace-pre-line ${isExpanded ? "" : "line-clamp-2"}`}>
+                        {n.message}
                       </p>
-                      {!n.isRead && (
-                        <span className="shrink-0 w-2 h-2 rounded-full bg-amber-500 mt-1" />
+                      {!isExpanded && n.message.length > 80 && (
+                        <span className="text-[11px] text-amber-600 mt-0.5 block">tap to read more</span>
                       )}
+                      <p className="text-[11px] text-muted-foreground/70 mt-1">{timeAgo(n.createdAt)}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
-                    <p className="text-[11px] text-muted-foreground/70 mt-1">{timeAgo(n.createdAt)}</p>
-                  </div>
-                </button>
-              ))
+                  </button>
+                );
+              })
             )}
           </div>
         </div>

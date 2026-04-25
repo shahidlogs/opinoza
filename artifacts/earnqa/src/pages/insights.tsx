@@ -158,11 +158,11 @@ export default function Insights() {
         >
           <h2 className="font-bold text-lg mb-5">Answers by Gender</h2>
           {genderLoading ? <ChartSkeleton /> : filteredGenders.length === 0 ? <NoData /> : (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={420}>
               <PieChart>
                 <Pie
                   data={filteredGenders} dataKey="count" nameKey="gender"
-                  cx="50%" cy="45%" outerRadius="38%" innerRadius="20%"
+                  cx="50%" cy="44%" outerRadius={130} innerRadius={68}
                   label={false}
                   labelLine={false}
                 >
@@ -176,7 +176,7 @@ export default function Insights() {
                   layout="horizontal"
                   verticalAlign="bottom"
                   align="center"
-                  wrapperStyle={{ paddingTop: "12px", display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "4px", fontSize: "12px" }}
+                  wrapperStyle={{ paddingTop: "28px", display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "8px", fontSize: "13px" }}
                 />
               </PieChart>
             </ResponsiveContainer>

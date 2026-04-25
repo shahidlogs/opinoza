@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 64">
+  <defs>
+    <radialGradient id="coin-g" cx="38%" cy="30%" r="75%" fx="38%" fy="30%">
+      <stop offset="0%" stop-color="#fef3c7"/>
+      <stop offset="42%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </radialGradient>
+    <radialGradient id="edge-g" cx="50%" cy="50%" r="50%">
+      <stop offset="80%" stop-color="#d97706" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#92400e" stop-opacity="0.45"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Coin -->
+  <circle cx="32" cy="32" r="28" fill="url(#coin-g)"/>
+  <circle cx="32" cy="32" r="28" fill="url(#edge-g)"/>
+  <circle cx="32" cy="32" r="28" fill="none" stroke="#b45309" stroke-width="1.2" opacity="0.5"/>
+  <circle cx="32" cy="32" r="17" fill="none" stroke="#1e3a5f" stroke-width="6.5"/>
+  <circle cx="32" cy="32" r="17" fill="none" stroke="#fbbf24" stroke-width="1.2" opacity="0.22"/>
+  <path d="M 19 21 A 16 16 0 0 1 34 15" stroke="white" stroke-width="3" fill="none" opacity="0.4" stroke-linecap="round"/>
+
+  <!-- Opinoza wordmark -->
+  <text x="72" y="41" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="800" letter-spacing="-0.5" fill="#1a2033">Opinoza</text>
+</svg>

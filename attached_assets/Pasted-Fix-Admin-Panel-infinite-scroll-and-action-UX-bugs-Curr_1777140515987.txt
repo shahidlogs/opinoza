@@ -1,0 +1,84 @@
+Fix Admin Panel infinite scroll and action UX bugs.
+
+Current issues:
+
+1. Flags tab:
+- Page/list keeps refreshing or flickering.
+- Items disappear and reappear.
+- Likely caused by infinite scroll/background preload repeatedly resetting state.
+Fix:
+- Do not reset existing flags list while loading next page.
+- Append next page only.
+- Do not refetch page 1 repeatedly.
+- Disable background preload for Flags if it causes flicker.
+- Keep scroll position stable.
+
+2. Verifications tab:
+- Same flicker/refresh issue as Flags.
+Fix:
+- Do not reload/reset list on every tab render.
+- Append next verification page only.
+- Keep existing items visible while loading more.
+- Disable background preload if unstable.
+
+3. Users tab:
+- Users tab gives 500 error.
+Fix backend first.
+- Check /admin/users endpoint with current params:
+  page, limit, search, sort, filter
+- Fix sort/filter SQL errors.
+- Highest Earnings, Highest Balance, Most Questions, Most Answers must not cause 500.
+- If an invalid sort is passed, fallback to newest instead of crashing.
+- Return clear error logs.
+
+4. Withdrawals tab actions:
+Currently after Approve/Reject/Transfer action, the whole tab/page refreshes.
+Fix:
+- Do not full-refetch the whole withdrawals list after an action.
+- Update only that withdrawal item in local state.
+- If transferred, update status to transferred/paid in-place.
+- If approved/rejected, update that row in-place.
+- Keep admin scroll position unchanged.
+- Do not jump to top.
+
+5. Pending Review tab:
+- Bottom loader is not appearing.
+- More pending questions are not loading.
+Fix:
+- Add proper infinite scroll sentinel at the bottom.
+- Load next 50 automatically when near bottom.
+- Show small bottom loader while loading.
+- Append next page, do not replace current list.
+
+6. Pending Review actions:
+When admin approves/rejects a question near the bottom:
+- Do not refresh the whole page/list.
+- Do not jump to top.
+- Remove only that question from pending list locally.
+- Keep scroll position exactly where admin was.
+- Counts can refresh lightly in background, but list must not reset.
+
+7. General infinite scroll rule:
+For all tabs:
+- Initial load: fetch first 50.
+- Next pages: append only.
+- Never clear list during next-page loading.
+- Only clear list when search/filter/sort changes or admin clicks Refresh.
+- Prevent duplicate requests.
+- Stop when hasMore=false.
+- Keep scroll position stable.
+
+8. Background preloading:
+- Disable background preloading for Flags and Verifications for now.
+- Keep it only where stable, like All Questions.
+- Infinite scroll should be enough.
+
+9. Final verification:
+- Flags no longer flicker.
+- Verifications no longer flicker.
+- Users tab loads without 500 error.
+- Withdrawals actions update only the clicked row.
+- Pending Review loads more on scroll.
+- Pending Review approve/reject removes only that item and does not jump to top.
+- All Questions remains working as it is.
+- Stats and Referrals should not be changed because they are working.

@@ -1014,6 +1014,8 @@ components:
           type: ["string", "null"]
         isAdmin:
           type: boolean
+        isEditor:
+          type: boolean
         balanceCents:
           type: number
         questionCount:
@@ -1035,6 +1037,7 @@ components:
         - clerkId
         - email
         - isAdmin
+        - isEditor
         - isNew
         - createdAt
 

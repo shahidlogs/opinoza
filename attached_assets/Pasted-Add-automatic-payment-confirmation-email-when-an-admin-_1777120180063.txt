@@ -1,0 +1,93 @@
+Add automatic payment confirmation email when an admin marks a withdrawal as Paid/Transferred.
+
+Current situation:
+- Emails may currently be disabled or blocked in the app.
+- I want only this payment confirmation email to be enabled when admin clicks the Paid/Transfer button.
+
+Feature required:
+
+1. Trigger point:
+When admin marks a withdrawal as paid/transferred, send an email to the withdrawal user automatically.
+
+2. Email subject:
+🎉 Your Opinoza payment has been transferred
+
+3. Email body:
+Dear {{user_name}},
+
+Congratulations! 🎉
+
+Your withdrawal request has been successfully processed, and the amount has been transferred to your provided account.
+
+We truly appreciate your activity and contribution on Opinoza.
+
+🎁 Earn More with Referrals!
+
+Invite others and increase your earnings:
+
+💰 Earn $0.10 for every new user who joins using your invitation link
+💸 Earn $0.005 on every answer they submit
+
+📢 Share & Earn
+
+"🎉 I just received my payment from Opinoza!
+Join using my link and start earning by answering simple questions 💰"
+
+Your invitation link:
+{{referral_link}}
+
+If you have any questions, feel free to contact us anytime.
+
+Thank you for being a valued part of Opinoza.
+
+Best regards,
+Opinoza Team
+
+4. Add payment poster image in the email:
+Use this image file as the email poster:
+payment.png
+
+Place payment.png in a public/static assets folder so it can be accessed by URL, for example:
+public/payment.png
+or
+public/assets/payment.png
+
+Then include it inside the email body as an image, not only as an attachment.
+
+Example:
+<img src="{{app_url}}/payment.png" style="max-width:600px;width:100%;border-radius:12px;" />
+
+5. Also attach the same image as attachment if the mail system supports attachments:
+Attachment name:
+payment.png
+
+6. Email must include:
+- User name
+- Withdrawal amount
+- Payment method
+- Referral/invitation link
+- Payment poster image
+
+7. Important logic:
+- Send email only when withdrawal status changes to paid/transferred.
+- Do not send duplicate email if admin clicks paid again.
+- Add a field if needed, such as payment_email_sent_at, to prevent duplicate emails.
+- If email sending fails, do not break the admin payment action. Save the withdrawal as paid and log the email error.
+
+8. Admin UI:
+After marking paid, show message:
+“Withdrawal marked as paid and payment email sent.”
+If email fails:
+“Withdrawal marked as paid, but email could not be sent.”
+
+9. Mail setup:
+Check existing mail configuration.
+If emails are disabled globally, enable this specific payment confirmation email safely.
+Use existing email provider/config if already available.
+
+Final verification:
+- Admin marks withdrawal as paid.
+- User receives payment confirmation email.
+- Email includes payment.png poster.
+- Email includes referral link.
+- Email is not sent twice for the same withdrawal.

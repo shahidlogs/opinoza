@@ -1,0 +1,63 @@
+Add USDT (Crypto) as a third withdrawal/payment method for international users.
+
+Current withdrawal methods include local wallet/bank options. Do not break or remove any existing methods.
+
+Requirements:
+
+1. Add a new withdrawal method:
+   - Label: USDT (Crypto)
+   - Internal value: usdt
+
+2. When the user selects USDT (Crypto), show these fields:
+   - Network (required dropdown)
+     Options:
+       - TRC20
+       - ERC20
+       - BEP20
+   - USDT Wallet Address (required text input)
+   - Wallet Owner Name (optional text input)
+   - Note (optional textarea, if note already exists reuse it)
+
+3. Validation:
+   - If method is usdt, network is required.
+   - If method is usdt, wallet address is required.
+   - Wallet address should be trimmed.
+   - Do not require bank account number/account title for USDT.
+   - Do not require Easypaisa/JazzCash phone/account fields for USDT.
+
+4. Database/storage:
+   - Store method as usdt.
+   - Store selected network.
+   - Store wallet address.
+   - Store wallet owner name if provided.
+   - If there is already a meta JSON field, store USDT-specific fields inside meta to avoid unnecessary database changes.
+   - Only create new database columns if the current structure cannot safely store these fields.
+
+5. Admin withdrawal page:
+   - Show method as “USDT (Crypto)”.
+   - Show Network.
+   - Show Wallet Address clearly.
+   - Show Wallet Owner Name if provided.
+   - Keep approve/paid/reject actions working.
+
+6. User withdrawal history:
+   - Show “USDT (Crypto)” as the method.
+   - Show network and masked wallet address if possible.
+
+7. Add this warning near the USDT fields:
+   “Please make sure your USDT network and wallet address are correct. Payments sent to the wrong network or address may be permanently lost.”
+
+8. Security/UX:
+   - Do not expose full wallet address unnecessarily outside admin details.
+   - Keep existing withdrawal flow unchanged for other methods.
+   - Test all three methods:
+     a) Easypaisa/JazzCash
+     b) Bank Transfer
+     c) USDT (Crypto)
+
+Final verification:
+- USDT appears as a withdrawal option.
+- Selecting USDT shows network + wallet address fields.
+- Submitting USDT withdrawal works.
+- Admin can see all USDT details.
+- Existing bank/local withdrawal methods still work.

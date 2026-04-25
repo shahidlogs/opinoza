@@ -1,0 +1,175 @@
+Improve the **Admin Flagged Answers** page with bulk moderation tools and sorting/filter controls.
+
+## Goal
+
+Right now, the admin can only handle flagged answers one by one using:
+
+* **Clear Flag (keep answer)**
+* **Remove Answer**
+
+I want to upgrade this page so the admin can moderate **multiple flagged answers at once**.
+
+## Required changes
+
+### 1) Bulk selection
+
+Add a checkbox to every flagged answer card.
+
+Also add:
+
+* a **Select All** checkbox at the top
+* optional **Clear Selection** action
+
+When multiple items are selected, the admin should be able to apply one action to all selected flagged answers.
+
+### 2) Bulk actions
+
+Add a bulk action bar above the list.
+
+Required bulk actions:
+
+* **Bulk Clear Flags (keep answers)**
+* **Bulk Remove Answers**
+
+Behavior:
+
+* Admin selects multiple flagged answers
+* Clicks one bulk action
+* Confirmation modal appears
+* Action is applied to all selected items
+* List refreshes after success
+* Success/error toast should show how many items were updated
+
+Examples:
+
+* “12 flags cleared successfully”
+* “7 answers removed successfully”
+
+### 3) Filter / sorting tabs at the top
+
+At the top of the page, add status filters so admin can easily view:
+
+* **All**
+* **Pending**
+* **Resolved**
+
+Default view should be **Pending**.
+
+The admin should be able to click a tab/button and instantly filter the list.
+
+### 4) Optional sorting controls
+
+If easy to add, also add sorting dropdown:
+
+* Newest first
+* Oldest first
+* Most flagged first
+
+Default sorting:
+
+* Pending first
+* newest first inside pending
+
+### 5) UX requirements
+
+* Bulk action bar should only appear when at least one item is selected
+* Each card should clearly show its current status:
+
+  * pending
+  * resolved
+* The current filter should be visually highlighted
+* After bulk action, keep the current filter active
+* If all visible selected items are processed, remove them from the current filtered view automatically
+* Disable bulk buttons while request is in progress
+* Add loading state/spinner during bulk operation
+
+### 6) Safety / confirmation
+
+Before bulk actions:
+
+* For **Bulk Remove Answers**, show a stronger warning modal
+* For **Bulk Clear Flags**, show a normal confirmation modal
+
+Suggested modal text:
+
+* Clear Flags: “Are you sure you want to clear flags for the selected answers and keep those answers visible?”
+* Remove Answers: “Are you sure you want to remove the selected answers? This action may not be reversible.”
+
+### 7) Backend/API changes
+
+If current API only supports single-item actions, add bulk endpoints.
+
+Suggested endpoints:
+
+* `POST /api/admin/flags/bulk-clear`
+* `POST /api/admin/flags/bulk-remove`
+
+Payload example:
+
+```json
+{
+  "flagIds": ["id1", "id2", "id3"]
+}
+```
+
+Or if better for your schema:
+
+```json
+{
+  "answerIds": ["id1", "id2", "id3"]
+}
+```
+
+Backend requirements:
+
+* Validate admin auth
+* Validate ids array is not empty
+* Process all selected items safely
+* Return counts:
+
+```json
+{
+  "success": true,
+  "processed": 12
+}
+```
+
+### 8) Data/query behavior
+
+Filtering should work by status:
+
+* pending
+* resolved
+
+Do not load everything and filter only on frontend if server-side filtering is already available or easy to add.
+Prefer efficient querying if the list can grow large.
+
+### 9) Preserve existing actions
+
+Keep the existing single-item buttons on each card:
+
+* Clear Flag (keep answer)
+* Remove Answer
+* Ignore / View Question if already present
+
+Bulk actions should be an addition, not a replacement.
+
+### 10) UI style
+
+Match the existing admin moderation page design.
+Use the current card layout, button style, and badge style.
+Keep it clean and fast for moderators handling many reports.
+
+## Deliverable
+
+Please fully implement:
+
+* frontend UI
+* selection state
+* filters/tabs
+* bulk action bar
+* confirmation modals
+* backend bulk endpoints
+* loading and toast states
+
+Also make sure the page works correctly after refresh and no existing moderation functionality breaks.

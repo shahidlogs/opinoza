@@ -2,15 +2,14 @@ import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { db, usersTable, walletsTable, transactionsTable, notificationsTable, referralsTable, referralClicksTable } from "@workspace/db";
 import { pushInvitationAccepted } from "../lib/push.js";
-import { eq, desc, count, sum, and, ne, gte, sql, inArray } from "drizzle-orm";
+import { eq, desc, and, gte, sql, inArray, isNull, or, ne, count } from "drizzle-orm";
+import { notifCacheInvalidate } from "../lib/notifCache";
 
 const router: IRouter = Router();
 
 const APP_BASE_URL = process.env.APP_BASE_URL || "https://opinoza.com";
-const REFERRAL_TIER_1_BONUS_CENTS = 10;  // 10¢ for first 5 successful invites
-const REFERRAL_TIER_2_BONUS_CENTS = 20;  // 20¢ for every invite after the first 5
-const REFERRAL_TIER_1_LIMIT = 5;         // switch to tier 2 after this many successful invites
-const REFERRAL_ANSWER_BONUS_CENTS = 0.5; // 0.5¢ per answer by referred user
+const REFERRAL_SIGNUP_BONUS_CENTS = 10;           // 10¢ flat bonus when referred user signs up
+const REFERRAL_ANSWER_BONUS_CENTS = 0.5;          // 0.5¢ per answer by referred user (unchanged)
 
 // ─── GET /api/referrals/me ────────────────────────────────────────────────────
 router.get("/referrals/me", async (req, res): Promise<void> => {
@@ -190,19 +189,8 @@ router.post("/referrals/claim", async (req, res): Promise<void> => {
 
   const status = fraudFlags.length > 0 ? "flagged" : "approved";
 
-  // ── Tiered signup bonus: 10¢ for first 5 invites, 20¢ thereafter ────────
-  const [{ existingCount }] = await db
-    .select({ existingCount: sql<number>`COUNT(*)::int` })
-    .from(referralsTable)
-    .where(
-      and(
-        eq(referralsTable.referrerUserId, referrer.clerkId),
-        ne(referralsTable.status, "rejected"),
-      )
-    );
-  const signupBonusCents = (existingCount ?? 0) < REFERRAL_TIER_1_LIMIT
-    ? REFERRAL_TIER_1_BONUS_CENTS
-    : REFERRAL_TIER_2_BONUS_CENTS;
+  // ── Flat 10¢ signup bonus ────────────────────────────────────────────────
+  const signupBonusCents = REFERRAL_SIGNUP_BONUS_CENTS;
 
   // ── Create referral record ───────────────────────────────────────────────
   const [referral] = await db.insert(referralsTable).values({
@@ -248,8 +236,9 @@ router.post("/referrals/claim", async (req, res): Promise<void> => {
     userId: referrer.clerkId,
     type: "referral_signup",
     title: "Your invite worked! 🎉",
-    message: `${currentUser.name || "Someone"} joined via your referral link — you earned ${signupBonusCents}¢!`,
+    message: `${currentUser.name || "Someone"} joined via your referral link — you earned 10¢!`,
   });
+  notifCacheInvalidate(referrer.clerkId);
 
   // Push notification: invitation accepted — fire-and-forget
   pushInvitationAccepted(referrer.clerkId, auth.userId)
@@ -354,16 +343,30 @@ router.get("/referrals/admin/stats", async (req, res): Promise<void> => {
 });
 
 // GET /api/referrals/admin/list
+// Supports ?page=1&limit=25
 router.get("/referrals/admin/list", async (req, res): Promise<void> => {
   if (!await requireAdmin(req, res)) return;
 
-  const referrals = await db.select().from(referralsTable).orderBy(desc(referralsTable.createdAt));
+  const page  = Math.max(1, parseInt((req.query.page  as string) || "1",  10));
+  const limit = Math.min(200, Math.max(0, parseInt((req.query.limit as string) || "0", 10)));
+  const offset = (page - 1) * limit;
 
-  // Enrich with user info for both referrer and referred
-  const allIds = [
-    ...referrals.map(r => r.referrerUserId),
-    ...referrals.map(r => r.referredUserId),
-  ];
+  let q = db.select().from(referralsTable).orderBy(desc(referralsTable.createdAt)).$dynamic();
+
+  let total = 0;
+  let hasMore = false;
+
+  if (limit > 0) {
+    const [{ cnt }] = await db.select({ cnt: count() }).from(referralsTable);
+    total = Number(cnt);
+    hasMore = offset + limit < total;
+    q = q.limit(limit).offset(offset);
+  }
+
+  const referrals = await q;
+  if (!limit) total = referrals.length;
+
+  const allIds = [...referrals.map(r => r.referrerUserId), ...referrals.map(r => r.referredUserId)];
   const uniqueIds = [...new Set(allIds)];
 
   let users: Array<{ clerkId: string; name: string | null; email: string }> = [];
@@ -382,7 +385,7 @@ router.get("/referrals/admin/list", async (req, res): Promise<void> => {
     referredEmail: userMap[r.referredUserId]?.email || "",
   }));
 
-  res.json({ referrals: enriched });
+  res.json({ referrals: enriched, total, hasMore });
 });
 
 // PATCH /api/referrals/admin/:id/status
@@ -473,8 +476,9 @@ router.post("/referrals/admin/:id/reverse", async (req, res): Promise<void> => {
   res.json({ ok: true, reversedCents: totalReversalCents });
 });
 
-// ─── Shared helper exported for use by answers route ────────────────────────
-// Award 0.5¢ referral answer bonus to the referrer of a given answerer.
+// ─── Shared helpers exported for use by answers route ───────────────────────
+
+// Award 0.5¢ referral answer bonus to the referrer of a given answerer (unchanged).
 export async function awardReferralAnswerBonus(answererClerkId: string, relatedId?: number): Promise<void> {
   try {
     const [user] = await db.select({ referredByUserId: usersTable.referredByUserId })

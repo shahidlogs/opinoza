@@ -22,7 +22,8 @@ export type PushNotificationType =
   | "question_answered"
   | "invitation_accepted"
   | "bonus_received"
-  | "new_question";
+  | "new_question"
+  | "engagement";
 
 interface PushConfig {
   dailyCap: number;
@@ -37,6 +38,7 @@ export const PUSH_CONFIG: PushConfig = {
     invitation_accepted: (process.env.PUSH_ENABLE_INVITATION_ACCEPTED ?? "true") === "true",
     bonus_received:      (process.env.PUSH_ENABLE_BONUS_RECEIVED      ?? "true") === "true",
     new_question:        (process.env.PUSH_ENABLE_NEW_QUESTION        ?? "true") === "true",
+    engagement:          (process.env.PUSH_ENABLE_ENGAGEMENT          ?? "true") === "true",
   },
 };
 
@@ -47,6 +49,7 @@ export const PUSH_PRIORITY: Record<PushNotificationType, number> = {
   question_answered:   3,
   invitation_accepted: 4,
   new_question:        5,
+  engagement:          6,
 };
 
 // ── Status values ────────────────────────────────────────────────────────────

@@ -1,0 +1,44 @@
+Task: Audit the entire website for anything that is slowing down the site or making any function feel laggy, then fix it.
+
+What I want:
+
+* Check frontend, backend, database queries, API calls, page rendering, assets, images, scripts, styles, authentication flow, admin pages, search, feeds, notifications, and any heavy background logic.
+* Find anything that causes slow loading, freezing, delay, unnecessary re-renders, duplicate requests, excessive database calls, large payloads, blocking scripts, unoptimized images, memory leaks, bad indexing, N+1 queries, inefficient polling, or wasteful state updates.
+* Also check if any feature is making the whole site heavier than necessary even if it “works”.
+
+Your job:
+
+1. Identify all performance bottlenecks.
+2. Explain clearly what is causing each slowdown.
+3. Fix them one by one.
+4. Keep existing functionality intact.
+5. Do not break UI, auth, admin, rewards, wallet, questions, answers, reports, or notifications.
+6. After fixes, summarize:
+
+   * what was slowing the site,
+   * what you changed,
+   * what improvement should be expected.
+
+Important:
+
+* Prefer real fixes, not cosmetic changes.
+* Remove unnecessary work from both frontend and backend.
+* Optimize database access and API response size where possible.
+* Reduce unnecessary re-fetching and re-rendering.
+* Lazy load where appropriate.
+* Compress/optimize assets if needed.
+* Add caching only where safe.
+* If any query needs indexing, add the proper index.
+* If any page is doing too much work on load, split or defer it.
+* If there are expensive components, optimize them.
+* If there are logs/errors causing slowdown, fix them too.
+
+Rules:
+
+* Do not rewrite unrelated parts.
+* Change only what is needed for speed and smoothness.
+* At the end, give file-by-file summary of changes.
+* Also mention any remaining issues that need manual decision.
+
+Main goal:
+Make the site feel smooth, fast, and lightweight across all major pages and functions.

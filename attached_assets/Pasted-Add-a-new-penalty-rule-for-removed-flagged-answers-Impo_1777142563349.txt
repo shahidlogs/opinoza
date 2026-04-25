@@ -1,0 +1,78 @@
+Add a new penalty rule for removed flagged answers.
+
+Important:
+Do not break the existing admin panel fixes, infinite scroll, withdrawal actions, referral system, or wallet logic.
+
+New rule:
+If an admin removes/deletes a flagged answer after review, deduct $0.10 from the answer owner’s wallet.
+
+Requirements:
+
+1. Trigger:
+- Only apply this penalty when an admin removes an answer from the Flags/Flagged Answers moderation flow.
+- Do NOT apply penalty when:
+  - flag is dismissed
+  - answer is approved/kept
+  - user edits answer
+  - normal non-flag admin actions happen
+
+2. Penalty amount:
+- Deduct 10 cents = 10 cents in wallet currency system.
+- If balances are stored in cents, deduct 10 cents.
+- Ensure it never creates unsafe wallet behavior.
+- If user balance is below $0.10, allow balance to go to zero only OR create a negative transaction depending on existing wallet rules. Prefer safe behavior:
+  - wallet balance should not go below zero
+  - deduct min(current_balance, 10 cents)
+  - still log the penalty attempt clearly
+
+3. Transaction history:
+Create a transaction record:
+- type: penalty or answer_removed_penalty
+- amount: -10 cents
+- description: “Penalty for removed flagged answer”
+- link/reference to answer id and flag id if available
+- admin id in meta if available
+
+4. Notification:
+Send the user an in-app notification:
+Title:
+“Answer removed penalty”
+
+Message:
+“Your flagged answer was removed after admin review. A $0.10 penalty has been deducted from your wallet according to Opinoza community rules.”
+
+If email notification system exists and is enabled for this type, optional email is okay, but in-app notification is required.
+
+5. Admin UI:
+After admin removes a flagged answer:
+- Update the flag row in-place if possible
+- Show a toast/message:
+“Answer removed and $0.10 penalty applied.”
+If wallet balance was less than $0.10:
+“Answer removed and available balance penalty applied.”
+
+6. Duplicate protection:
+- Penalty must be applied only once per removed answer/flag.
+- If admin clicks remove twice or refreshes, do not deduct twice.
+- Store penalty transaction reference/meta to prevent duplicate penalty for same flag/answer.
+
+7. Terms and Guide pages:
+Update Terms page and Guide/Guidelines page with this rule:
+“Flagged answers that are reviewed and removed by admins may result in a $0.10 deduction from the user’s wallet.”
+
+Also add simple user-facing wording:
+“Please submit honest, helpful, and relevant answers. If your answer is flagged and removed by admin review, $0.10 may be deducted from your wallet.”
+
+8. Backend enforcement:
+All deduction logic must happen server-side.
+Do not trust frontend.
+Use atomic update/transaction where possible.
+
+9. Final verification:
+- Admin removes a flagged answer.
+- Answer owner wallet decreases by $0.10 or available balance if less.
+- Transaction history shows penalty.
+- User receives notification.
+- Same answer/flag cannot be penalized twice.
+- Dismissed flags do not deduct anything.
+- Terms and Guide pages show the new rule.

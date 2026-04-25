@@ -1,0 +1,63 @@
+Optimize Admin Panel performance.
+
+Current issue:
+Admin panel is slow because users, questions, withdrawals, flags, referrals, verifications, and other data appear to load too much data at once.
+
+Goal:
+Do not load everything at the same time. Load data only when a tab is opened, with pagination/infinite scroll.
+
+Requirements:
+
+1. Lazy load admin tabs:
+- Only load data for the active tab.
+- Do not fetch Users until Users tab is opened.
+- Do not fetch Withdrawals until Withdrawals tab is opened.
+- Do not fetch Flags until Flags tab is opened.
+- Do not fetch Verifications until Verifications tab is opened.
+- Same for all other admin tabs.
+
+2. Add pagination:
+For heavy lists, return limited results from API:
+- Users: 25 per page
+- Questions: 25 per page
+- Withdrawals: 25 per page
+- Referrals: 25 per page
+- Flags: 25 per page
+- Verifications: 25 per page
+
+3. Add “Load More” button or infinite scroll:
+- Initially show 25 records.
+- When admin scrolls down or clicks Load More, fetch next 25.
+- Do not load all records at once.
+
+4. Backend API:
+Update admin endpoints to support:
+- page
+- limit
+- offset or cursor
+- total count if needed
+
+Example:
+GET /admin/users?page=1&limit=25
+
+5. Frontend:
+- Show loading only for the active tab.
+- Keep already loaded tab data cached while switching tabs.
+- Add refresh button per tab.
+- Prevent duplicate requests while loading.
+
+6. Counts/badges:
+Admin tab counts like Pending Review, Withdrawals, Referrals should be fetched separately as lightweight counts only.
+Do not fetch full lists just to show counts.
+
+7. Flags tab issue:
+If Flags tab is stuck on “Loading flags...”, fix it so it times out gracefully and shows an error/retry button instead of infinite loading.
+
+8. Performance target:
+Admin panel first load should be fast.
+Opening each tab should fetch only that tab’s first 25 records.
+
+Important:
+Do not change admin functionality.
+Do not remove approve/reject/ban/transfer actions.
+Only improve loading performance and pagination.

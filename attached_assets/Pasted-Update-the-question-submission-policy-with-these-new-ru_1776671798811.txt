@@ -1,0 +1,102 @@
+Update the question submission policy with these new rules.
+
+---
+
+## RULE 1 — QUESTION SUBMISSION COST
+
+Set the question submission cost to 25 cents.
+
+* When a user submits a question, deduct 25 cents from their wallet
+* Keep the current approval flow intact unless changes are needed for this pricing rule
+
+---
+
+## RULE 2 — REJECTION REFUND + PENALTY
+
+If a submitted question is rejected by admin/moderation:
+
+* refund 20 cents back to the user
+* keep 5 cents as a penalty/fine
+
+Store this clearly in the system so it is transparent.
+
+Also:
+
+* store the rejection reason
+* store refunded amount
+* store penalty amount
+
+User notification text should clearly explain the rejection, for example:
+
+"Your question was rejected because it appears to be spam, low-quality, unclear, duplicate, or against platform rules. 20 cents have been refunded to your wallet, and 5 cents were kept as a penalty."
+
+Admin/moderator should be able to reject with a reason.
+
+Transaction/history should remain clear, for example:
+
+* Question submission: -25 cents
+* Question rejection refund: +20 cents
+* Penalty retained: 5 cents
+
+If a question is approved:
+
+* no refund is given
+* the full 25 cents remains the submission cost
+
+---
+
+## RULE 3 — DAILY QUESTION LIMIT AFTER 20 QUESTIONS
+
+Change the old question creation limit rule.
+
+OLD BEHAVIOR:
+
+* after 30 created questions, user could create only 1 question per day
+
+NEW BEHAVIOR:
+
+* after a user has completed 20 created questions, they may create only 2 questions per day
+
+Important:
+
+* this should replace the old 30-question / 1-per-day rule
+* the new threshold is 20 questions
+* the new daily cap is 2 questions per day
+
+---
+
+## RULE 4 — APPLY ONLY TO FUTURE SUBMISSIONS
+
+Do NOT retroactively apply the new daily-limit rule to already submitted questions in a way that breaks old data.
+
+Meaning:
+
+* previously submitted questions should remain as they are
+* apply the new limit logic going forward from now
+* use the user's existing created-question count as the threshold check if needed
+* but do not alter or penalize old submitted questions themselves
+
+---
+
+## IMPLEMENTATION REQUIREMENTS
+
+1. Review the current question cost logic first
+2. Review the current moderation rejection/refund logic first
+3. Review the current daily question limit logic first
+4. Replace the old 30 -> 1/day rule with the new 20 -> 2/day rule
+5. Make the smallest safe changes necessary
+6. Do NOT break current question submission flow
+7. Keep wallet/transaction records transparent
+8. After implementation, report:
+
+* files changed
+* database changes
+* exact 25/20/5 logic
+* exact daily limit logic
+* when the new rule starts applying
+* exact user notification text
+* what happens on approval vs rejection
+
+Important:
+This must be implemented carefully and transparently.
+The new daily limit should apply going forward, not by rewriting old submissions.

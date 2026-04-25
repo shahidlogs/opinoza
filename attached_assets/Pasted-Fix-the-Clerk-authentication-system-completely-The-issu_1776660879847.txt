@@ -1,0 +1,72 @@
+Fix the Clerk authentication system completely. The issue is NOT resolved yet and still breaks under traffic.
+
+Use these production keys ONLY:
+
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_***
+CLERK_SECRET_KEY=sk_live_***
+
+Tasks (execute strictly in order):
+
+1. ENV VALIDATION
+
+* Detect ALL places where Clerk keys are defined or used (env, config files, frontend, backend).
+* Print which keys are ACTUALLY loaded at runtime (ONLY prefixes: pk_live / pk_test, sk_live / sk_test).
+* Ensure there are NO test keys anywhere in the codebase.
+
+2. REMOVE CONFLICTS
+
+* Remove any old/test/dev Clerk keys.
+* Remove duplicate env variable names (e.g. CLERK_PUBLISHABLE_KEY vs NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY).
+* Ensure frontend uses ONLY NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.
+* Ensure backend uses ONLY CLERK_SECRET_KEY.
+
+3. SINGLE INSTANCE ENFORCEMENT
+
+* Ensure the app is connected to ONLY ONE Clerk instance (production).
+* Remove any proxy, fallback, or middleware pointing to old/dev Clerk endpoints.
+
+4. TOKEN + ORIGIN FIX
+
+* Check Clerk token verification logic.
+* Ensure correct domain/origin is used (production domain only).
+* Fix azp / authorized parties mismatch if present.
+
+5. FRONTEND FIX (CRITICAL)
+
+* Prevent multiple clicks on login/signup buttons.
+* Add loading/disabled state on Google login and email login.
+* Ensure no repeated API calls are triggered on one click.
+
+6. RATE LIMIT PROTECTION
+
+* Add server-side rate limiting BEFORE requests hit Clerk.
+* Prevent burst calls from same user/session.
+
+7. CLEAN RESTART
+
+* Restart/redeploy the app after fixes.
+* Clear any cached sessions if needed.
+
+8. VERIFICATION (MANDATORY)
+   Test ALL flows:
+
+* Email signup
+* Email login
+* Google login
+* Session refresh
+
+Then simulate traffic (rapid clicks / multiple users).
+
+9. FINAL REPORT (REQUIRED)
+   Do NOT say “fixed” without proof. Report:
+
+* Which keys are active (prefix only)
+* Any old keys found
+* Files modified
+* Root cause of issue
+* Before vs after behavior
+* Log proof (no 429, no token errors)
+
+Goal:
+Login/signup must NEVER break under traffic again.
+No 429 loops, no double requests, no mixed environments.

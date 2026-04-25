@@ -10,6 +10,7 @@ export const referralsTable = pgTable("referrals", {
   signupBonusCents: doublePrecision("signup_bonus_cents").notNull().default(10),
   answerBonusCentsTotal: doublePrecision("answer_bonus_cents_total").notNull().default(0),
   signupBonusGrantedAt: timestamp("signup_bonus_granted_at", { withTimezone: true }),
+  answerMilestoneBonusGrantedAt: timestamp("answer_milestone_bonus_granted_at", { withTimezone: true }),
   referrerClickIp: text("referrer_click_ip"),
   referredSignupIp: text("referred_signup_ip"),
   referredUserAgent: text("referred_user_agent"),

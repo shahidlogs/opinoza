@@ -396,11 +396,52 @@ export default function Profile() {
   const { user } = useUser();
   const { getToken } = useAuth();
   const { data: me } = useGetMe();
+  const queryClient = useQueryClient();
 
   const base = (import.meta as any).env.BASE_URL?.replace(/\/$/, "") ?? "";
 
   const [questions, setQuestions] = useState<ProfileQuestion[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ── Phone number ───────────────────────────────────────────────────────────
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneEditing, setPhoneEditing] = useState(false);
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneSaved, setPhoneSaved] = useState(false);
+
+  // Sync from server once loaded
+  useEffect(() => {
+    if (me?.phoneNumber !== undefined && !phoneEditing) {
+      setPhoneInput(me.phoneNumber ?? "");
+    }
+  }, [me?.phoneNumber, phoneEditing]);
+
+  const savePhone = useCallback(async () => {
+    setPhoneSaving(true);
+    setPhoneError(null);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${base}/api/users/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ phoneNumber: phoneInput.trim() || null }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPhoneError(data.error || "Failed to save phone number");
+      } else {
+        setPhoneEditing(false);
+        setPhoneSaved(true);
+        setTimeout(() => setPhoneSaved(false), 2500);
+        queryClient.invalidateQueries({ queryKey: ["getMe"] });
+      }
+    } catch {
+      setPhoneError("Network error. Please try again.");
+    } finally {
+      setPhoneSaving(false);
+    }
+  }, [phoneInput, getToken, base, queryClient]);
 
   const fetchQuestions = useCallback(async () => {
     if (!user) return;
@@ -465,6 +506,71 @@ export default function Profile() {
             )}
           </div>
         </div>
+      </motion.div>
+
+      {/* Phone number card */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }}
+        className="bg-card border border-card-border rounded-2xl p-5 mb-6 shadow-sm"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.8 1h3a2 2 0 0 1 2 1.72c.127.96.36 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.59a16 16 0 0 0 5.5 5.5l1.66-1.66a2 2 0 0 1 2.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0 1 22 14.92z"/>
+            </svg>
+            <p className="text-sm font-semibold text-foreground">Phone Number</p>
+            <span className="text-xs text-muted-foreground">(optional)</span>
+          </div>
+          {!phoneEditing && (
+            <button
+              onClick={() => setPhoneEditing(true)}
+              className="text-xs font-semibold text-amber-600 hover:text-amber-700 transition-colors"
+            >
+              {me?.phoneNumber ? "Edit" : "Add"}
+            </button>
+          )}
+        </div>
+
+        {phoneEditing ? (
+          <div className="space-y-3">
+            <input
+              type="tel"
+              value={phoneInput}
+              onChange={e => { setPhoneInput(e.target.value); setPhoneError(null); }}
+              onKeyDown={e => { if (e.key === "Enter") savePhone(); if (e.key === "Escape") { setPhoneEditing(false); setPhoneInput(me?.phoneNumber ?? ""); } }}
+              placeholder="+92 300 0000000"
+              autoFocus
+              className="w-full px-3 py-2 rounded-xl border border-card-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+            />
+            {phoneError && <p className="text-xs text-red-500">{phoneError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={savePhone}
+                disabled={phoneSaving}
+                className="px-4 py-1.5 rounded-lg text-sm font-semibold gold-gradient text-white disabled:opacity-60 transition-opacity"
+              >
+                {phoneSaving ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={() => { setPhoneEditing(false); setPhoneInput(me?.phoneNumber ?? ""); setPhoneError(null); }}
+                className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            {phoneSaved ? (
+              <motion.p key="saved" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-sm text-green-600 font-medium">
+                ✓ Phone number saved
+              </motion.p>
+            ) : me?.phoneNumber ? (
+              <p className="text-sm text-foreground font-medium">{me.phoneNumber}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No phone number added yet</p>
+            )}
+          </AnimatePresence>
+        )}
       </motion.div>
 
       {/* Progress bar */}

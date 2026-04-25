@@ -129,7 +129,8 @@ function WalletBadge() {
 
 function AdminBadge() {
   const { data: me } = useGetMe();
-  if (!me?.isAdmin) return null;
+  if (!me?.isAdmin && !me?.isEditor) return null;
+  const label = me?.isAdmin ? "Admin" : "Moderation";
   return (
     <Link href="/admin">
       <motion.div
@@ -139,7 +140,7 @@ function AdminBadge() {
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
-        Admin
+        {label}
       </motion.div>
     </Link>
   );
@@ -402,6 +403,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link href="/contact"><span className="hover:text-foreground transition-colors cursor-pointer">Contact</span></Link>
               <Link href="/about"><span className="hover:text-foreground transition-colors cursor-pointer">About</span></Link>
               <Link href="/how-it-works"><span className="hover:text-foreground transition-colors cursor-pointer">How It Works</span></Link>
+              <Link href="/blog"><span className="hover:text-foreground transition-colors cursor-pointer">Blog</span></Link>
+              <span className="text-border hidden sm:inline">·</span>
+              <Link href="/safety"><span className="hover:text-foreground transition-colors cursor-pointer text-blue-600 hover:text-blue-700">Child Safety Policy</span></Link>
             </div>
           </div>
         </div>

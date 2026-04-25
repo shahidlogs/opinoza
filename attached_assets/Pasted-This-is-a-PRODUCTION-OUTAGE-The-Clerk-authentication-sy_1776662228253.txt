@@ -1,0 +1,151 @@
+This is a PRODUCTION OUTAGE. The Clerk authentication system is still broken on the LIVE site.
+
+Real behavior (LIVE):
+
+* Login page shows "Connecting..."
+* Then error: "Too many requests. Please try again in a bit."
+* This happens even on a single click
+* Most users cannot log in
+* Some users occasionally can log in
+* This started recently — it was working before
+
+DO NOT assume:
+
+* that the issue is fixed
+* that this is just old sessions
+* that double-click was the root cause
+
+Your job is to find the REAL root cause using LIVE production behavior.
+
+---
+
+## STEP 1 — VERIFY LIVE DEPLOYMENT
+
+* Confirm whether the previous fixes are actually deployed to the LIVE site.
+* Verify frontend build contains latest auth changes.
+* Verify backend has Clerk rate limit middleware mounted.
+* If NOT deployed → deploy first and clearly state that previous testing was local only.
+
+---
+
+## STEP 2 — TRACE LIVE REQUESTS (CRITICAL)
+
+On LIVE site:
+
+* Open sign-in page
+* Click Google login ONCE
+
+Log ALL requests:
+
+* /api/__clerk/*
+* Clerk endpoints
+* session/token endpoints
+* sign_in / sign_up / oauth
+
+Return EXACT COUNTS:
+
+* how many requests fire on page load
+* how many requests fire on ONE click
+
+NO guesses — real numbers only.
+
+---
+
+## STEP 3 — FIND REQUEST LOOP / SPAM SOURCE
+
+Identify if ANY of these are happening:
+
+* React re-render loop triggering auth repeatedly
+* Clerk being initialized multiple times
+* useEffect / hooks firing repeatedly
+* OAuth handler firing more than once
+* Proxy duplicating or replaying requests
+* Automatic retries happening in frontend or backend
+* Session refresh loop stuck
+
+Find EXACT code causing repeated requests.
+
+---
+
+## STEP 4 — PROXY + SERVER CHECK
+
+* Audit Clerk proxy implementation
+* Ensure it is not duplicating or retrying requests
+* Ensure no middleware is forwarding requests multiple times
+* Ensure no fallback route is re-triggering auth
+
+---
+
+## STEP 5 — EMERGENCY STABILIZATION (DO THIS EVEN BEFORE PERFECT FIX)
+
+Immediately stop request flooding:
+
+* Allow ONLY ONE auth request per user interaction
+* Block repeated calls globally (hard lock for 2–3 seconds)
+* Disable any automatic retry loops
+* Ensure login buttons cannot trigger multiple requests
+* If needed, temporarily bypass proxy for testing
+
+Goal: STOP hitting Clerk repeatedly
+
+---
+
+## STEP 6 — FIX ROOT CAUSE
+
+After identifying the issue:
+
+* Fix the exact source (frontend loop / proxy duplication / session loop / etc.)
+* Keep solution minimal and safe
+* Do NOT break working users
+
+---
+
+## STEP 7 — LIVE VERIFICATION (MANDATORY)
+
+Test again on LIVE domain:
+
+* Open login page
+* Click Google once
+* Test email login
+
+Provide:
+
+BEFORE:
+
+* request count (page load + click)
+* error behavior
+
+AFTER:
+
+* request count reduced
+* no "Connecting..." loop
+* no "Too many requests"
+
+---
+
+## STEP 8 — FINAL REPORT (NO SHORT ANSWERS)
+
+You MUST report:
+
+* Was previous fix actually deployed or not?
+* Exact root cause (not theory)
+* Exact file(s) and code responsible
+* Exact changes made
+* Request count before vs after
+* Proof that login works on LIVE
+
+DO NOT say “fixed” without proof.
+
+---
+
+## IMPORTANT
+
+Treat this as critical outage.
+Focus on LIVE behavior only.
+Use real logs, real browser requests, real evidence.
+
+Goal:
+Login must work on first click.
+No loops.
+No repeated requests.
+No Clerk rate limit errors.

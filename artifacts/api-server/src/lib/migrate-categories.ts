@@ -16,6 +16,7 @@ const CATEGORY_MAP: Record<string, string> = {
   "Health & Fitness": "Health & Wellness",
   "Healthcare":     "Health & Wellness",
   "Shopping":       "Shopping & Brands",
+  "Environment":    "Environment & Nature",
 };
 
 export async function migrateCategories(): Promise<void> {

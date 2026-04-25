@@ -1,0 +1,94 @@
+Add a new "Editor" role to Opinoza, but do it very carefully so that no existing features, permissions, earnings rules, approval flows, wallet logic, or admin tools break.
+
+Main goal:
+The Admin must be able to assign certain users as Editors.
+
+Editor role requirements:
+1. An Editor can create questions
+2. An Editor can approve questions
+3. An Editor must NOT be charged any question creation fee
+4. An Editor must have NO limit on creating questions
+5. An Editor is NOT an Admin
+6. An Editor must not get access to admin-only financial or user-management powers unless explicitly required for question creation/approval
+7. Existing normal users must continue working exactly as before
+
+Very important safety requirement:
+Do not break any existing logic.
+Do not change unrelated behavior.
+Do not remove current Admin powers.
+Do not affect withdrawal logic, wallet logic, earning logic, referral logic, bonus logic, moderation logic, or answer rewards, except where needed for the Editor’s question creation/approval permissions.
+
+Required behavior:
+- Normal users:
+  - can create questions only under existing rules
+  - still pay the normal question creation cost if that rule already exists
+  - cannot approve questions
+- Editors:
+  - can create unlimited questions
+  - pay zero question creation fee
+  - can approve questions
+- Admins:
+  - continue to have full existing powers
+  - also pay zero question creation fee if that is already the current intended behavior
+
+Implementation requirements:
+1. Add a proper role system or extend the current permission system cleanly
+   - Prefer a scalable structure such as a role field or equivalent
+   - Keep compatibility with the current admin system
+2. Admin must be able to assign or remove the Editor role from a user
+3. Show clearly in the UI when a user is an Editor
+4. Update backend authorization checks so question approval is allowed for:
+   - Admin
+   - Editor
+   and denied for:
+   - Normal user
+5. Update question creation logic so:
+   - Normal user = existing fee rules remain unchanged
+   - Editor = no fee, unlimited creation
+   - Admin = no fee if intended by current system
+6. Do not add any creation cap or daily limit for Editors
+7. Do not deduct coins, wallet balance, or any fee from Editors when they create questions
+8. If there is any validation or middleware tied to admin-only approval, update it safely so Editor is included only where needed
+9. Keep the system future-ready so more roles can be added later if needed
+
+Strict permission boundaries for Editor:
+Editor can:
+- create questions
+- approve questions
+
+Editor cannot:
+- manage withdrawals
+- access payment or finance controls
+- change site-wide settings
+- manage admins
+- manage user roles except their own normal usage permissions
+- access sensitive admin-only tools unless already required for question creation/approval workflow
+
+Frontend/Admin panel requirements:
+- Add an option in Admin user management to assign/remove Editor role
+- Make the role visible in a clean way, such as a badge or label
+- Do not make confusing UI changes outside the required parts
+
+Testing/verification required:
+Please test and confirm all of these cases:
+1. Normal user creates a question -> existing fee is charged as before
+2. Editor creates a question -> no fee is charged
+3. Editor can create unlimited questions -> no limit blocks them
+4. Admin creates a question -> behavior remains correct
+5. Normal user tries to approve a question -> denied
+6. Editor approves a question -> allowed
+7. Admin approves a question -> allowed
+8. Existing wallet, earnings, withdrawal, and reward logic still works correctly
+9. Existing admin features still work correctly
+10. Existing normal user experience remains unchanged except for the intended new role behavior
+
+Important final instruction:
+Before finishing, review all affected permission checks and make sure there is no accidental privilege escalation.
+
+At the end, provide a clear report with:
+1. What database changes were made
+2. What backend files were changed
+3. What frontend/admin UI files were changed
+4. What permission checks were updated
+5. Whether the role structure is ready for future roles
+6. What exact tests were performed to confirm nothing else was broken

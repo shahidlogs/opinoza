@@ -1,0 +1,73 @@
+URGENT: Google sign-in / sign-up is still blocked by "Too many requests" and users cannot log in.
+
+The current fix made things worse:
+
+* There is now a DOUBLE error banner
+* Legit users are being blocked on Google auth
+* The current auth rate limiter is too aggressive
+
+Do this exact fix:
+
+1. REMOVE / RELAX AUTH LIMITER IMMEDIATELY
+
+* Find the current express-rate-limit / burst limiter added for auth
+* REMOVE the burst limiter that blocks 3 POST requests per 5 seconds
+* Either remove the extra auth limiter entirely OR relax it heavily
+
+2. EXCLUDE GOOGLE / CLERK AUTH ROUTES FROM STRICT LIMITING
+   Do NOT rate limit these routes:
+
+* /auth/google
+* /auth/google/callback
+* /sign-in
+* /sign-up
+* Clerk proxy routes
+* any route used by Clerk social login flow
+* any /v1/client, /v1/environment, /v1/sign_ins, /v1/sign_ups proxy/auth requests if proxied through backend
+
+If a global limiter exists, skip auth routes from it.
+
+3. KEEP ONLY A SAFE GLOBAL LIMIT
+
+* Keep a normal site-wide limiter for general API abuse
+* But auth/social login routes must be exempt or much looser
+  Example safe auth limit:
+* 100 requests per 15 minutes per IP minimum
+* No burst limiter on auth
+
+4. REMOVE DUPLICATE ERROR UI
+
+* Remove the custom top red 429 banner added by fetch interceptor
+* Let Clerk show its own error only once
+* Do not patch window.fetch for auth errors anymore unless absolutely necessary
+
+5. FRONTEND
+
+* Keep only the simple one-click protection:
+
+  * disable Google button after first click
+  * loading state
+* Do NOT add extra blocking logic that interferes with Clerk internals
+* Remove stopImmediatePropagation hacks if they interfere with Clerk flow
+
+6. VERIFY REAL FLOW
+   Test on mobile:
+
+* Open sign in page
+* Tap Continue with Google once
+* User should be redirected normally
+* No "Too many requests" on first attempt
+* No duplicate banners
+
+7. AFTER CHANGES
+   Show me exactly:
+
+* which limiter middleware was removed/changed
+* which routes were excluded
+* which frontend custom 429 UI was removed
+* final auth-related rate limit values
+
+IMPORTANT:
+This is now a production issue blocking user signups.
+Prioritize restoring working Google login over aggressive rate limiting.
+Do not leave any strict limiter on Google/Clerk login routes.

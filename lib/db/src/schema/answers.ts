@@ -12,6 +12,7 @@ export const answersTable = pgTable("answers", {
   notFamiliar: boolean("not_familiar").default(false).notNull(),
   reason: text("reason"),
   flagStatus: text("flag_status"),
+  noRewardReason: text("no_reward_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -40,10 +40,10 @@ export default function Contact() {
               <p>
                 Send us an email at{" "}
                 <a
-                  href="mailto:support.opinoza@gmail.com"
+                  href="mailto:support@opinoza.com"
                   className="text-amber-600 font-semibold hover:text-amber-700 transition-colors underline underline-offset-2"
                 >
-                  support.opinoza@gmail.com
+                  support@opinoza.com
                 </a>
                 {" "}and we'll get back to you as soon as possible.
               </p>
@@ -86,10 +86,10 @@ export default function Contact() {
             body={
               <p>For partnership opportunities, press inquiries, or anything else, feel free to reach out at{" "}
                 <a
-                  href="mailto:support.opinoza@gmail.com"
+                  href="mailto:support@opinoza.com"
                   className="text-amber-600 font-medium hover:text-amber-700 transition-colors"
                 >
-                  support.opinoza@gmail.com
+                  support@opinoza.com
                 </a>.
               </p>
             }

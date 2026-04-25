@@ -1,0 +1,107 @@
+Refine the question feed logic carefully. The current suppression logic is too aggressive. Apply this exact behavior.
+
+IMPORTANT:
+These rules apply to normal-user-created questions only.
+Admin / moderator / editor questions must never be hidden by the $5 rule.
+
+====================================================
+REQUIRED FEED BEHAVIOR
+====================================================
+
+A "fresh" question means:
+- totalAnswers < 10
+
+Fresh questions should appear at the top of the normal non-search feed regardless of who created them:
+- normal user
+- admin
+- moderator/editor
+
+After that, ranking should behave like this:
+
+1. Fresh questions first (totalAnswers < 10), regardless of creator type
+   - newest first within this group
+
+2. Then admin/moderator/editor/system questions that are no longer fresh
+   - newest first within this group
+
+3. Then normal-user questions from creators whose wallet earnings are below $5 and are no longer fresh
+   - newest first within this group
+
+4. Normal-user questions from creators whose wallet earnings are $5 or more and are no longer fresh
+   - must be hidden from normal users entirely
+   - but still visible to:
+     - the question creator themself
+     - admins/moderators/editors
+     - search results
+     - direct single-question page
+
+====================================================
+$5 SUPPRESSION RULE — IMPORTANT REFINEMENT
+====================================================
+
+Current behavior should be changed to this exact rule:
+
+For normal-user creators with wallet earnings >= 500 cents:
+- DO NOT hide their fresh questions
+- Keep showing them in normal feed/category listings while totalAnswers < 10
+- Once totalAnswers reaches 10 or more, hide them from normal users in normal non-search feed/category listings
+
+So:
+- wallet >= $5 alone should NOT immediately suppress the question
+- suppression should apply only when BOTH are true:
+  1. creator is a normal user with earnings >= 500 cents
+  2. question totalAnswers >= 10
+
+Exception visibility:
+- creator can still see their own questions
+- admins/moderators/editors can still see them
+- search results must still include them
+- direct question page must still include them
+
+====================================================
+ADMIN / MODERATOR / EDITOR RULES
+====================================================
+
+- Their questions must never be hidden by the $5 rule
+- Fresh admin/editor questions should appear in the top fresh group
+- Older admin/editor questions should appear after the fresh group, before old normal-user questions
+
+====================================================
+APPLY THIS TO
+====================================================
+
+Apply this exact behavior consistently to all normal non-search listing paths:
+- home feed
+- browse/discover
+- category feeds
+- pagination / infinite scroll
+
+Do NOT apply suppression to:
+- search
+- direct single-question fetch
+- creator's own questions view
+- admin/moderator/editor views
+
+====================================================
+IMPLEMENTATION NOTES
+====================================================
+
+- Change fresh threshold from 20 to 10
+- Update rank logic / CASE expression to match the required 3 visible groups
+- Update suppression WHERE clause so that it only hides non-fresh questions from normal-user creators with >= $5 earnings
+- Keep owner/admin/moderator visibility intact
+- Keep search untouched
+- Keep direct question endpoint untouched
+- Keep changes minimal and production-safe
+
+====================================================
+AFTER IMPLEMENTATION
+====================================================
+
+After coding, report clearly:
+- the exact final CASE / ORDER BY logic
+- the exact final suppression condition
+- files changed
+- confirmation that fresh questions from high-earning normal users remain visible until they hit 10 answers
+- confirmation that after 10 answers they disappear from normal non-search feed for normal users only
+- confirmation that search/direct page/owner/admin/moderator visibility still works

@@ -1,0 +1,70 @@
+This is still NOT fixed. The same "Connecting..." loader appears, then the same "Too many requests" error appears on the LIVE site. Also, the site has become slower after the latest changes.
+
+So the last diagnosis/fix was not sufficient.
+
+EMERGENCY INSTRUCTION:
+First, ROLLBACK the latest auth changes that made the site slower, because they did not solve the issue.
+
+Rollback these latest changes:
+
+1. the stale Clerk cookie clearing logic added in App.tsx
+2. the in-memory Clerk rate-limit cache middleware
+3. the proxy logic that records Clerk 429s into that cache
+
+After rollback, do a clean redeploy so site performance returns to normal.
+
+Then do a REAL root-cause investigation on LIVE production without assumptions.
+
+Required steps:
+
+1. ROLLBACK + REDEPLOY
+
+* Revert the latest “stale cookie clearing” and “429 cache middleware” changes
+* Redeploy the app
+* Confirm the site speed is back to normal
+
+2. LIVE NETWORK TRACE
+
+* Inspect LIVE browser network requests for the sign-in page
+* Count exactly what fires on page load
+* Count exactly what fires on ONE Google click
+* Identify the exact request that triggers the visible "Connecting..." state
+* Identify the exact request that returns the 429
+
+3. FIND THE REAL SOURCE
+   Check whether the issue is caused by:
+
+* ClerkProvider initialization loop
+* repeated session/token polling
+* proxy misconfiguration
+* duplicate frontend auth mounting
+* repeated redirects
+* OAuth callback loop
+* browser/client retries
+* server retries
+* wrong domain/origin/cookie behavior
+
+4. SHOW THE ACTUAL CHAIN
+   I want the exact sequence:
+   page load → request 1 → request 2 → loader → retry → 429
+   No theory. Actual live sequence only.
+
+5. TEMPORARY STABILITY FIX
+   Before deeper redesign, apply the smallest safe fix that actually stops the live error without slowing the site.
+
+6. FINAL REPORT
+   Do NOT say “fixed” unless proven on LIVE.
+   Report:
+
+* what was rolled back
+* whether speed improved after rollback
+* exact request causing "Connecting..."
+* exact request causing 429
+* exact root cause
+* exact files changed
+* proof from LIVE site after redeploy
+
+Important:
+Stop guessing.
+Use live browser network + live production logs.
+Focus on the exact request chain causing the visible user failure.

@@ -2,12 +2,16 @@ import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { db, notificationsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
+import { notifCacheGet, notifCacheSet, notifCacheInvalidate } from "../lib/notifCache";
 
 const router: IRouter = Router();
 
 router.get("/notifications", async (req, res): Promise<void> => {
   const auth = getAuth(req);
   if (!auth?.userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const hit = notifCacheGet(auth.userId);
+  if (hit) return void res.json(hit);
 
   const notifications = await db.select()
     .from(notificationsTable)
@@ -16,7 +20,9 @@ router.get("/notifications", async (req, res): Promise<void> => {
     .limit(50);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
-  res.json({ notifications, unreadCount });
+  const payload = { notifications, unreadCount };
+  notifCacheSet(auth.userId, payload);
+  res.json(payload);
 });
 
 // Must come before /:id/read to avoid Express matching "read-all" as an id
@@ -28,6 +34,7 @@ router.patch("/notifications/read-all", async (req, res): Promise<void> => {
     .set({ isRead: true })
     .where(and(eq(notificationsTable.userId, auth.userId), eq(notificationsTable.isRead, false)));
 
+  notifCacheInvalidate(auth.userId);
   res.json({ ok: true });
 });
 
@@ -44,6 +51,7 @@ router.patch("/notifications/:id/read", async (req, res): Promise<void> => {
     .returning();
 
   if (!updated) { res.status(404).json({ error: "Notification not found" }); return; }
+  notifCacheInvalidate(auth.userId);
   res.json({ ok: true });
 });
 

@@ -1,0 +1,94 @@
+Investigate the ID verification document upload issue end-to-end and fix it.
+
+Problem:
+Many users are reporting that they cannot upload documents for ID verification. I need you to find the exact cause and fix it without breaking the verification flow.
+
+What to investigate:
+
+1. Check the full upload pipeline:
+
+   * frontend file picker
+   * client-side validation
+   * API request
+   * backend validation
+   * storage upload
+   * database save
+   * preview/render if any
+
+2. Find out exactly which file types are currently accepted and which are being rejected:
+
+   * jpg / jpeg
+   * png
+   * webp
+   * pdf
+   * heic / heif
+   * gif
+   * any other image/document format
+     Also check whether rejection is happening by extension, MIME type, or both.
+
+3. Check current upload limits:
+
+   * max file size
+   * image width/height limits
+   * request body size
+   * web server / proxy / hosting limits
+   * timeout limits
+
+4. Determine whether large images are causing failures:
+
+   * Are we compressing images before upload?
+   * Are original files being sent unoptimized?
+   * Are large mobile camera photos causing memory or timeout issues?
+   * Is image processing adding heavy server load?
+
+5. Check if the problem is caused by:
+
+   * unsupported document formats from users’ phones
+   * iPhone HEIC images
+   * huge camera image sizes
+   * bad error handling
+   * silent frontend failure
+   * storage path / permission issue
+   * server payload limit
+   * API validation mismatch
+   * cloud/storage provider restrictions
+
+6. Improve the UX:
+
+   * show clear allowed file types
+   * show max allowed size
+   * show real error messages
+   * avoid vague “upload failed” messages
+   * if file is too large, explain why
+   * if format is unsupported, tell the user which formats are accepted
+
+7. Optimize performance:
+
+   * If safe, compress oversized images before upload
+   * Resize very large images before sending
+   * Reduce server load from raw camera uploads
+   * Keep image quality readable enough for ID verification
+   * Do not over-compress text on IDs
+
+8. Security and correctness:
+
+   * Keep verification secure
+   * Do not allow dangerous file types
+   * Validate both MIME type and extension properly
+   * Ensure uploaded files are stored safely
+   * Do not break existing approved verification flow
+
+What I need from you:
+
+* Identify the exact bottlenecks and failure points
+* Tell me which document/image formats are accepted right now
+* Tell me which common user files are failing and why
+* Fix the issue
+* Add better validation and user-facing messages
+* Optimize upload handling for large images
+* Summarize all changes file by file
+
+Important:
+Do not make random rewrites.
+Keep the existing verification system working.
+Focus only on reliability, compatibility, clear errors, and performance of document uploads.

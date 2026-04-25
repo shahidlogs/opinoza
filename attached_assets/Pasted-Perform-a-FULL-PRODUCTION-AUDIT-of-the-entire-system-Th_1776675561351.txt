@@ -1,0 +1,155 @@
+Perform a FULL PRODUCTION AUDIT of the entire system.
+
+This is NOT a quick fix task.
+This is a complete audit for bugs, logic issues, and performance problems.
+
+GOALS:
+
+1. Identify ALL bugs or inconsistencies
+2. Verify all business logic is correctly enforced
+3. Fix performance issues (site is currently slow)
+4. Ensure system is stable, secure, and scalable
+
+---
+
+## PART 1 — BUSINESS LOGIC AUDIT
+
+Verify all rules are correctly enforced server-side:
+
+1. Question cost
+
+* 25¢ must ALWAYS be deducted on submission
+* no bypass for any role (admin/editor/user)
+
+2. Rejection logic
+
+* 20¢ refunded
+* 5¢ penalty retained
+* transaction history must be correct
+
+3. Fraud rules
+
+* self-question answers → no reward
+* linked/same-device/suspicious answers → no reward
+* rewards, referrals, and creator bonuses must all respect this
+
+4. Daily limits
+
+* <20 questions → 5/day
+* ≥20 questions → 2/day
+* must be enforced correctly across time (24h window)
+
+5. Wallet integrity
+
+* balance must always match transaction history
+* no negative balance unless explicitly allowed
+* no missing transactions
+
+6. Withdrawal protection
+
+* identity verification required
+* no payout without verification approval
+
+---
+
+## PART 2 — BUG DETECTION
+
+Find and fix:
+
+* any missing wallet deductions
+* duplicate or missing transactions
+* race conditions (double submission / double rewards)
+* incorrect status transitions (pending/approved/rejected)
+* broken API responses (wrong status codes or messages)
+* frontend/backend mismatches
+* silent failures hidden behind generic errors
+
+---
+
+## PART 3 — PERFORMANCE AUDIT (CRITICAL)
+
+The site feels slow. Find WHY.
+
+Check:
+
+1. Backend
+
+* slow database queries
+* missing indexes
+* unnecessary joins
+* N+1 queries
+* blocking operations (file upload, external APIs)
+
+2. API
+
+* endpoints taking >300ms
+* repeated unnecessary requests
+* heavy payloads (large JSON responses)
+
+3. Frontend
+
+* unnecessary re-renders
+* repeated API calls
+* blocking UI (loading delays)
+* large bundles
+
+4. Network
+
+* too many requests on page load
+* duplicate requests
+* inefficient caching
+
+5. Auth / Clerk
+
+* repeated token/session calls
+* retry loops
+* unnecessary auth checks
+
+---
+
+## PART 4 — PERFORMANCE FIXES
+
+Apply:
+
+* database indexing where needed
+* caching (where safe)
+* remove duplicate API calls
+* optimize slow endpoints
+* reduce payload sizes
+* debounce/throttle frontend actions
+* avoid blocking UI
+* optimize file uploads
+
+---
+
+## PART 5 — STABILITY & SAFETY
+
+Ensure:
+
+* all critical actions are atomic (transactions)
+* no double-spend or double-reward possible
+* proper error handling everywhere
+* meaningful error messages (no generic "failed")
+
+---
+
+## PART 6 — FINAL REPORT (REQUIRED)
+
+Provide a COMPLETE report:
+
+1. All bugs found
+2. All fixes applied
+3. Performance bottlenecks identified
+4. Before vs after performance
+5. Slowest endpoints
+6. DB optimizations done
+7. Any remaining risks
+
+IMPORTANT:
+
+* Do NOT assume anything
+* Use real logs and real data
+* Do NOT say "everything is fine"
+* Be strict and critical
+
+Treat this as a production-grade system audit.

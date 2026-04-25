@@ -19,6 +19,7 @@ export function useNotifications() {
     queryKey: ["notifications"],
     enabled: !!isSignedIn,
     refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
     queryFn: async (): Promise<{ notifications: AppNotification[]; unreadCount: number }> => {
       const token = await getToken();
       const res = await fetch("/api/notifications", {

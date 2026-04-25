@@ -1,0 +1,113 @@
+Apply these new platform rules carefully without breaking existing logic.
+
+IMPORTANT:
+These rules must apply ONLY to normal users.
+Do NOT apply these restrictions to admins or moderators.
+Admins and moderators must continue to see everything normally and must not be blocked by answer limits.
+
+====================================================
+GOAL 1 — Hide questions from normal feed after creator reaches $5
+====================================================
+
+Implement this rule:
+
+If a NORMAL USER'S total earnings reach or exceed $5.00 (500 cents), then all questions created by that user must be hidden from:
+- the main/home feed
+- browse/discover feeds
+- category feeds
+- infinite scroll / pagination results
+- any normal non-search listing endpoints
+
+BUT:
+- the owner of those questions must still be able to see their own hidden questions
+- admins and moderators must still be able to see those questions normally
+- those questions must still appear in SEARCH results for everyone
+- direct question pages should still work normally if opened by URL
+
+Important:
+- Do NOT delete questions
+- Do NOT unapprove questions
+- Do NOT mark them as removed
+- This is only a visibility rule for normal feed/category listings
+
+Implementation details:
+- Apply this ONLY when the question creator is a normal user
+- If the creator is an admin or moderator, never hide their questions because of this rule
+- Use the creator’s total earned amount in cents
+- Threshold = 500 cents
+- For all feed/list/category endpoints, exclude questions whose creator is a normal user and has earned >= 500 cents
+- Exception: if the current viewer is that same creator, still show their own questions
+- Exception: if the current viewer is an admin or moderator, still show them
+- Do NOT apply this exclusion to search endpoints
+- Do NOT apply this exclusion to direct single-question fetch
+- Make sure category filters and pagination still work correctly after exclusion
+- If caching exists, ensure search and feed behavior remain intentionally different
+
+====================================================
+GOAL 2 — Answer submission limits for normal users only
+====================================================
+
+Implement these limits for successful answer submissions by NORMAL USERS only:
+- max 50 successful answers per rolling 24 hours
+- max 10 successful answers per rolling 1 hour
+
+Do NOT apply these limits to:
+- admins
+- moderators
+
+Rules:
+- only count successful submitted answers
+- do not count validation failures
+- do not count duplicate blocked attempts
+- do not count rejected/failed requests
+- check limits on backend, not frontend only
+- use rolling windows based on answer createdAt timestamps
+
+Messages:
+- If user hits the 10 answers per hour limit, return:
+  "You have completed 10 answers in the last hour. Please wait 1 hour before answering more."
+- If user hits the 50 answers per 24 hours limit, return:
+  "You have completed 50 answers in the last 24 hours. Please wait until tomorrow before answering more."
+
+Behavior:
+- check both limits before allowing answer insert / reward logic
+- if either limit is reached, block the submission
+- make sure concurrent requests cannot easily bypass the limit
+
+====================================================
+WHAT TO CHECK AND UPDATE
+====================================================
+
+Find all endpoints/services used for:
+- main feed
+- browse/discover feed
+- category-specific feed
+- infinite scroll / pagination
+- search
+- single-question page
+- answer submission
+
+Then implement carefully:
+1. Apply the visibility rule only to normal feed/list/category endpoints
+2. Keep search exempt
+3. Keep direct question page exempt
+4. Keep owner visibility intact
+5. Keep admin/moderator visibility intact
+6. Apply answer limits only to normal users
+7. Keep admin/moderator fully exempt from answer limits
+8. Add concise code comments where these rules are enforced
+
+====================================================
+AFTER IMPLEMENTATION
+====================================================
+
+After coding, verify and summarize:
+- which files changed
+- exact places where the visibility rule was added
+- exact place where the hourly/daily answer limits were added
+- confirmation that admins/moderators are exempt
+- any edge cases handled
+
+Do not make unrelated UI changes.
+Do not refactor unrelated code.
+Keep changes minimal, safe, and production-ready.

@@ -1,0 +1,80 @@
+Implement multiple authentication options so users are not dependent only on Google sign-in.
+
+GOAL:
+If a user originally created an account with Google but Google sign-in is not working or is rate-limited, the user must still have another way to sign in safely.
+
+REQUIRED AUTH OPTIONS
+
+1. Keep Google sign-in / sign-up
+2. Add Email + Password login
+3. Add Email + Password sign-up
+4. Sign-up form should include:
+
+   * full name
+   * email
+   * password
+   * confirm password
+   * optional mobile number
+5. Add Forgot Password / Reset Password flow
+
+IMPORTANT ACCOUNT-LINKING RULES
+
+1. Do NOT create duplicate accounts for the same email
+2. If a user originally signed up with Google and later wants to use email/password:
+
+   * support a safe password setup/reset flow for that same account
+   * do NOT silently create a second account
+3. If the email already exists:
+
+   * show a clear message
+   * guide the user to sign in or set/reset password
+4. Preserve existing users, rewards, wallet, answers, and profile data on the same account
+
+UX REQUIREMENTS
+
+1. Login page should clearly offer:
+
+   * Continue with Google
+   * Sign in with Email and Password
+2. Sign-up page should clearly offer:
+
+   * Continue with Google
+   * Create account with Name + Email + Password
+3. Mobile number should be optional for now
+4. Add clear error messages
+5. Add clear “Forgot password?” link
+6. Keep the UI simple and fast
+
+TECHNICAL REQUIREMENTS
+
+1. Review the current auth provider and architecture first
+2. Determine whether the current system can safely support:
+
+   * Google auth
+   * email/password auth
+   * password reset
+   * account linking by email
+3. If the current auth provider can support this safely, implement it
+4. If the current auth provider cannot support it safely in the current architecture, report the exact limitation and propose the fastest safe fallback
+5. Do NOT break existing sessions or existing users
+6. Make sure login/signup does not depend entirely on Google flow anymore
+
+MOBILE NUMBER
+
+1. Add mobile number as an optional field at sign-up or profile completion
+2. Store it safely
+3. Do NOT make SMS/OTP login mandatory yet unless already supported cleanly
+4. If phone login is easy and already supported safely, report that separately as an optional next phase
+
+AFTER IMPLEMENTATION, REPORT
+
+1. files changed
+2. exact auth methods now available
+3. whether email/password works independently of Google
+4. whether existing Google-created users can access the same account by setting/resetting password
+5. whether duplicate-account creation by same email is prevented
+6. any remaining limitations or risks
+
+IMPORTANT:
+The fallback login must work even when Google sign-in has issues.
+The same user must not end up with two separate accounts just because they used a different sign-in method.

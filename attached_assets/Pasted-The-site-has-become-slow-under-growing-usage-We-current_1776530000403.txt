@@ -1,0 +1,91 @@
+The site has become slow under growing usage. We currently have roughly 4,000–5,000 traffic and around 100,000 answers per day. I need a real performance and scalability audit focused on actual bottlenecks, without breaking existing logic or making blind changes.
+
+Please work in this order:
+
+1. Measure first, do not guess
+- Identify the slowest routes, queries, and request flows
+- Check API response times for key endpoints
+- Check database performance and slow queries
+- Check whether the main bottleneck is:
+  - server resources
+  - database queries
+  - answer submission flow
+  - feed/search endpoints
+  - repeated recalculations
+  - frontend over-fetching
+- Do not start changing code until you identify the real bottlenecks
+
+2. Audit the answer submission flow in detail
+- Trace exactly what happens when a user submits an answer
+- List every database read and write triggered by one answer
+- Identify unnecessary synchronous work in the request path
+- Identify anything that can safely be deferred, batched, cached, or moved to async/background processing
+- Keep correctness intact
+
+3. Audit database performance
+- Review high-traffic tables, especially answers, questions, users, transactions, notifications, and stats-related tables
+- Check for missing or weak indexes
+- Recommend and add only safe indexes that clearly improve performance
+- Especially verify:
+  - answers.user_id
+  - answers.question_id
+  - answers.created_at
+  - unique(user_id, question_id) if applicable
+  - questions.status
+  - questions.created_at
+  - questions.category
+- Check for expensive joins, sorts, scans, or repeated aggregates
+
+4. Audit feed, browse, search, and ranking endpoints
+- Find slow queries and N+1 patterns
+- Reduce unnecessary joins and subqueries
+- Ensure pagination is efficient
+- Avoid SELECT * where unnecessary
+- Fetch only fields needed by the frontend
+- Check whether “answered vs unanswered”, sorting, and search logic are causing heavy DB load
+
+5. Review repeated calculations and write amplification
+- Check whether one answer submission triggers too many writes
+- Check whether rewards, wallet updates, transactions, notifications, stats, and ranking updates are all happening synchronously
+- Identify what is truly required immediately and what can be safely delayed
+- Reduce duplicated work where possible
+
+6. Add safe performance improvements
+- Add caching where useful for read-heavy public data such as counts, trending, and summary stats
+- Do not cache user-specific sensitive data incorrectly
+- Improve request efficiency without changing business results
+- Keep all existing behavior correct unless a change is necessary and explicitly justified
+
+7. Review infrastructure usage
+- Check API server resource usage
+- Check database connection usage / pooling
+- Check whether current server size is enough for the current load
+- Separate code bottlenecks from infrastructure bottlenecks
+
+8. Preserve all business logic
+Do not break:
+- answer rewards
+- wallet and earnings logic
+- referrals
+- bonus logic
+- moderation
+- question ordering
+- admin tools
+- notifications
+- current user permissions
+unless a change is absolutely necessary and safe
+
+9. Final report required
+At the end, provide a clear report with:
+- the actual main bottlenecks found
+- which files, routes, and queries are causing the slowdown
+- which indexes were added
+- which code paths were optimized
+- what was moved out of the critical request path
+- what should be solved in code vs infrastructure
+- what still needs future scaling work
+
+Important:
+Do not make blind changes.
+Measure first, then optimize carefully.
+If you make any code or database changes, explain exactly why each one was needed.

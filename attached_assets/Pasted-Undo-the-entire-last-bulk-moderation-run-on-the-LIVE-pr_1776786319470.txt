@@ -1,0 +1,104 @@
+Undo the entire last bulk moderation run on the LIVE production site.
+
+IMPORTANT:
+Revert ONLY the changes made by the most recent bulk moderation batch that processed the 1,236 pending questions.
+
+Goal:
+Restore the system to the exact state it was in when those 1,236 questions were still pending.
+
+DO NOT touch anything that existed before that batch.
+
+==================================================
+STRICT SCOPE
+==================================================
+
+Only undo changes caused by the last bulk moderation run.
+
+Do NOT modify:
+- older approved questions that were already approved before this bulk run
+- older rejected questions from before this bulk run
+- any unrelated user data
+- any unrelated earnings history
+
+==================================================
+REVERT THESE THINGS
+==================================================
+
+For all questions changed by the last bulk moderation run:
+
+1. If the batch APPROVED them:
+- remove that approval
+- return them to PENDING status
+
+2. If the batch REJECTED them:
+- undo that rejection
+- return them to PENDING status
+
+3. If the batch ARCHIVED anything:
+- undo the archive if it was done by this bulk run
+- return the question to PENDING
+
+4. If the batch edited question text, description, options, category, or type:
+- revert those edits
+- restore the original pre-batch version
+
+==================================================
+EARNINGS / REFUNDS REVERSAL
+==================================================
+
+Reverse ONLY the financial effects created by this bulk moderation run.
+
+That includes:
+- undo creator earnings granted because of wrong approvals
+- undo refunds sent because of wrong rejections
+- reverse only transactions created by this bulk batch
+
+Do NOT touch any older valid earnings or older valid refunds.
+
+==================================================
+NOTIFICATIONS
+==================================================
+
+Do not send new user-facing notifications unless required.
+If notification records were created by this bulk run, mark them reversed/cancelled if your system supports that.
+Do not disturb older notifications unrelated to this batch.
+
+==================================================
+HOW TO IDENTIFY THE CORRECT RECORDS
+==================================================
+
+Use only records created or modified by the most recent bulk moderation run:
+- same batch/job/run id
+- same execution window/timestamp
+- same automation/process marker
+- same admin action source linked to that bulk run
+
+If any record is not clearly part of that bulk run, DO NOT touch it.
+
+==================================================
+SAFETY RULE
+==================================================
+
+If you are not completely sure a question or transaction was changed by that last bulk moderation run, skip it and report it separately.
+
+==================================================
+RETURN THIS SUMMARY BEFORE EXECUTION
+==================================================
+
+Show me a dry-run summary first:
+
+{
+  "questions_to_restore_to_pending": number,
+  "approvals_to_undo": number,
+  "rejections_to_undo": number,
+  "archives_to_undo": number,
+  "question_edits_to_revert": number,
+  "earnings_to_reverse": number,
+  "refunds_to_reverse": number,
+  "records_skipped_as_uncertain": number,
+  "notes": "brief explanation of how you identified only the last bulk moderation run"
+}
+
+Do NOT execute yet.
+
+Wait for my confirmation after showing the dry-run summary.

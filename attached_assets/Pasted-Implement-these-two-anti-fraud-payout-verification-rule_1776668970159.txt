@@ -1,0 +1,132 @@
+Implement these two anti-fraud + payout verification rules carefully in production.
+
+GOAL:
+Users may still answer, but fraudulent/self-linked activity must not earn rewards.
+Also, no user should receive payout unless identity verification is completed and the verified name matches the account holder name.
+
+---
+
+## RULE 1 — NO REWARD FOR SELF/LINKED ANSWERS
+
+Apply this rule when a user answers a question:
+
+A) If the answer is submitted to the user's OWN question:
+
+* accept the answer normally
+* store the answer normally
+* but reward = 0
+* mark reason = self_question_no_reward
+
+B) If the answer comes from a LINKED / SUSPICIOUSLY SAME USER source:
+Examples:
+
+* same logged-in user across multiple accounts
+* same device fingerprint
+* same browser/device group
+* same strong fraud cluster
+* any existing anti-fraud signal that indicates likely same person
+
+Then:
+
+* accept the answer normally
+* but reward = 0
+* mark reason = linked_account_no_reward
+
+Important:
+
+* Do NOT reject the answer automatically
+* Do NOT break normal answering flow
+* Only remove reward
+
+C) Notification / UI:
+Show a clear non-hostile message such as:
+"Your answer was accepted, but no reward was given because this activity matched our anti-fraud policy."
+
+D) Admin visibility:
+
+* Store the no-reward reason in database
+* Show it clearly in admin panel / moderation tools
+* Make it easy to review suspicious cases later
+
+E) Safety:
+
+* Do NOT rely on IP alone as the main signal
+* IP can be one weak signal only
+* Prefer same user, device fingerprint, browser/device cluster, or stronger fraud linkage
+
+---
+
+## RULE 2 — PAYOUT REQUIRES ID VERIFICATION
+
+Before any withdrawal / payout is approved:
+
+A) User must upload:
+
+* a valid government ID image
+  such as CNIC / national ID / driving license / passport
+* optionally a selfie if the current system supports it
+
+B) Required checks:
+
+* extracted/displayed name on ID must match the user's account holder name
+* if payout account name exists, it should also match or be reviewable
+* if names do not match, payout must remain blocked
+
+C) Payout behavior:
+
+* user may earn normally before verification
+* but payout request cannot be approved until identity verification is completed
+* if verification is missing:
+  payout status = pending_verification or blocked_verification_required
+
+D) Admin review tools:
+Create an admin workflow to:
+
+* view uploaded ID
+* approve / reject verification
+* add rejection reason
+* request re-upload if image is unclear
+* see verification status on payout screen
+
+E) Data model:
+Add only the fields genuinely needed, such as:
+
+* verification_status
+* verified_name
+* id_document_type
+* id_document_path
+* verification_reviewed_by
+* verification_reviewed_at
+* verification_rejection_reason
+
+F) User-facing messages:
+
+* "Identity verification is required before payout."
+* "The name on your ID must match your account name."
+* "Your verification is under review."
+* "Your verification was rejected. Please upload a clear valid document."
+
+---
+
+## IMPLEMENTATION REQUIREMENTS
+
+1. Review the current reward logic and payout/withdrawal flow first
+2. Make the smallest safe changes necessary
+3. Add DB fields/tables only where truly needed
+4. Do NOT break existing answer submission
+5. Do NOT break existing admin payout tools
+6. Add clear validation and status handling
+7. After implementation, report:
+
+* files changed
+* database changes
+* exact fraud rule logic used
+* exact payout verification flow
+* what admins will see
+* what users will see
+
+Important:
+This must be implemented carefully, not as a rough shortcut.
+The answer should still be accepted.
+Only the reward should be removed in suspicious/self-linked cases.
+Payout must remain blocked until ID verification is approved.

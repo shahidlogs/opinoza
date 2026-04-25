@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminEarningsAnalytics,
   AdminGrowthData,
   AdminListQuestionsParams,
   AdminReferralListResponse,
@@ -3123,3 +3124,76 @@ export const useReverseAdminReferral = <
 > => {
   return useMutation(getReverseAdminReferralMutationOptions(options));
 };
+
+// ─── Admin Earnings Analytics ─────────────────────────────────────────────────
+
+export const getGetAdminEarningsAnalyticsUrl = (range: string) => {
+  return `/api/admin/earnings-analytics?range=${range}`;
+};
+
+export const getAdminEarningsAnalytics = async (
+  range: string,
+  options?: RequestInit,
+): Promise<AdminEarningsAnalytics> => {
+  return customFetch<AdminEarningsAnalytics>(getGetAdminEarningsAnalyticsUrl(range), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminEarningsAnalyticsQueryKey = (range: string) => {
+  return [`/api/admin/earnings-analytics`, range] as const;
+};
+
+export const getGetAdminEarningsAnalyticsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminEarningsAnalytics>>,
+  TError = ErrorType<unknown>,
+>(
+  range: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminEarningsAnalytics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetAdminEarningsAnalyticsQueryKey(range);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminEarningsAnalytics>>> = ({
+    signal,
+  }) => getAdminEarningsAnalytics(range, { signal, ...requestOptions });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminEarningsAnalytics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminEarningsAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminEarningsAnalytics>>
+>;
+export type GetAdminEarningsAnalyticsQueryError = ErrorType<unknown>;
+
+export function useGetAdminEarningsAnalytics<
+  TData = Awaited<ReturnType<typeof getAdminEarningsAnalytics>>,
+  TError = ErrorType<unknown>,
+>(
+  range: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminEarningsAnalytics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminEarningsAnalyticsQueryOptions(range, options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+  query.queryKey = queryOptions.queryKey;
+  return query;
+}

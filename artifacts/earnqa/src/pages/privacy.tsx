@@ -50,8 +50,8 @@ export default function Privacy() {
 
           <Section title="8. Contact Us">
             <p>If you have any questions about this Privacy Policy, please contact us at{" "}
-              <a href="mailto:support.opinoza@gmail.com" className="text-amber-600 font-medium hover:text-amber-700 transition-colors">
-                support.opinoza@gmail.com
+              <a href="mailto:support@opinoza.com" className="text-amber-600 font-medium hover:text-amber-700 transition-colors">
+                support@opinoza.com
               </a>.
             </p>
           </Section>

@@ -91,14 +91,12 @@ const STEPS = [
     color: "from-yellow-400 to-amber-500",
     badge: "bg-yellow-50 text-yellow-700 border-yellow-200",
     content: [
-      "You earn a one-time $1 bonus when your question reaches 50 unique answers.",
+      "You earn 0.5¢ creator reward for every answer your approved question receives.",
     ],
-    milestones: [
-      { answers: "50 answers", reward: "$1 bonus (one-time)" },
-    ],
+    milestones: [],
     highlight: {
       icon: "💰",
-      text: "Answerers earn 1¢ instantly per answer. As a creator, earn a one-time $1 bonus once your question hits 50 unique answers.",
+      text: "Answerers earn 1¢ instantly per answer. As a creator, earn 0.5¢ for every answer your approved question receives.",
     },
   },
   {
@@ -168,6 +166,11 @@ const REJECTION_REASONS = [
     icon: "✂️",
     title: "Too Short or Incomprehensible",
     desc: "The question is too brief or doesn't form a clear, meaningful sentence.",
+  },
+  {
+    icon: "💬",
+    title: "Not a Short-Answer Question",
+    desc: "Short-answer questions must be answerable in one to three words. Questions that require long explanations are not allowed.",
   },
 ];
 
@@ -314,7 +317,7 @@ export default function HowItWorks() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
           {[
             { icon: "🔗", title: "Your personal referral link", desc: "Every account gets a unique invite link you can share anywhere — WhatsApp, social media, email." },
-            { icon: "🎉", title: "Earn 10¢–20¢ when they sign up", desc: "Earn 10¢ for each of your first 5 successful invites, then 20¢ for every invite after that. The more you invite, the more you earn per invite." },
+            { icon: "🎉", title: "Earn 10¢ when they sign up", desc: "You get 10¢ the moment your invited friend creates their account — no conditions, instant reward." },
             { icon: "⚡", title: "Earn 0.5¢ per answer — forever", desc: "Every time your referred user answers a question, you earn an extra 0.5¢. This keeps adding up as long as they are active." },
             { icon: "💚", title: "No cost to the invited user", desc: "The person you invite doesn't lose anything. They earn normally — your reward is paid by the platform." },
           ].map(item => (
@@ -401,7 +404,7 @@ export default function HowItWorks() {
           {[
             { icon: "🌐", title: "English only", desc: "All questions must be written in English. Questions in other languages will be rejected." },
             { icon: "📊", title: "Choose the right question type", desc: "Poll — let users pick from your options. Rating — let users rate on a 1–5 star scale. Short Answer — ask for a one or two word reply." },
-            { icon: "✏️", title: "Keep short answer questions concise", desc: "If you choose Short Answer type, your question should be answerable in one or two words. Avoid open-ended questions that need long explanations." },
+            { icon: "✏️", title: "Keep short answer questions concise", desc: "Ask questions that can be answered in one to three words. Avoid questions that require long explanations." },
             { icon: "💬", title: "Be clear and simple", desc: "Write in plain language. Anyone should be able to read and answer your question in seconds without needing extra context." },
             { icon: "🎯", title: "Make it easy to answer", desc: "The best questions have obvious, natural answers. Avoid double questions, trick questions, or anything that requires research." },
           ].map((item, i) => (
@@ -460,6 +463,17 @@ export default function HowItWorks() {
           </ul>
         </div>
 
+        {/* Answer penalty callout */}
+        <div className="bg-red-100 border border-red-300 rounded-xl p-4 mb-5">
+          <p className="text-sm font-bold text-red-800 mb-1">Answer quality penalty</p>
+          <p className="text-sm text-red-700">
+            If your answer is reported by other users and removed by an admin after review, a{" "}
+            <strong>$0.10 (10¢) penalty</strong> will be deducted from your wallet balance.
+            The penalty is capped at your available balance and will never push your balance below zero.
+            You will be notified in-app whenever a penalty is applied.
+          </p>
+        </div>
+
         <h3 className="font-bold text-red-800 mb-4 text-sm uppercase tracking-widest">Reasons a question may be rejected:</h3>
         <div className="space-y-3">
           {REJECTION_REASONS.map((r, i) => (
@@ -497,7 +511,7 @@ export default function HowItWorks() {
             {
               icon: "👉",
               title: "Others answer",
-              desc: "Earn a one-time $1 bonus when your question reaches 50 unique answers.",
+              desc: "Earn 0.5¢ creator reward for every answer your approved question receives.",
               bg: "bg-amber-50 border-amber-200",
             },
             {

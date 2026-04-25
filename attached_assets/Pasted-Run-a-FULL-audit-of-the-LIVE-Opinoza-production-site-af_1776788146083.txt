@@ -1,0 +1,140 @@
+Run a FULL audit of the LIVE Opinoza production site after the undo operation.
+
+IMPORTANT:
+- Use ONLY the Production environment
+- Do NOT use dev or test data
+- Verify real live behavior, not assumptions
+
+==================================================
+AUDIT GOALS
+==================================================
+
+Check that the platform is fully stable and no bugs or inconsistencies remain after the bulk undo.
+
+==================================================
+1. DATA INTEGRITY CHECK
+==================================================
+
+Verify:
+- Approved (active) questions are correct and unchanged from before the bulk run
+- Pending questions count is correct and includes restored questions
+- Rejected questions are consistent
+- No duplicated or corrupted records
+- No questions stuck in invalid states
+
+==================================================
+2. MODERATION SYSTEM
+==================================================
+
+Check:
+- New submitted questions go to pending correctly
+- Approve action works correctly
+- Reject action works correctly
+- No accidental auto-approval happening
+- No broken moderation logic
+
+==================================================
+3. EARNINGS SYSTEM
+==================================================
+
+Verify:
+- Users earn 1¢ per answer correctly
+- No duplicate earnings
+- No missing earnings
+- No leftover incorrect transactions from the bulk run
+- Wallet balances are correct
+
+==================================================
+4. CREATOR REWARDS
+==================================================
+
+Check:
+- Creator rewards (if any) trigger correctly
+- No extra rewards from previous bug
+- No missing rewards where they should exist
+
+==================================================
+5. REFUNDS SYSTEM
+==================================================
+
+Verify:
+- Refunds are only applied where valid
+- No duplicate refunds
+- No missing reversals from the bulk undo
+
+==================================================
+6. NOTIFICATIONS SYSTEM
+==================================================
+
+Check:
+- Notifications are working for:
+  - approvals
+  - rejections
+  - answers
+- No duplicate notifications
+- No leftover bulk notifications
+
+==================================================
+7. BROWSING / FEED SYSTEM
+==================================================
+
+Verify:
+- Only approved questions appear in the public feed
+- Pending questions are NOT visible publicly
+- Rejected questions are NOT visible
+- No duplicate questions in feed
+- Feed loads correctly and consistently
+
+==================================================
+8. DUPLICATE DETECTION
+==================================================
+
+Check:
+- Whether duplicate questions can still be created
+- Identify weak points in duplicate detection logic
+
+==================================================
+9. PERFORMANCE & ERRORS
+==================================================
+
+Check:
+- Any backend errors
+- Any failed API calls
+- Slow queries or bottlenecks
+- Broken endpoints
+
+==================================================
+10. SECURITY / PERMISSIONS
+==================================================
+
+Verify:
+- Only admin can approve/reject
+- Users cannot bypass moderation
+- No unauthorized actions possible
+
+==================================================
+FINAL REPORT
+==================================================
+
+Return a structured report:
+
+{
+  "data_integrity": "ok / issues",
+  "moderation_system": "ok / issues",
+  "earnings_system": "ok / issues",
+  "creator_rewards": "ok / issues",
+  "refunds_system": "ok / issues",
+  "notifications": "ok / issues",
+  "feed_system": "ok / issues",
+  "duplicate_detection": "ok / issues",
+  "performance": "ok / issues",
+  "security": "ok / issues",
+  "critical_issues": ["..."],
+  "warnings": ["..."],
+  "recommended_fixes": ["..."]
+}
+
+IMPORTANT:
+- Be strict and honest
+- Do not assume everything is fine
+- Report even small inconsistencies

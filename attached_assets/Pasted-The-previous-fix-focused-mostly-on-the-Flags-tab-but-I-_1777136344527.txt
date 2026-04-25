@@ -1,0 +1,80 @@
+The previous fix focused mostly on the Flags tab, but I need the entire Admin Panel optimized, especially the Users tab.
+
+Please complete pagination and lazy-loading for ALL heavy admin tabs, not only Flags.
+
+Main issue:
+Admin panel is slow because Users, Questions, Withdrawals, Referrals, Verifications, and Flags are still loading too much data or loading at the wrong time.
+
+Requirements:
+
+1. Users tab — highest priority:
+- Do NOT load all users at once.
+- Load only 25 users initially.
+- Add Load More button or infinite scroll.
+- Search should query server-side, not filter a huge frontend list.
+- Ban/Unban buttons must still work.
+- User profile popup must still work.
+- User earnings/referral details must still load when clicking a user, not before.
+
+2. Pending Review:
+- Load only 25 questions initially.
+- Add Load More.
+- Approve/reject actions must still work.
+
+3. All Questions:
+- Load only 25 questions initially.
+- Add Load More.
+- Search/filter should be server-side if possible.
+
+4. Withdrawals:
+- Load only 25 withdrawals initially.
+- Add Load More.
+- Transfer/approve/reject actions must still work.
+
+5. Referrals:
+- Load only 25 referrals initially.
+- Add Load More.
+- Do not load full referral tree/list at admin first load.
+
+6. Verifications:
+- Load only 25 verification requests initially.
+- Add Load More.
+- Approve/reject/reset actions must still work.
+
+7. Flags:
+- Keep the previous flags pagination + timeout fix.
+
+8. Lazy loading:
+- On initial Admin Panel load, fetch only lightweight counts/badges.
+- Do not fetch Users until Users tab is opened.
+- Do not fetch Withdrawals until Withdrawals tab is opened.
+- Do not fetch Referrals until Referrals tab is opened.
+- Do not fetch Verifications until Verifications tab is opened.
+- Same for Questions and Flags.
+
+9. Backend:
+Every heavy admin endpoint must support:
+- page
+- limit
+- search/filter where applicable
+- hasMore or totalCount
+
+10. Frontend:
+Each tab should have:
+- loading state
+- error state
+- retry button
+- Load More button
+- cached results after first load
+- refresh button
+
+11. Final verification:
+Open Admin Panel fresh:
+- Only counts should load first.
+- Users tab should load 25 users only when clicked.
+- Load More should fetch next 25 users.
+- Search in Users should not load all users.
+- Other tabs should behave the same.
+- No admin action should break.
+
+Do not only fix Flags. Complete the optimization for all heavy admin tabs, especially Users.

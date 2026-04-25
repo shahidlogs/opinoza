@@ -1,0 +1,56 @@
+The Editor role was added, but Editors still cannot see or access the Admin panel UI.
+
+Please check the full Editor flow carefully and fix it.
+
+Problem:
+- An Editor can be assigned successfully
+- Backend moderation permissions may already allow Editor to approve/reject questions
+- But the Editor user cannot see the Admin page / moderation UI at all
+
+Please verify and fix all of the following:
+
+1. Admin panel access
+- Allow Editors to access the Admin panel or a limited moderation panel
+- Editors must be able to reach the pending questions moderation screen from the UI
+- If the current /admin page is hard-blocked for non-admins, update it safely
+
+2. Frontend visibility
+- Show the Admin/Moderation navigation entry for:
+  - Admin
+  - Editor
+- If the current frontend checks only use isAdmin, update them to allow isEditor where appropriate
+
+3. Limited access for Editors
+Editors should be able to access only what they need:
+- pending questions list
+- approve question
+- reject question
+- create questions without fee or limit
+
+Editors must NOT get access to:
+- withdrawals
+- financial pages
+- full admin controls
+- user management
+- role management
+- site-wide sensitive settings
+
+4. Route/page behavior
+- If needed, create a separate “Moderation” page for Editors instead of exposing the full Admin page
+- Or safely show only the moderation tab/section inside Admin for Editors
+- Do not expose unrelated admin sections
+
+5. Verify end-to-end
+Please test this exact flow:
+- assign a normal user as Editor
+- log in as that Editor
+- confirm the Editor can see the moderation entry in the UI
+- confirm the Editor can open pending questions
+- confirm the Editor can approve/reject questions
+- confirm the Editor still cannot access finance/user-management/admin-only sections
+
+6. Final report
+Tell me exactly:
+- whether the original Editor implementation only updated backend permissions but not frontend access
+- which files were changed to fix Editor UI access
+- whether Editors now have a dedicated moderation UI or partial Admin access

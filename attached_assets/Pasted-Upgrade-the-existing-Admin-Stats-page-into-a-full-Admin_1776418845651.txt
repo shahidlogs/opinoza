@@ -1,0 +1,145 @@
+Upgrade the existing Admin Stats page into a full Admin Earnings Analytics dashboard.
+
+Important:
+- Keep the current stats cards and growth charts exactly as they are
+- Add a new earnings analytics section below the existing stats area
+- Do NOT remove or break any current functionality
+
+New Admin Earnings Analytics section must include:
+
+1) Total Earnings Breakdown
+Show cards for:
+- Total earnings distributed (all time)
+- Total earnings from answers only
+- Total earnings from bonuses only
+- Total earnings from referral signup bonuses
+- Total earnings from referral answer bonuses (0.5¢ earnings from referred users’ answers)
+- Total spending on question purchases
+- Total withdrawn amount
+- Total withdrawal requests amount
+- Total withdrawable balance (sum of wallet balances >= $10)
+- Total non-withdrawable balance (sum of wallet balances < $10)
+
+2) Answers Earnings Analytics
+Show:
+- Total answers count
+- Total earnings from answers
+- Average earning per answer
+- Average answer earnings per user
+- Number of users who earned from answers
+- Average answers per earning user
+
+3) Bonus Earnings Analytics
+Show:
+- Total bonus earnings amount
+- Total number of bonus-triggered questions/events
+- Average bonus earning per user
+- Number of users who received bonuses
+
+4) Referral Earnings Analytics
+Show:
+- Total referral signup bonus earnings
+- Total referral answer bonus earnings
+- Combined total referral earnings
+- Number of users who earned from referrals
+- Average referral earnings per referral-earning user
+
+5) Wallet and Withdrawal Analytics
+Show:
+- Total wallet balance across all users
+- Total withdrawable balance (eligible for withdrawal, >= $10)
+- Total non-withdrawable balance (< $10)
+- Total withdrawn amount
+- Total pending withdrawal requests amount
+- Number of pending withdrawal requests
+- Number of completed withdrawals
+- Average withdrawal amount
+
+6) User Earnings Distribution
+Add a visual chart section so I can quickly understand how users are earning.
+
+Required charts:
+- A donut / pie chart showing percentage share of total earnings by source:
+  - answers
+  - bonuses
+  - referral signup bonuses
+  - referral answer bonuses
+
+- A second donut / pie chart showing user distribution by wallet range:
+  - $0
+  - $0.01 to $1
+  - $1 to $5
+  - $5 to $10
+  - $10+
+
+- A bar chart showing how many users earned in each earning category:
+  - answer earners
+  - bonus earners
+  - referral earners
+  - users eligible to withdraw
+
+7) Top Earners Table
+Add a table for top earning users with:
+- user name
+- email if available
+- wallet balance
+- total earned from answers
+- total earned from bonuses
+- total earned from referrals
+- total earned overall
+- withdrawal eligibility (yes/no)
+
+8) Data accuracy rules
+- Do NOT double count any transactions
+- Keep answer earnings, bonus earnings, referral signup bonus earnings, and referral answer bonus earnings separate
+- Use the transactions table as the main source of truth for monetary flows
+- Use wallet balances only for current balance summaries
+- Use withdrawals table for withdrawn and pending withdrawal request totals
+- Use answers/questions tables only for counts, not for money totals unless needed for validation
+
+9) Transaction type mapping
+Use the actual existing transaction types in the system, and map them correctly.
+At minimum separate these categories if they exist:
+- answer rewards
+- question bonus rewards
+- referral signup bonuses
+- referral answer bonuses
+- question purchase spending
+- withdrawals
+
+If transaction type names differ in code, use the real production types and clearly document the mapping.
+
+10) UI requirements
+- Match the current admin panel design
+- Use cards for totals
+- Use tables for detailed breakdowns
+- Use clean charts for visual analytics
+- Make the section easy to scan
+- Format all money in dollars
+- Show counts and percentages clearly
+- Make sure charts and cards work on mobile and desktop
+
+11) Developer confirmation required after implementation
+After implementation, confirm:
+- which files were changed
+- which transaction types were mapped into each metric
+- exact formulas / queries used for:
+  - total answer earnings
+  - total bonus earnings
+  - total referral signup earnings
+  - total referral answer earnings
+  - total spending on question purchases
+  - total withdrawable balance
+  - total non-withdrawable balance
+  - total pending withdrawal requests
+- confirm that no duplicate counting is happening
+- provide a sample breakdown of the final metrics structure
+
+12) Extra requirement
+If possible, add a date filter for:
+- 7 days
+- 30 days
+- 90 days
+- all time
+
+The filter should update the new earnings analytics section and charts without breaking the existing stats page.

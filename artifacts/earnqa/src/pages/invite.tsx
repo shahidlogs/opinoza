@@ -115,8 +115,8 @@ export default function Invite() {
         <div className="text-5xl mb-3">🎁</div>
         <h1 className="text-3xl font-bold text-navy-900">Invite & Earn</h1>
         <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-          Share your invite link and earn <strong>10¢–20¢</strong> when a friend signs up, plus{" "}
-          <strong>0.5¢</strong> every time they answer a question.
+          Share your invite link and earn <strong>10¢</strong> when a friend signs up,{" "}
+          plus <strong>0.5¢</strong> every time they answer a question.
         </p>
       </motion.div>
 
@@ -202,7 +202,7 @@ export default function Invite() {
           {[
             { icon: "🔗", text: "Copy your unique invite link above" },
             { icon: "📨", text: "Share it with friends via text, social media, or email" },
-            { icon: "✅", text: "When they sign up, you earn 10¢ (20¢ after your 5th invite) instantly" },
+            { icon: "✅", text: "When they sign up, you earn 10¢ instantly" },
             { icon: "📈", text: "You keep earning 0.5¢ each time they answer a question" },
           ].map((step, i) => (
             <li key={i} className="flex items-start gap-3">

@@ -1,10 +1,14 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { db, answersTable, questionsTable, walletsTable, transactionsTable, notificationsTable, usersTable, questionMilestonesTable, answerFlagsTable } from "@workspace/db";
+import { db, answersTable, questionsTable, walletsTable, transactionsTable, notificationsTable, usersTable, answerFlagsTable } from "@workspace/db";
 import { eq, desc, and, ilike, isNotNull, sql, inArray, gte, count, ne, or, isNull } from "drizzle-orm";
-import { pushQuestionAnswered, pushBonusReceived } from "../lib/push.js";
+import { pushQuestionAnswered } from "../lib/push.js";
 import { awardReferralAnswerBonus } from "./referrals.js";
 import { checkEarningsMilestones } from "../lib/earningsMilestones.js";
+import { invalidateProfileCache } from "./questions.js";
+import { notifCacheInvalidate } from "../lib/notifCache";
+import { checkUserBan, checkIpBan, BAN_MESSAGE, IP_BAN_MESSAGE } from "../lib/banCheck.js";
+import { getClientIp } from "../lib/clientIp.js";
 
 // ── Name-sync helpers ─────────────────────────────────────────────────────────
 function isNameProfileQuestion(question: { isProfileQuestion: boolean; type: string; title: string }): boolean {
@@ -24,25 +28,44 @@ function validateDisplayName(raw: string): NameValidResult {
 
 const router: IRouter = Router();
 
-// ─── Milestone helpers ────────────────────────────────────────────────────────
-// Rule 1: Only one milestone — 50 unique answers → one-time $1 (100¢) bonus.
-// The unique constraint on (questionId, milestone) prevents double-awarding.
-const FIFTY_ANSWER_MILESTONE = 50;
-const FIFTY_ANSWER_BONUS_CENTS = 100;
-
-function getMilestoneReward(_milestone: number): number {
-  return FIFTY_ANSWER_BONUS_CENTS;
+// ── Per-user flag-status cache (60 s TTL) ────────────────────────────────────
+// Flag status changes infrequently (only when admin acts on a flag).
+// Invalidated when an answer is flagged by the user or admin resolves it.
+const FLAG_STATUS_CACHE_TTL_MS = 60_000;
+const FLAG_STATUS_CACHE_MAX_SLOTS = 5000;
+const flagStatusCache = new Map<string, { data: any; expires: number }>();
+function flagStatusCacheGet(userId: string): any | null {
+  const e = flagStatusCache.get(userId);
+  if (!e || Date.now() > e.expires) { flagStatusCache.delete(userId); return null; }
+  return e.data;
 }
-
-function getEarnedMilestones(count: number): number[] {
-  return count >= FIFTY_ANSWER_MILESTONE ? [FIFTY_ANSWER_MILESTONE] : [];
+function flagStatusCacheSet(userId: string, data: any): void {
+  if (flagStatusCache.size >= FLAG_STATUS_CACHE_MAX_SLOTS) flagStatusCache.delete(flagStatusCache.keys().next().value!);
+  flagStatusCache.set(userId, { data, expires: Date.now() + FLAG_STATUS_CACHE_TTL_MS });
 }
+export function invalidateFlagStatusCache(userId: string): void { flagStatusCache.delete(userId); }
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.post("/answers", async (req, res): Promise<void> => {
   const auth = getAuth(req);
   if (!auth?.userId) {
     res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const clientIp = getClientIp(req);
+
+  // ── Ban checks ────────────────────────────────────────────────────────────
+  const banStatus = await checkUserBan(auth.userId);
+  if (banStatus.banned) {
+    console.warn(`[ban] Blocked answer attempt by banned user ${auth.userId}`);
+    res.status(403).json({ error: BAN_MESSAGE, code: "account_banned" });
+    return;
+  }
+  if (await checkIpBan(clientIp)) {
+    console.warn(`[ban] Blocked answer attempt from banned IP ${clientIp}`);
+    res.status(403).json({ error: IP_BAN_MESSAGE, code: "ip_banned" });
     return;
   }
 
@@ -58,60 +81,129 @@ router.post("/answers", async (req, res): Promise<void> => {
     return;
   }
 
-  // Duplicate check — ignore removed answers so the user can answer again
-  const [existing] = await db.select({ id: answersTable.id })
-    .from(answersTable)
-    .where(and(
-      eq(answersTable.questionId, questionId),
-      eq(answersTable.userId, auth.userId),
-      or(isNull(answersTable.flagStatus), ne(answersTable.flagStatus, "removed")),
-    ));
+  // ── Rule 1A: Self-question no-reward check ────────────────────────────────
+  // If the user answers their own custom question, accept the answer but zero the reward.
+  let noRewardReason: string | null = null;
+  if (question.isCustom && question.creatorId && question.creatorId === auth.userId) {
+    noRewardReason = "self_question_no_reward";
+  }
+
+  // ── Parallel pre-checks ───────────────────────────────────────────────────
+  // These three queries are independent after we have the question; run them in
+  // one round-trip instead of sequentially (saves ~4 ms per answer at this scale).
+  //
+  // (A) Combined duplicate + reward-guard: fetch the most-recent answer for this
+  //     user+question regardless of flag_status. One query replaces two:
+  //     - if flagStatus != 'removed' → already answered (409)
+  //     - if any row exists          → reward already issued (alreadyEarned)
+  //     Uses idx_answers_user_question (user_id, question_id).
+  //
+  // (B) Hourly limit: count answers in the last 60 min.
+  //     Uses idx_answers_user_created (user_id, created_at DESC).
+  //
+  // (C) Pending-flag block: detect an unfixed flagged answer on an active question.
+  //     Uses idx_answers_flag_status (user_id, flag_status) partial index.
+  //
+  // (D) Rule 1B: Linked account fingerprint check — only runs when question has
+  //     a custom creator who is not the answerer and 1A didn't already fire.
+  //     Fetches signupIp + userAgent for both users in one query.
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const oneDayAgo  = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const needLinkedCheck = !noRewardReason && question.isCustom && question.creatorId && question.creatorId !== auth.userId;
+
+  const [[userStatus], [mostRecentAnswer], [hourlyCount], [dailyCount], [flaggedAnswer], linkedFingerprints] = await Promise.all([
+    // (0) Viewer admin/editor status — determines whether rate limits apply
+    db.select({ isAdmin: usersTable.isAdmin, isEditor: usersTable.isEditor })
+      .from(usersTable)
+      .where(eq(usersTable.clerkId, auth.userId))
+      .limit(1),
+
+    // (A) single query replaces the old duplicate + priorAnswer pair
+    db.select({ id: answersTable.id, flagStatus: answersTable.flagStatus })
+      .from(answersTable)
+      .where(and(eq(answersTable.questionId, questionId), eq(answersTable.userId, auth.userId)))
+      .orderBy(desc(answersTable.id))
+      .limit(1),
+
+    // (B) Rolling 1-hour answer count (for hourly rate limit)
+    db.select({ cnt: count() })
+      .from(answersTable)
+      .where(and(eq(answersTable.userId, auth.userId), gte(answersTable.createdAt, oneHourAgo))),
+
+    // (B2) Rolling 24-hour answer count (for daily rate limit)
+    db.select({ cnt: count() })
+      .from(answersTable)
+      .where(and(eq(answersTable.userId, auth.userId), gte(answersTable.createdAt, oneDayAgo))),
+
+    // (C) pending-flag block — join to skip flags on inactive/rejected questions
+    db.select({ id: answersTable.id })
+      .from(answersTable)
+      .innerJoin(
+        questionsTable,
+        and(
+          eq(answersTable.questionId, questionsTable.id),
+          inArray(questionsTable.status, ["active", "pending"]),
+        ),
+      )
+      .where(and(eq(answersTable.userId, auth.userId), eq(answersTable.flagStatus, "pending")))
+      .limit(1),
+
+    // (D) Rule 1B: Linked account fingerprint — fetch both users' signup data when needed
+    needLinkedCheck
+      ? db.select({ clerkId: usersTable.clerkId, signupIp: usersTable.signupIp, userAgent: usersTable.userAgent })
+          .from(usersTable)
+          .where(inArray(usersTable.clerkId, [auth.userId, question.creatorId!]))
+      : Promise.resolve([]),
+  ]);
+
+  // (A) duplicate check — ignore removed answers so the user can re-answer
+  const existing =
+    mostRecentAnswer &&
+    (mostRecentAnswer.flagStatus === null || mostRecentAnswer.flagStatus !== "removed")
+      ? mostRecentAnswer
+      : null;
   if (existing) {
     res.status(409).json({ error: "You have already answered this question" });
     return;
   }
 
-  // Reward guard — if any prior answer exists for this user+question (even removed ones),
-  // the user already received their reward. Allow the re-answer but skip all rewards.
-  const [priorAnswer] = await db.select({ id: answersTable.id })
-    .from(answersTable)
-    .where(and(
-      eq(answersTable.questionId, questionId),
-      eq(answersTable.userId, auth.userId),
-    ));
-  const alreadyEarned = !!priorAnswer;
+  // (A) reward guard — any prior answer (even removed) means reward was already issued
+  const alreadyEarned = !!mostRecentAnswer;
 
-  // ── Hourly answer limit: max 20 answers per rolling 60 minutes ───────────
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  const [hourlyCount] = await db
-    .select({ cnt: count() })
-    .from(answersTable)
-    .where(and(eq(answersTable.userId, auth.userId), gte(answersTable.createdAt, oneHourAgo)));
-  if (Number(hourlyCount?.cnt ?? 0) >= 20) {
-    res.status(429).json({ error: "You've reached the hourly answer limit. Please try again later." });
-    return;
+  // ── Goal 2: Rolling rate limits — normal users only, admins/editors are fully exempt ──
+  const isPrivilegedUser = !!(userStatus?.isAdmin || userStatus?.isEditor);
+  if (!isPrivilegedUser) {
+    if (Number(hourlyCount?.cnt ?? 0) >= 10) {
+      res.status(429).json({ error: "You have completed 10 answers in the last hour. Please wait 1 hour before answering more." });
+      return;
+    }
+    if (Number(dailyCount?.cnt ?? 0) >= 50) {
+      res.status(429).json({ error: "You have completed 50 answers in the last 24 hours. Please wait until tomorrow before answering more." });
+      return;
+    }
   }
 
-  // ── Global restriction: block ALL answer types if user has a pending flagged answer
-  // Only counts flags on questions that are still active or pending review.
-  // If the question was rejected, archived, or deleted the flag is treated as closed.
-  const [flaggedAnswer] = await db
-    .select({ id: answersTable.id })
-    .from(answersTable)
-    .innerJoin(
-      questionsTable,
-      and(
-        eq(answersTable.questionId, questionsTable.id),
-        inArray(questionsTable.status, ["active", "pending"]),
-      ),
-    )
-    .where(and(eq(answersTable.userId, auth.userId), eq(answersTable.flagStatus, "pending")));
+  // (C) pending-flag block
   if (flaggedAnswer) {
     res.status(403).json({
       error: "Your short answer has been flagged and needs correction before you can submit more short answers. Please review and edit it.",
       code: "flagged_answer_restriction",
     });
     return;
+  }
+
+  // (D) Rule 1B: Linked account check — same signupIp AND same userAgent = strong fraud signal
+  if (!noRewardReason && needLinkedCheck && linkedFingerprints.length === 2) {
+    const answererFp = linkedFingerprints.find(u => u.clerkId === auth.userId);
+    const creatorFp  = linkedFingerprints.find(u => u.clerkId === question.creatorId);
+    if (
+      answererFp?.signupIp && creatorFp?.signupIp &&
+      answererFp?.userAgent && creatorFp?.userAgent &&
+      answererFp.signupIp === creatorFp.signupIp &&
+      answererFp.userAgent === creatorFp.userAgent
+    ) {
+      noRewardReason = "linked_account_no_reward";
+    }
   }
 
   // Type-specific validation
@@ -165,222 +257,214 @@ router.post("/answers", async (req, res): Promise<void> => {
     return;
   }
 
-  // Insert answer
-  const [answer] = await db.insert(answersTable).values({
-    questionId,
-    userId: auth.userId,
-    answerText: answerText?.trim() || null,
-    pollOption: pollOption || null,
-    rating: question.type === "rating" && notFamiliar === true ? null : (rating || null),
-    notFamiliar: question.type === "rating" && notFamiliar === true,
-    reason: reason?.trim() || null,
-  }).returning();
+  // Threshold at which a user becomes eligible to ask a custom question.
+  // Must match QUESTION_COST_CENTS on the frontend (ask.tsx) and the
+  // QUESTION_SUBMISSION_COST guard in questions.ts.
+  const ASK_QUESTION_THRESHOLD_CENTS = 25;
 
-  // Increment question answer count
-  await db.update(questionsTable)
-    .set({ totalAnswers: question.totalAnswers + 1 })
-    .where(eq(questionsTable.id, questionId));
+  // ── Phase 1: INSERT answer + UPDATE total_answers + SELECT wallet + check prior notif — all in parallel ──
+  // These four DB ops are independent: none depends on the others' results.
+  // Firing them together saves sequential round-trips off the critical path.
+  const [[answer], , walletResult, existingCanAskNotif] = await Promise.all([
+    db.insert(answersTable).values({
+      questionId,
+      userId: auth.userId,
+      answerText: answerText?.trim() || null,
+      pollOption: pollOption || null,
+      rating: question.type === "rating" && notFamiliar === true ? null : (rating || null),
+      notFamiliar: question.type === "rating" && notFamiliar === true,
+      reason: reason?.trim() || null,
+      noRewardReason: noRewardReason || null,
+    }).returning(),
 
-  // ── Name sync: if this is the "Name" profile question, update users.name ──
-  if (isNameProfileQuestion(question) && answer.answerText) {
-    const nameResult = validateDisplayName(answer.answerText);
-    if ("value" in nameResult) {
-      await db.update(usersTable)
-        .set({ name: nameResult.value })
-        .where(eq(usersTable.clerkId, auth.userId));
-    }
-  }
-  // ─────────────────────────────────────────────────────────────────────────
+    // Atomic increment — no read-then-write race at high concurrency
+    db.update(questionsTable)
+      .set({ totalAnswers: sql`total_answers + 1` })
+      .where(eq(questionsTable.id, questionId)),
+
+    db.select().from(walletsTable).where(eq(walletsTable.userId, auth.userId)),
+
+    // Check whether we have already sent the "can ask a question" notification
+    // so we never send it more than once (e.g. after a user spends back down and re-earns).
+    db.select({ id: notificationsTable.id })
+      .from(notificationsTable)
+      .where(and(
+        eq(notificationsTable.userId, auth.userId),
+        eq(notificationsTable.type, "can_ask_question"),
+      ))
+      .limit(1),
+  ]);
+
+  // Invalidate per-user profile cache so the next /questions/profile reflects
+  // the answered state immediately (within 30 s at most anyway, but this is instant).
+  if (question.isProfileQuestion) invalidateProfileCache(auth.userId);
 
   // Profile questions reward 2¢; regular questions reward 1¢
   const ANSWERER_REWARD_CENTS = question.isProfileQuestion ? 2 : 1;
 
-  // Only issue rewards if the user has never been rewarded for this question before.
-  // alreadyEarned is true when a prior answer (even a removed one) exists — meaning
-  // they already received their one-time reward. The answer is still saved above; only
-  // the financial credit is skipped.
-  if (!alreadyEarned) {
-    // Ensure answerer has a wallet
-    let [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, auth.userId));
-    if (!wallet) {
-      [wallet] = await db.insert(walletsTable).values({ userId: auth.userId }).returning();
+  let newBalance = 0;
+
+  // Issue reward only when: (a) not a duplicate answer AND (b) no anti-fraud reason
+  if (!alreadyEarned && !noRewardReason) {
+    // Use pre-fetched balance for threshold check (accurate to within Phase 1 round-trip).
+    // The atomic upsert below is what actually commits the balance change.
+    const prevBalance = walletResult[0]?.balanceCents ?? 0;
+    const crossedAskThreshold =
+      prevBalance < ASK_QUESTION_THRESHOLD_CENTS &&
+      prevBalance + ANSWERER_REWARD_CENTS >= ASK_QUESTION_THRESHOLD_CENTS &&
+      existingCanAskNotif.length === 0; // skip if already notified
+
+    // ── Phase 2: atomic wallet upsert + transaction record — all in parallel ──
+    // Atomic upsert: creates wallet for brand-new users (INSERT) or increments
+    // existing balance at the SQL level (ON CONFLICT DO UPDATE).
+    // This is race-safe — two concurrent Phase 2s for the same user cannot
+    // double-credit because the DB applies each +X independently, not as a
+    // read-then-write.
+    const phase2: Promise<any>[] = [
+      db.insert(walletsTable)
+        .values({ userId: auth.userId, balanceCents: ANSWERER_REWARD_CENTS, totalEarnedCents: ANSWERER_REWARD_CENTS })
+        .onConflictDoUpdate({
+          target: walletsTable.userId,
+          set: {
+            balanceCents: sql`wallets.balance_cents + ${ANSWERER_REWARD_CENTS}`,
+            totalEarnedCents: sql`wallets.total_earned_cents + ${ANSWERER_REWARD_CENTS}`,
+          },
+        })
+        .returning({ balanceCents: walletsTable.balanceCents }),
+
+      db.insert(transactionsTable).values({
+        userId: auth.userId,
+        type: "earning",
+        amountCents: ANSWERER_REWARD_CENTS,
+        description: `Answered: "${question.title.substring(0, 60)}"`,
+        status: "completed",
+        relatedId: answer.id,
+      }),
+    ];
+
+    // Name sync (only for the "Name" profile short-answer question)
+    if (isNameProfileQuestion(question) && answer.answerText) {
+      const nameResult = validateDisplayName(answer.answerText);
+      if ("value" in nameResult) {
+        phase2.push(db.update(usersTable).set({ name: nameResult.value }).where(eq(usersTable.clerkId, auth.userId)));
+      }
     }
 
-    // Notify answerer if they just crossed the 10¢ threshold to ask a question
-    const crossedAskThreshold = wallet.balanceCents < 10 && wallet.balanceCents + ANSWERER_REWARD_CENTS >= 10;
-
-    // Credit answerer wallet
-    await db.update(walletsTable)
-      .set({
-        balanceCents: wallet.balanceCents + ANSWERER_REWARD_CENTS,
-        totalEarnedCents: wallet.totalEarnedCents + ANSWERER_REWARD_CENTS,
-      })
-      .where(eq(walletsTable.userId, auth.userId));
-
-    // Rules 3 & 4: check if answerer crossed $5 or $10 lifetime earnings
-    checkEarningsMilestones(auth.userId).catch(() => {});
-
     if (crossedAskThreshold) {
-      await db.insert(notificationsTable).values({
+      phase2.push(db.insert(notificationsTable).values({
         userId: auth.userId,
         type: "can_ask_question",
         title: "You can now ask a question!",
-        message: "Your balance has reached 10¢ — you're now eligible to submit a custom question.",
-      });
+        message: "Your balance has reached 25¢ — you're now eligible to submit a custom question.",
+      }));
     }
 
-    // Record earning transaction
-    await db.insert(transactionsTable).values({
-      userId: auth.userId,
-      type: "earning",
-      amountCents: ANSWERER_REWARD_CENTS,
-      description: `Answered: "${question.title.substring(0, 60)}"`,
-      status: "completed",
-      relatedId: answer.id,
-    });
+    const [upsertResult] = await Promise.all(phase2);
+    // upsertResult is the RETURNING array from the atomic wallet upsert (phase2[0])
+    newBalance = (upsertResult as { balanceCents: number }[])[0]?.balanceCents ?? (prevBalance + ANSWERER_REWARD_CENTS);
+    if (crossedAskThreshold) notifCacheInvalidate(auth.userId!);
 
-    // Creator reward: 0.5¢ per valid answer on user-created questions (isCustom = true).
-    // Rules:
-    //   - Only fires when question.isCustom is true (user-submitted, not admin-seeded)
-    //   - Skipped when the answerer IS the creator (self-reward prevention)
-    //   - No admin lookup needed: admin-seeded questions have isCustom = false already
-    //   - Idempotency: alreadyEarned guard above prevents double-credit on re-answers
-    const CREATOR_REWARD_CENTS = 0.5;
-
-    if (question.isCustom && question.creatorId && question.creatorId !== auth.userId) {
-    // Ensure creator has a wallet
-    let [creatorWallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, question.creatorId));
-    if (!creatorWallet) {
-      [creatorWallet] = await db.insert(walletsTable).values({ userId: question.creatorId }).returning();
-    }
-
-    // Credit creator wallet
-    await db.update(walletsTable)
-      .set({
-        balanceCents: creatorWallet.balanceCents + CREATOR_REWARD_CENTS,
-        totalEarnedCents: creatorWallet.totalEarnedCents + CREATOR_REWARD_CENTS,
-      })
-      .where(eq(walletsTable.userId, question.creatorId));
-
-    // Rules 3 & 4: check if creator crossed $5 or $10 lifetime earnings
-    checkEarningsMilestones(question.creatorId).catch(() => {});
-
-    // Record creator reward transaction
-    await db.insert(transactionsTable).values({
-      userId: question.creatorId,
-      type: "creator_reward",
-      amountCents: CREATOR_REWARD_CENTS,
-      description: `Creator reward: "${question.title.substring(0, 60)}" was answered`,
-      status: "completed",
-      relatedId: answer.id,
-    });
-
-    // Notify creator: question answered (in-app)
-    await db.insert(notificationsTable).values({
-      userId: question.creatorId,
-      type: "question_answered",
-      title: "Your question was answered!",
-      message: `Someone answered your question "${question.title.substring(0, 55)}" — you earned ${CREATOR_REWARD_CENTS}¢.`,
-      relatedId: question.id,
-    });
-
-    // Push notification: question answered — fire-and-forget
-    pushQuestionAnswered(question.creatorId, question.title, question.id, answer.id)
-      .catch(err => console.error("[push] question_answered error:", err));
-
-    // Email for new answers is disabled (low priority)
-    } // end if (question.isCustom && creatorId && creatorId !== answerer)
-  } // end if (!alreadyEarned)
-
-  // ── Milestone bonus ──────────────────────────────────────────────────────────
-  // Fires for any question that has a creator (creator ≠ answerer).
-  // Counts unique non-creator answerers, then rewards newly crossed milestones.
-  if (question.creatorId && question.creatorId !== auth.userId) {
-    try {
-      const [countRow] = await db
-        .select({ cnt: sql<number>`COUNT(DISTINCT ${answersTable.userId})::int` })
-        .from(answersTable)
-        .where(
-          and(
-            eq(answersTable.questionId, questionId),
-            sql`${answersTable.userId} != ${question.creatorId}`,
-          ),
-        );
-      const uniqueAnswerers = Number(countRow?.cnt ?? 0);
-      const earned = getEarnedMilestones(uniqueAnswerers);
-
-      if (earned.length > 0) {
-        const alreadyRewarded = await db
-          .select({ milestone: questionMilestonesTable.milestone })
-          .from(questionMilestonesTable)
-          .where(eq(questionMilestonesTable.questionId, questionId));
-        const rewardedSet = new Set(alreadyRewarded.map(r => r.milestone));
-        const newMilestones = earned.filter(m => !rewardedSet.has(m));
-
-        for (const milestone of newMilestones) {
-          const rewardCents = getMilestoneReward(milestone);
-          try {
-            await db.insert(questionMilestonesTable).values({ questionId, milestone, rewardCents });
-          } catch {
-            continue; // unique constraint — already rewarded in race condition
-          }
-
-          let [cw] = await db.select().from(walletsTable).where(eq(walletsTable.userId, question.creatorId!));
-          if (!cw) {
-            [cw] = await db.insert(walletsTable).values({ userId: question.creatorId! }).returning();
-          }
-          await db.update(walletsTable)
-            .set({
-              balanceCents: cw.balanceCents + rewardCents,
-              totalEarnedCents: cw.totalEarnedCents + rewardCents,
-            })
-            .where(eq(walletsTable.userId, question.creatorId!));
-
-          await db.insert(transactionsTable).values({
-            userId: question.creatorId!,
-            type: "creator_reward",
-            amountCents: rewardCents,
-            description: `Milestone bonus (${milestone} answers): "${question.title.substring(0, 50)}"`,
-            status: "completed",
-            relatedId: question.id,
-          });
-
-          const rewardLabel = rewardCents >= 100 ? `$${(rewardCents / 100).toFixed(2)}` : `${rewardCents}¢`;
-          await db.insert(notificationsTable).values({
-            userId: question.creatorId!,
-            type: "creator_bonus",
-            title: `🎉 Milestone bonus: ${rewardLabel} earned!`,
-            message: `Your question "${question.title.substring(0, 55)}" reached ${milestone} unique answers.`,
-            relatedId: question.id,
-          });
-
-          // Push notification: milestone bonus — fire-and-forget
-          pushBonusReceived(
-            question.creatorId!,
-            `Your question reached ${milestone} answers — you earned ${rewardLabel}!`,
-            `milestone_${questionId}_${milestone}`,
-            `https://opinoza.com/questions/${questionId}`,
-          ).catch(err => console.error("[push] milestone bonus error:", err));
-        }
+    // Rules 3 & 4: milestone check — fire-and-forget, doesn't affect response
+    checkEarningsMilestones(auth.userId).catch(() => {});
+  } else {
+    // No reward path: duplicate answer, or anti-fraud rule triggered.
+    // Wallet was already fetched in Phase 1; use current balance directly.
+    newBalance = walletResult[0]?.balanceCents ?? 0;
+    // Name sync still applies even without reward (answer is stored and valid)
+    if (!alreadyEarned && isNameProfileQuestion(question) && answer.answerText) {
+      const nameResult = validateDisplayName(answer.answerText);
+      if ("value" in nameResult) {
+        db.update(usersTable).set({ name: nameResult.value }).where(eq(usersTable.clerkId, auth.userId)).catch(() => {});
       }
-    } catch (err) {
-      console.error("[milestone] Error processing milestone bonuses:", err);
     }
   }
-  // ─────────────────────────────────────────────────────────────────────────────
 
-  // Referral answer bonus: 0.5¢ to referrer for each answer by a referred user (fire-and-forget)
-  awardReferralAnswerBonus(auth.userId, answer.id).catch(err =>
-    console.error("[referrals] answer bonus error:", err)
-  );
-
-  const [updatedWallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, auth.userId));
+  // ── Send response now — everything the user sees is committed ────────────
+  // Creator reward, referral bonus, and push notification are non-blocking for
+  // the answerer and are deferred to after the response to reduce p50/p99 latency.
+  const earnedCents = (!alreadyEarned && !noRewardReason) ? ANSWERER_REWARD_CENTS : 0;
+  const noRewardMessage = noRewardReason
+    ? "Your answer was accepted, but no reward was given because this activity matched our anti-fraud policy."
+    : null;
 
   res.status(201).json({
     answer: { ...answer, questionTitle: question.title },
-    earnedCents: alreadyEarned ? 0 : ANSWERER_REWARD_CENTS,
-    newBalance: updatedWallet?.balanceCents ?? 0,
+    earnedCents,
+    newBalance,
+    ...(noRewardMessage ? { noRewardMessage } : {}),
   });
+
+  // ── Post-response: creator reward (fire-and-forget) ────────────────────────
+  //
+  // Creator reward: 0.5¢ per valid answer on user-created questions (isCustom = true).
+  // Rules:
+  //   - Only fires when question.isCustom is true (user-submitted, not admin-seeded)
+  //   - Skipped when the answerer IS the creator (self-reward prevention)
+  //   - No admin lookup needed: admin-seeded questions have isCustom = false already
+  //   - Idempotency: alreadyEarned guard above prevents double-credit on re-answers
+  //   - Moved out of the synchronous path — answerer's response is already sent.
+  //     Creator notification/wallet update happens within milliseconds after.
+  if (!alreadyEarned && !noRewardReason && question.isCustom && question.creatorId && question.creatorId !== auth.userId) {
+    const CREATOR_REWARD_CENTS = 0.5;
+    const creatorId = question.creatorId;
+    const questionTitle = question.title;
+    const questionIdVal = question.id;
+    const answerId = answer.id;
+
+    ;(async () => {
+      // ── Atomic upsert: INSERT wallet if new, atomically increment if exists ──
+      // Replaces the old SELECT → optional INSERT → UPDATE pattern which had a
+      // read-then-write race under concurrent answers to the same question.
+      // Using SQL-level balance_cents + X means the DB applies each +0.5 atomically,
+      // so 10 simultaneous answers each add 0.5 independently with no lost updates.
+      await db.insert(walletsTable)
+        .values({ userId: creatorId, balanceCents: CREATOR_REWARD_CENTS, totalEarnedCents: CREATOR_REWARD_CENTS })
+        .onConflictDoUpdate({
+          target: walletsTable.userId,
+          set: {
+            balanceCents: sql`wallets.balance_cents + ${CREATOR_REWARD_CENTS}`,
+            totalEarnedCents: sql`wallets.total_earned_cents + ${CREATOR_REWARD_CENTS}`,
+          },
+        });
+
+      // ── Parallel: transaction record + in-app notification ─────────────────
+      // These two inserts are fully independent — fire together for lower latency.
+      await Promise.all([
+        db.insert(transactionsTable).values({
+          userId: creatorId,
+          type: "creator_reward",
+          amountCents: CREATOR_REWARD_CENTS,
+          description: `Creator reward: "${questionTitle.substring(0, 60)}" was answered`,
+          status: "completed",
+          relatedId: answerId,
+        }),
+        db.insert(notificationsTable).values({
+          userId: creatorId,
+          type: "question_answered",
+          title: "Your question was answered!",
+          message: `Someone answered your question "${questionTitle.substring(0, 55)}" — you earned ${CREATOR_REWARD_CENTS}¢.`,
+          relatedId: questionIdVal,
+        }),
+      ]);
+      notifCacheInvalidate(creatorId);
+
+      // Fire-and-forget: milestone check + push notification (non-critical path)
+      checkEarningsMilestones(creatorId).catch(() => {});
+      pushQuestionAnswered(creatorId, questionTitle, questionIdVal, answerId)
+        .catch(err => console.error("[push] question_answered error:", err));
+    })().catch(err => console.error("[creator_reward] error:", err));
+  }
+
+  // 50-answer milestone bonus is disabled — no new bonuses are awarded.
+  // Historical payouts in questionMilestonesTable remain untouched.
+
+  // Referral answer bonus: 0.5¢ to referrer for each answer by a referred user (fire-and-forget)
+  // Skipped when anti-fraud rule fired — no bonus for linked/self-farm activities.
+  if (!alreadyEarned && !noRewardReason) {
+    awardReferralAnswerBonus(auth.userId, answer.id).catch(err =>
+      console.error("[referrals] answer bonus error:", err)
+    );
+  }
 });
 
 // Update an existing answer — no reward on edit
@@ -703,6 +787,9 @@ router.get("/answers/my-flag-status", async (req, res): Promise<void> => {
   const auth = getAuth(req);
   if (!auth?.userId) { res.json({ hasPendingFlag: false, flaggedAnswers: [] }); return; }
 
+  const hit = flagStatusCacheGet(auth.userId);
+  if (hit) return void res.json(hit);
+
   // Only report flags on questions still active or pending review.
   // Flags on rejected/archived/deleted questions are treated as closed.
   const flagged = await db
@@ -723,7 +810,9 @@ router.get("/answers/my-flag-status", async (req, res): Promise<void> => {
     )
     .where(and(eq(answersTable.userId, auth.userId), eq(answersTable.flagStatus, "pending")));
 
-  res.json({ hasPendingFlag: flagged.length > 0, flaggedAnswers: flagged });
+  const payload = { hasPendingFlag: flagged.length > 0, flaggedAnswers: flagged };
+  flagStatusCacheSet(auth.userId, payload);
+  res.json(payload);
 });
 
 // ── POST /answers/:id/flag ─────────────────────────────────────────────────

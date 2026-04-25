@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@clerk/react";
 import { useGetCategories, VALID_CATEGORIES } from "@workspace/api-client-react";
 import { usePageMeta } from "@/lib/page-meta";
+
+import { type Translation, translationCache } from "@/lib/translationCache";
 
 // ── Profile question top card ─────────────────────────────────────────────────
 
@@ -125,17 +127,178 @@ type Question = {
   pollOptions?: string[] | null;
   isCustom: boolean;
   totalAnswers: number;
+  isAnswered?: boolean;
+  lang?: string | null;
 };
 
-type SortBy = "all" | "newest" | "oldest" | "answered" | "unanswered";
+// ── QuestionCard component — handles per-card translate state ──────────────────
+const QuestionCard = memo(function QuestionCard({ q, userLang, base }: { q: Question; userLang: string; base: string }) {
+  const cacheKey = `${q.id}:${userLang}`;
+  const [translation, setTranslation] = useState<Translation | null>(() => translationCache.get(cacheKey) ?? null);
+  const [translating, setTranslating] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(false);
 
-const SORT_OPTIONS: { value: SortBy; label: string; requiresAuth?: boolean }[] = [
-  { value: "all", label: "All Questions" },
-  { value: "newest", label: "Newest" },
-  { value: "oldest", label: "Oldest" },
-  { value: "answered", label: "Answered by me", requiresAuth: true },
-  { value: "unanswered", label: "Unanswered by me", requiresAuth: true },
-];
+  const needsTranslation = !!(q.lang && q.lang !== userLang);
+  const isTranslated = !!translation && !showOriginal;
+
+  const displayTitle    = isTranslated ? translation!.title       : q.title;
+  const displayDesc     = isTranslated ? translation!.description : q.description;
+  const displayOptions  = isTranslated ? translation!.pollOptions : q.pollOptions;
+
+  const handleTranslate = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (translation) { setShowOriginal(false); return; }
+    setTranslating(true);
+    try {
+      const res = await fetch(`${base}/api/questions/${q.id}/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetLang: userLang }),
+      });
+      if (!res.ok) throw new Error("Translation failed");
+      const data: Translation = await res.json();
+      translationCache.set(cacheKey, data);
+      setTranslation(data);
+      setShowOriginal(false);
+    } catch {
+      // silent — button will be available to retry
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const handleShowOriginal = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowOriginal(v => !v);
+  };
+
+  return (
+    <Link href={`/questions/${q.id}`}>
+      <div className="group bg-card border border-card-border rounded-2xl p-5 sm:p-6 cursor-pointer card-hover h-full flex flex-col">
+        <div className="flex items-start justify-between gap-2 mb-4">
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border shrink-0 ${TYPE_COLORS[q.type] || "bg-gray-50 text-gray-700 border-gray-200"}`}>
+            {TYPE_ICONS[q.type]} {TYPE_LABELS[q.type] || q.type}
+          </span>
+          <div className="flex flex-col items-end gap-1.5 min-w-0">
+            {q.isAnswered && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-sm select-none shrink-0">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Answered
+              </span>
+            )}
+            <div className="flex flex-wrap gap-1 justify-end">
+              {(q.categories ?? [q.category]).map(cat => (
+                <span key={cat} className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full shrink-0">
+                  {cat}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <h3 className="font-semibold text-foreground leading-snug mb-2 flex-1 group-hover:text-amber-700 transition-colors line-clamp-2 text-[0.95rem]">
+          {displayTitle}
+          {isTranslated && (
+            <span className="ml-1.5 text-[10px] font-normal text-blue-400 align-middle">[translated]</span>
+          )}
+        </h3>
+
+        {displayDesc && (
+          <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
+            {displayDesc}
+          </p>
+        )}
+
+        {q.type === "poll" && displayOptions && displayOptions.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {displayOptions.slice(0, 3).map(opt => (
+              <span key={opt} className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/50">
+                {opt}
+              </span>
+            ))}
+            {displayOptions.length > 3 && (
+              <span className="text-xs text-muted-foreground self-center">
+                +{displayOptions.length - 3} more
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between text-xs mt-auto pt-3 border-t border-border/60">
+          <span className="text-muted-foreground">
+            {q.totalAnswers} answer{q.totalAnswers !== 1 ? "s" : ""}
+          </span>
+
+          <div className="flex items-center gap-2">
+            {/* Translate / Show original button */}
+            {needsTranslation && (
+              isTranslated ? (
+                <button
+                  onClick={handleShowOriginal}
+                  className="text-[10px] text-blue-500 hover:text-blue-700 transition-colors font-medium"
+                >
+                  Original
+                </button>
+              ) : showOriginal && translation ? (
+                <button
+                  onClick={handleShowOriginal}
+                  className="text-[10px] text-blue-500 hover:text-blue-700 transition-colors font-medium"
+                >
+                  Translated
+                </button>
+              ) : (
+                <button
+                  onClick={handleTranslate}
+                  disabled={translating}
+                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors font-medium disabled:opacity-50"
+                >
+                  {translating ? (
+                    <>
+                      <svg className="animate-spin" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="12" cy="12" r="10" className="opacity-25"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      Translating…
+                    </>
+                  ) : (
+                    <>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M5 3h14M12 3v18M5 21h14" strokeLinecap="round"/>
+                      </svg>
+                      Translate
+                    </>
+                  )}
+                </button>
+              )
+            )}
+            <span className="earn-badge">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
+              </svg>
+              Earn 1¢
+            </span>
+          </div>
+        </div>
+
+        {q.isCustom && (
+          <div className="mt-2 pt-2 border-t border-border/50 text-xs text-blue-500 font-medium flex items-center gap-1">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            Community question
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+});
+
 
 export default function Questions() {
   usePageMeta(
@@ -150,7 +313,16 @@ export default function Questions() {
   const [search, setSearch] = useState<string>("");
   // Debounced value — actually sent to the API (300 ms after last keystroke)
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
-  const [sortBy, setSortBy] = useState<SortBy>("all");
+  const [showAnswered, setShowAnswered] = useState(false);
+
+  // ── Language filter ────────────────────────────────────────────────────────
+  // Detect browser language once (e.g. "en", "es", "fr", "de").
+  const [userLang] = useState<string>(() => {
+    const l = navigator.language?.split("-")[0] ?? "en";
+    return l.length >= 2 ? l : "en";
+  });
+  const [langFilter, setLangFilter] = useState<"all" | "mine">("all");
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
   // Debounce: update debouncedSearch 300 ms after search changes
   useEffect(() => {
@@ -247,20 +419,20 @@ export default function Questions() {
       if (debouncedSearch) {
         // Search mode: backend handles ranking (unanswered-first, newest-first)
         params.set("search", debouncedSearch);
-      } else if (sortBy === "oldest") {
-        params.set("order", "asc");
-      } else if (sortBy === "unanswered" && isSignedIn) {
-        params.set("excludeAnswered", "true");
-      } else if (sortBy === "answered" && isSignedIn) {
+      } else if (showAnswered && isSignedIn) {
         params.set("onlyAnswered", "true");
       }
+
+      // Language filter: "mine" → only show questions in user's browser language
+      // (plus nulls for pre-backfill rows). "all" → no filter.
+      if (langFilter === "mine") params.set("lang", userLang);
 
       const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
       const res = await fetch(`${base}/api/questions?${params}`, { signal, headers });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json() as Promise<{ questions: Question[]; total: number }>;
     },
-    [category, type, sortBy, debouncedSearch, isSignedIn, getToken],
+    [category, type, showAnswered, debouncedSearch, isSignedIn, getToken, langFilter, userLang],
   );
 
   // ── Reset whenever filters change ─────────────────────────────────────────
@@ -335,9 +507,9 @@ export default function Questions() {
     return () => observer.disconnect();
   }, [loadMore]);
 
-  const hasFilters = !!(category || type || search.trim() || sortBy !== "all");
+  const hasFilters = !!(category || type || search.trim() || showAnswered || langFilter !== "all");
 
-  const clearAll = () => { setCategory(""); setType(""); setSearch(""); setSortBy("all"); };
+  const clearAll = () => { setCategory(""); setType(""); setSearch(""); setShowAnswered(false); setLangFilter("all"); };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -403,16 +575,27 @@ export default function Questions() {
           <option value="rating">⭐ Rating</option>
         </select>
 
+        {isSignedIn && (
+          <button
+            onClick={() => setShowAnswered(v => !v)}
+            className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 ${
+              showAnswered
+                ? "border-amber-400 bg-amber-50 text-amber-700"
+                : "border-border bg-card text-foreground hover:border-amber-300"
+            }`}
+          >
+            {showAnswered ? "✓ Answered by Me" : "Answered by Me"}
+          </button>
+        )}
+
+        {/* Language filter */}
         <select
-          value={sortBy}
-          onChange={e => setSortBy(e.target.value as SortBy)}
+          value={langFilter}
+          onChange={e => setLangFilter(e.target.value as "all" | "mine")}
           className="px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-amber-400"
         >
-          {SORT_OPTIONS.map(opt => (
-            <option key={opt.value} value={opt.value} disabled={opt.requiresAuth && !isSignedIn}>
-              {opt.label}{opt.requiresAuth && !isSignedIn ? " (sign in)" : ""}
-            </option>
-          ))}
+          <option value="all">🌐 All languages</option>
+          <option value="mine">🔤 My language ({userLang.toUpperCase()})</option>
         </select>
 
         {hasFilters && (
@@ -489,70 +672,7 @@ export default function Questions() {
                   transition={{ delay: Math.min(i * 0.03, 0.25), duration: 0.3 }}
                   layout
                 >
-                  <Link href={`/questions/${q.id}`}>
-                    <div className="group bg-card border border-card-border rounded-2xl p-5 sm:p-6 cursor-pointer card-hover h-full flex flex-col">
-                      <div className="flex items-start justify-between gap-2 mb-4">
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${TYPE_COLORS[q.type] || "bg-gray-50 text-gray-700 border-gray-200"}`}>
-                          {TYPE_ICONS[q.type]} {TYPE_LABELS[q.type] || q.type}
-                        </span>
-                        <div className="flex flex-wrap gap-1 justify-end">
-                          {(q.categories ?? [q.category]).map(cat => (
-                            <span key={cat} className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full shrink-0">
-                              {cat}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <h3 className="font-semibold text-foreground leading-snug mb-2 flex-1 group-hover:text-amber-700 transition-colors line-clamp-2 text-[0.95rem]">
-                        {q.title}
-                      </h3>
-
-                      {q.description && (
-                        <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
-                          {q.description}
-                        </p>
-                      )}
-
-                      {q.type === "poll" && q.pollOptions && q.pollOptions.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {q.pollOptions.slice(0, 3).map(opt => (
-                            <span key={opt} className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/50">
-                              {opt}
-                            </span>
-                          ))}
-                          {q.pollOptions.length > 3 && (
-                            <span className="text-xs text-muted-foreground self-center">
-                              +{q.pollOptions.length - 3} more
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between text-xs mt-auto pt-3 border-t border-border/60">
-                        <span className="text-muted-foreground">
-                          {q.totalAnswers} answer{q.totalAnswers !== 1 ? "s" : ""}
-                        </span>
-                        <span className="earn-badge">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
-                          </svg>
-                          Earn 1¢
-                        </span>
-                      </div>
-
-                      {q.isCustom && (
-                        <div className="mt-2 pt-2 border-t border-border/50 text-xs text-blue-500 font-medium flex items-center gap-1">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                            <circle cx="9" cy="7" r="4" />
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-                          </svg>
-                          Community question
-                        </div>
-                      )}
-                    </div>
-                  </Link>
+                  <QuestionCard q={q} userLang={userLang} base={base} />
                 </motion.div>
               ))}
             </AnimatePresence>
