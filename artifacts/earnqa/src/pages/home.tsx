@@ -258,7 +258,7 @@ export default function Home() {
                 >
                   <Link href={`/questions?category=${encodeURIComponent(cat.category)}`}>
                     <div className="bg-card border border-card-border rounded-xl p-4 cursor-pointer card-hover text-center group">
-                      <div className="text-2xl mb-2">{CATEGORY_ICONS[cat.category] || "💡"}</div>
+                      <div className="text-2xl mb-2">{(CATEGORY_ICONS as Record<string, string>)[cat.category] || "💡"}</div>
                       <div className="font-semibold text-xs text-foreground group-hover:text-amber-700 transition-colors leading-tight">{cat.category}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">{cat.count}q</div>
                     </div>

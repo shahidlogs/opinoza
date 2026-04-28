@@ -43,6 +43,7 @@ export const ListQuestionsResponse = zod.object({
       rejectedAt: zod.string().nullish(),
       rejectedBy: zod.string().nullish(),
       createdAt: zod.string(),
+      lang: zod.string().nullish(),
     }),
   ),
   total: zod.number(),
@@ -55,7 +56,8 @@ export const CreateQuestionBody = zod.object({
   title: zod.string(),
   description: zod.string().nullish(),
   type: zod.enum(["short_answer", "poll", "rating"]),
-  category: zod.string(),
+  category: zod.string().optional(),
+  categories: zod.array(zod.string()).nullish(),
   pollOptions: zod.array(zod.string()).nullish(),
 });
 
@@ -83,6 +85,7 @@ export const GetQuestionResponse = zod
     rejectedAt: zod.string().nullish(),
     rejectedBy: zod.string().nullish(),
     createdAt: zod.string(),
+    lang: zod.string().nullish(),
   })
   .and(
     zod.object({
@@ -97,6 +100,26 @@ export const GetQuestionResponse = zod
         )
         .nullish(),
       userHasAnswered: zod.boolean(),
+      userAnswer: zod
+        .union([
+          zod.object({
+            id: zod.number(),
+            questionId: zod.number(),
+            userId: zod.string(),
+            answerText: zod.string().nullish(),
+            pollOption: zod.string().nullish(),
+            rating: zod.number().nullish(),
+            notFamiliar: zod.boolean(),
+            reason: zod.string().nullish(),
+            flagStatus: zod.string().nullish(),
+            noRewardReason: zod.string().nullish(),
+            createdAt: zod.string(),
+          }),
+          zod.null(),
+        ])
+        .optional(),
+      notFamiliarCount: zod.number().optional(),
+      ratingCount: zod.number().optional(),
     }),
   );
 
@@ -121,6 +144,7 @@ export const GetFeaturedQuestionsResponse = zod.object({
       rejectedAt: zod.string().nullish(),
       rejectedBy: zod.string().nullish(),
       createdAt: zod.string(),
+      lang: zod.string().nullish(),
     }),
   ),
   total: zod.number(),
@@ -164,6 +188,7 @@ export const GetMyAnswersResponse = zod.object({
       pollOption: zod.string().nullish(),
       rating: zod.number().nullish(),
       reason: zod.string().nullish(),
+      type: zod.string().nullish(),
       createdAt: zod.string(),
     }),
   ),
@@ -286,6 +311,8 @@ export const GetMeResponse = zod.object({
   referredByUserId: zod.string().nullish(),
   isNew: zod.boolean(),
   createdAt: zod.string(),
+  lastQuestionAt: zod.string().nullish(),
+  phoneNumber: zod.string().nullish(),
 });
 
 /**
@@ -316,6 +343,8 @@ export const UpdateMeResponse = zod.object({
   referredByUserId: zod.string().nullish(),
   isNew: zod.boolean(),
   createdAt: zod.string(),
+  lastQuestionAt: zod.string().nullish(),
+  phoneNumber: zod.string().nullish(),
 });
 
 /**
@@ -355,6 +384,7 @@ export const AdminListQuestionsResponse = zod.object({
       rejectedAt: zod.string().nullish(),
       rejectedBy: zod.string().nullish(),
       createdAt: zod.string(),
+      lang: zod.string().nullish(),
     }),
   ),
   total: zod.number(),
@@ -383,6 +413,7 @@ export const ApproveQuestionResponse = zod.object({
   rejectedAt: zod.string().nullish(),
   rejectedBy: zod.string().nullish(),
   createdAt: zod.string(),
+  lang: zod.string().nullish(),
 });
 
 /**
@@ -412,6 +443,7 @@ export const RejectQuestionResponse = zod.object({
   rejectedAt: zod.string().nullish(),
   rejectedBy: zod.string().nullish(),
   createdAt: zod.string(),
+  lang: zod.string().nullish(),
 });
 
 /**
@@ -428,6 +460,7 @@ export const AdminListUsersResponse = zod.object({
       ageGroup: zod.string().nullish(),
       gender: zod.string().nullish(),
       isAdmin: zod.boolean(),
+      isEditor: zod.boolean(),
       balanceCents: zod.number().optional(),
       questionCount: zod.number().optional(),
       answerCount: zod.number().optional(),
@@ -436,6 +469,8 @@ export const AdminListUsersResponse = zod.object({
       referredByUserId: zod.string().nullish(),
       isNew: zod.boolean(),
       createdAt: zod.string(),
+      lastQuestionAt: zod.string().nullish(),
+      phoneNumber: zod.string().nullish(),
     }),
   ),
 });
@@ -488,6 +523,73 @@ export const GetAdminGrowthResponse = zod.object({
       date: zod.string(),
       count: zod.number().optional(),
       total: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get admin earnings analytics
+ */
+export const GetAdminEarningsAnalyticsQueryParams = zod.object({
+  range: zod.enum(["7", "30", "90", "all"]).optional(),
+});
+
+export const GetAdminEarningsAnalyticsResponse = zod.object({
+  range: zod.string(),
+  totalDistributedCents: zod.number(),
+  answerEarningsCents: zod.number(),
+  creatorRewardCents: zod.number(),
+  referralSignupCents: zod.number(),
+  referralAnswerCents: zod.number(),
+  questionPurchaseSpendingCents: zod.number(),
+  questionPurchaseCount: zod.number(),
+  totalAnswerCount: zod.number(),
+  answerEarnerCount: zod.number(),
+  avgAnswerEarningsPerUser: zod.number(),
+  avgAnswersPerEarner: zod.number(),
+  creatorEarnerCount: zod.number(),
+  avgCreatorEarningsPerUser: zod.number(),
+  referralEarnerCount: zod.number(),
+  referralSignupEarners: zod.number(),
+  referralAnswerEarners: zod.number(),
+  avgReferralEarningsPerEarner: zod.number(),
+  totalWithdrawnCents: zod.number(),
+  pendingWithdrawalCents: zod.number(),
+  pendingWithdrawalCount: zod.number(),
+  completedWithdrawalCount: zod.number(),
+  avgWithdrawalCents: zod.number(),
+  totalWalletBalanceCents: zod.number(),
+  withdrawableBalanceCents: zod.number(),
+  nonWithdrawableBalanceCents: zod.number(),
+  earningsSourceBreakdown: zod.array(
+    zod.object({
+      name: zod.string(),
+      value: zod.number(),
+    }),
+  ),
+  walletRangeDistribution: zod.array(
+    zod.object({
+      name: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  earnerCategoryDistribution: zod.array(
+    zod.object({
+      name: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  topEarners: zod.array(
+    zod.object({
+      userId: zod.string(),
+      name: zod.string().nullish(),
+      email: zod.string().nullish(),
+      totalEarnedCents: zod.number(),
+      balanceCents: zod.number(),
+      answerCents: zod.number(),
+      creatorCents: zod.number(),
+      referralCents: zod.number(),
+      isWithdrawable: zod.boolean(),
     }),
   ),
 });

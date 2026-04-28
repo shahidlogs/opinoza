@@ -65,7 +65,8 @@ function ReferralCapture() {
 // or empty string to trigger server-side 24h IP attribution fallback.
 function ReferralClaimHandler() {
   const { isSignedIn } = useUser();
-  const { data: me } = useGetMe({ query: { enabled: isSignedIn } });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: me } = useGetMe({ query: { enabled: !!isSignedIn } as any });
   const claimMutation = useClaimReferral();
   const claimed = useRef(false);
 
