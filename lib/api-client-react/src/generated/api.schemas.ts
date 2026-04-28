@@ -53,6 +53,28 @@ export interface Question {
   /** @nullable */
   rejectedBy?: string | null;
   createdAt: string;
+  /** @nullable */
+  lang?: string | null;
+}
+
+export interface UserAnswer {
+  id: number;
+  questionId: number;
+  userId: string;
+  /** @nullable */
+  answerText?: string | null;
+  /** @nullable */
+  pollOption?: string | null;
+  /** @nullable */
+  rating?: number | null;
+  notFamiliar: boolean;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  flagStatus?: string | null;
+  /** @nullable */
+  noRewardReason?: string | null;
+  createdAt: string;
 }
 
 export type QuestionWithStatsPollResultsItem = {
@@ -67,6 +89,9 @@ export type QuestionWithStats = Question & {
   /** @nullable */
   pollResults?: QuestionWithStatsPollResultsItem[] | null;
   userHasAnswered: boolean;
+  userAnswer?: UserAnswer | null;
+  notFamiliarCount?: number;
+  ratingCount?: number;
 };
 
 export interface ListQuestionsResponse {
@@ -88,7 +113,9 @@ export interface CreateQuestionBody {
   /** @nullable */
   description?: string | null;
   type: CreateQuestionBodyType;
-  category: string;
+  category?: string;
+  /** @nullable */
+  categories?: string[] | null;
   /** @nullable */
   pollOptions?: string[] | null;
 }
@@ -118,6 +145,8 @@ export interface Answer {
   rating?: number | null;
   /** @nullable */
   reason?: string | null;
+  /** @nullable */
+  type?: string | null;
   createdAt: string;
 }
 
@@ -203,8 +232,6 @@ export interface UserProfile {
   ageGroup?: string | null;
   /** @nullable */
   gender?: string | null;
-  /** @nullable */
-  phoneNumber?: string | null;
   isAdmin: boolean;
   isEditor: boolean;
   balanceCents?: number;
@@ -217,6 +244,10 @@ export interface UserProfile {
   referredByUserId?: string | null;
   isNew: boolean;
   createdAt: string;
+  /** @nullable */
+  lastQuestionAt?: string | null;
+  /** @nullable */
+  phoneNumber?: string | null;
 }
 
 export interface UpdateProfileBody {
@@ -228,8 +259,6 @@ export interface UpdateProfileBody {
   ageGroup?: string | null;
   /** @nullable */
   gender?: string | null;
-  /** @nullable */
-  phoneNumber?: string | null;
 }
 
 export interface UserStats {
@@ -265,32 +294,34 @@ export interface AdminStats {
   activeUsersThisWeek: number;
 }
 
-export interface EarningsSourceBreakdown {
+export type AdminEarningsAnalyticsEarningsSourceBreakdownItem = {
   name: string;
   value: number;
-}
+};
 
-export interface WalletRangeItem {
+export type AdminEarningsAnalyticsWalletRangeDistributionItem = {
   name: string;
   count: number;
-}
+};
 
-export interface EarnerCategoryItem {
+export type AdminEarningsAnalyticsEarnerCategoryDistributionItem = {
   name: string;
   count: number;
-}
+};
 
-export interface TopEarner {
+export type AdminEarningsAnalyticsTopEarnersItem = {
   userId: string;
-  name: string;
-  email: string;
-  balanceCents: number;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  email?: string | null;
   totalEarnedCents: number;
+  balanceCents: number;
   answerCents: number;
   creatorCents: number;
   referralCents: number;
   isWithdrawable: boolean;
-}
+};
 
 export interface AdminEarningsAnalytics {
   range: string;
@@ -319,10 +350,10 @@ export interface AdminEarningsAnalytics {
   totalWalletBalanceCents: number;
   withdrawableBalanceCents: number;
   nonWithdrawableBalanceCents: number;
-  earningsSourceBreakdown: EarningsSourceBreakdown[];
-  walletRangeDistribution: WalletRangeItem[];
-  earnerCategoryDistribution: EarnerCategoryItem[];
-  topEarners: TopEarner[];
+  earningsSourceBreakdown: AdminEarningsAnalyticsEarningsSourceBreakdownItem[];
+  walletRangeDistribution: AdminEarningsAnalyticsWalletRangeDistributionItem[];
+  earnerCategoryDistribution: AdminEarningsAnalyticsEarnerCategoryDistributionItem[];
+  topEarners: AdminEarningsAnalyticsTopEarnersItem[];
 }
 
 export interface ListUsersResponse {
@@ -501,6 +532,20 @@ export type RejectQuestionBody = {
 export type GetAdminGrowthParams = {
   days?: string;
 };
+
+export type GetAdminEarningsAnalyticsParams = {
+  range?: GetAdminEarningsAnalyticsRange;
+};
+
+export type GetAdminEarningsAnalyticsRange =
+  (typeof GetAdminEarningsAnalyticsRange)[keyof typeof GetAdminEarningsAnalyticsRange];
+
+export const GetAdminEarningsAnalyticsRange = {
+  NUMBER_7: "7",
+  NUMBER_30: "30",
+  NUMBER_90: "90",
+  all: "all",
+} as const;
 
 export type GetAnalyticsByCategoryParams = {
   /**

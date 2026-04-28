@@ -52,6 +52,7 @@ export default defineConfig({
       client: "zod",
       target: "generated",
       mode: "split",
+
       clean: true,
       prettier: true,
       override: {

@@ -93,7 +93,7 @@ const STEPS = [
     content: [
       "You earn 0.5¢ creator reward for every answer your approved question receives.",
     ],
-    milestones: [],
+    milestones: [] as { answers: string; reward: string }[],
     highlight: {
       icon: "💰",
       text: "Answerers earn 1¢ instantly per answer. As a creator, earn 0.5¢ for every answer your approved question receives.",

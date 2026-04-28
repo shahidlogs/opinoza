@@ -869,13 +869,15 @@ export default function Admin() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: growthData, isLoading: growthLoading } = useGetAdminGrowth({ days: growthRange }, { query: { enabled: isStatsTab } as any });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: earningsData, isLoading: earningsLoading } = useGetAdminEarningsAnalytics(earningsRange, { query: { enabled: isStatsTab } as any });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: earningsData, isLoading: earningsLoading } = useGetAdminEarningsAnalytics({ range: earningsRange as any }, { query: { enabled: isStatsTab } as any });
   const approveQuestion = useApproveQuestion();
   const rejectQuestion = useRejectQuestion();
   const approveWithdrawal = useApproveWithdrawal();
   const rejectWithdrawalMutation = useRejectWithdrawalAdmin();
   const transferWithdrawalMutation = useTransferWithdrawal();
-  const { data: refStatsData, refetch: refetchRefStats } = useGetAdminReferralStats({ query: { enabled: tab === "referrals" } });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: refStatsData, refetch: refetchRefStats } = useGetAdminReferralStats({ query: { enabled: tab === "referrals" } as any });
   const patchRefStatus = usePatchAdminReferralStatus();
   const reverseRef = useReverseAdminReferral();
 
@@ -2654,7 +2656,7 @@ export default function Admin() {
                         <td className="px-5 py-3.5 hidden lg:table-cell">
                           {r.fraudFlags && r.fraudFlags.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
-                              {r.fraudFlags.map(f => (
+                              {r.fraudFlags.map((f: string) => (
                                 <span key={f} className="px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-xs">{f}</span>
                               ))}
                             </div>
@@ -2945,7 +2947,7 @@ export default function Admin() {
               <div className="text-4xl mb-3">⚠️</div>
               <p className="font-medium text-foreground">{flagsError}</p>
               <p className="text-sm text-muted-foreground mt-1 mb-4">The flags list could not be loaded.</p>
-              <button onClick={fetchFlags} className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors">
+              <button onClick={() => { void fetchFlags(); }} className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors">
                 Retry
               </button>
             </div>

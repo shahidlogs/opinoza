@@ -424,6 +424,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/AdminGrowthData"
 
+  /admin/earnings-analytics:
+    get:
+      operationId: getAdminEarningsAnalytics
+      tags: [admin]
+      summary: Get admin earnings analytics
+      parameters:
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["7", "30", "90", "all"]
+      responses:
+        "200":
+          description: Earnings analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEarningsAnalytics"
+
   /admin/withdrawals:
     get:
       operationId: adminListWithdrawals
@@ -768,6 +788,8 @@ components:
           type: ["string", "null"]
         createdAt:
           type: string
+        lang:
+          type: ["string", "null"]
       required:
         - id
         - title
@@ -776,6 +798,38 @@ components:
         - status
         - isCustom
         - totalAnswers
+        - createdAt
+
+    UserAnswer:
+      type: object
+      properties:
+        id:
+          type: integer
+        questionId:
+          type: integer
+        userId:
+          type: string
+        answerText:
+          type: ["string", "null"]
+        pollOption:
+          type: ["string", "null"]
+        rating:
+          type: ["integer", "null"]
+        notFamiliar:
+          type: boolean
+        reason:
+          type: ["string", "null"]
+        flagStatus:
+          type: ["string", "null"]
+        noRewardReason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - questionId
+        - userId
+        - notFamiliar
         - createdAt
 
     QuestionWithStats:
@@ -802,6 +856,14 @@ components:
                   - percentage
             userHasAnswered:
               type: boolean
+            userAnswer:
+              oneOf:
+                - $ref: "#/components/schemas/UserAnswer"
+                - type: "null"
+            notFamiliarCount:
+              type: integer
+            ratingCount:
+              type: integer
           required:
             - userHasAnswered
 
@@ -830,6 +892,10 @@ components:
           enum: [short_answer, poll, rating]
         category:
           type: string
+        categories:
+          type: ["array", "null"]
+          items:
+            type: string
         pollOptions:
           type: ["array", "null"]
           items:
@@ -837,7 +903,6 @@ components:
       required:
         - title
         - type
-        - category
 
     SubmitAnswerBody:
       type: object
@@ -873,6 +938,8 @@ components:
         rating:
           type: ["integer", "null"]
         reason:
+          type: ["string", "null"]
+        type:
           type: ["string", "null"]
         createdAt:
           type: string
@@ -1032,6 +1099,10 @@ components:
           type: boolean
         createdAt:
           type: string
+        lastQuestionAt:
+          type: ["string", "null"]
+        phoneNumber:
+          type: ["string", "null"]
       required:
         - id
         - clerkId
@@ -1141,6 +1212,160 @@ components:
         - totalWithdrawnCents
         - pendingWithdrawalCents
         - activeUsersThisWeek
+
+    AdminEarningsAnalytics:
+      type: object
+      properties:
+        range:
+          type: string
+        totalDistributedCents:
+          type: number
+        answerEarningsCents:
+          type: number
+        creatorRewardCents:
+          type: number
+        referralSignupCents:
+          type: number
+        referralAnswerCents:
+          type: number
+        questionPurchaseSpendingCents:
+          type: number
+        questionPurchaseCount:
+          type: integer
+        totalAnswerCount:
+          type: integer
+        answerEarnerCount:
+          type: integer
+        avgAnswerEarningsPerUser:
+          type: number
+        avgAnswersPerEarner:
+          type: number
+        creatorEarnerCount:
+          type: integer
+        avgCreatorEarningsPerUser:
+          type: number
+        referralEarnerCount:
+          type: integer
+        referralSignupEarners:
+          type: integer
+        referralAnswerEarners:
+          type: integer
+        avgReferralEarningsPerEarner:
+          type: number
+        totalWithdrawnCents:
+          type: number
+        pendingWithdrawalCents:
+          type: number
+        pendingWithdrawalCount:
+          type: integer
+        completedWithdrawalCount:
+          type: integer
+        avgWithdrawalCents:
+          type: number
+        totalWalletBalanceCents:
+          type: number
+        withdrawableBalanceCents:
+          type: number
+        nonWithdrawableBalanceCents:
+          type: number
+        earningsSourceBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: number
+            required:
+              - name
+              - value
+        walletRangeDistribution:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              count:
+                type: integer
+            required:
+              - name
+              - count
+        earnerCategoryDistribution:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              count:
+                type: integer
+            required:
+              - name
+              - count
+        topEarners:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+              name:
+                type: ["string", "null"]
+              email:
+                type: ["string", "null"]
+              totalEarnedCents:
+                type: number
+              balanceCents:
+                type: number
+              answerCents:
+                type: number
+              creatorCents:
+                type: number
+              referralCents:
+                type: number
+              isWithdrawable:
+                type: boolean
+            required:
+              - userId
+              - totalEarnedCents
+              - balanceCents
+              - answerCents
+              - creatorCents
+              - referralCents
+              - isWithdrawable
+      required:
+        - range
+        - totalDistributedCents
+        - answerEarningsCents
+        - creatorRewardCents
+        - referralSignupCents
+        - referralAnswerCents
+        - questionPurchaseSpendingCents
+        - questionPurchaseCount
+        - totalAnswerCount
+        - answerEarnerCount
+        - avgAnswerEarningsPerUser
+        - avgAnswersPerEarner
+        - creatorEarnerCount
+        - avgCreatorEarningsPerUser
+        - referralEarnerCount
+        - referralSignupEarners
+        - referralAnswerEarners
+        - avgReferralEarningsPerEarner
+        - totalWithdrawnCents
+        - pendingWithdrawalCents
+        - pendingWithdrawalCount
+        - completedWithdrawalCount
+        - avgWithdrawalCents
+        - totalWalletBalanceCents
+        - withdrawableBalanceCents
+        - nonWithdrawableBalanceCents
+        - earningsSourceBreakdown
+        - walletRangeDistribution
+        - earnerCategoryDistribution
+        - topEarners
 
     ListUsersResponse:
       type: object

@@ -32,7 +32,8 @@ export default function Invite() {
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { data, isLoading } = useGetMyReferrals({ query: { enabled: isSignedIn } });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, isLoading } = useGetMyReferrals({ query: { enabled: !!isSignedIn } as any });
 
   const referralLink = data?.referralLink ?? `${APP_BASE_URL}/?ref=...`;
   const linkReady = Boolean(data?.referralLink);
