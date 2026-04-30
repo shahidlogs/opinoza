@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware, clerkSignupsGate } from "./middlewares/clerkProxyMiddleware";
 import { clerkAuthRateLimit } from "./middlewares/authRateLimit";
+import { maintenanceMode } from "./middlewares/maintenanceMode";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -47,6 +48,11 @@ app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
 app.use(clerkMiddleware());
+
+// Maintenance mode: block all write methods (POST/PUT/PATCH/DELETE) with 503.
+// Reads (GET/HEAD/OPTIONS) and health checks always pass through.
+// Toggle with MAINTENANCE_MODE=true env var. Zero schema/auth/logic changes.
+app.use(maintenanceMode);
 
 app.use("/api", router);
 
