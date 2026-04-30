@@ -1,3 +1,99 @@
+// ─── MAINTENANCE MODE ────────────────────────────────────────────────────────
+// Set VITE_MAINTENANCE_MODE=true in the environment to show the maintenance
+// screen to all visitors. Remove or set to "false" to restore normal operation.
+const MAINTENANCE_MODE = import.meta.env.VITE_MAINTENANCE_MODE === "true";
+
+function MaintenancePage() {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#fffbf5",
+        padding: "24px",
+        textAlign: "center",
+        fontFamily:
+          "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      }}
+    >
+      {/* Logo mark */}
+      <div
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 16,
+          background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 24,
+          boxShadow: "0 4px 24px rgba(245,158,11,0.25)",
+        }}
+      >
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 8v4l3 3" />
+        </svg>
+      </div>
+
+      <h1
+        style={{
+          fontSize: "clamp(22px, 5vw, 30px)",
+          fontWeight: 700,
+          color: "#1c1917",
+          margin: "0 0 12px",
+          letterSpacing: "-0.4px",
+          lineHeight: 1.2,
+        }}
+      >
+        Opinoza
+      </h1>
+
+      <p
+        style={{
+          fontSize: "clamp(15px, 3vw, 17px)",
+          color: "#57534e",
+          maxWidth: 420,
+          lineHeight: 1.65,
+          margin: "0 0 32px",
+        }}
+      >
+        Opinoza is temporarily under maintenance while we upgrade our system.
+        <br />
+        Please check back soon.
+      </p>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "10px 20px",
+          borderRadius: 999,
+          background: "#fef3c7",
+          border: "1px solid #fde68a",
+          color: "#92400e",
+          fontSize: 13,
+          fontWeight: 500,
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="23 4 23 10 17 10" />
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+        </svg>
+        We'll be back shortly
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { lazy, Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
@@ -366,6 +462,10 @@ function ClerkProviderWithRoutes() {
 }
 
 function App() {
+  if (MAINTENANCE_MODE) {
+    return <MaintenancePage />;
+  }
+
   return (
     <TooltipProvider>
       <WouterRouter base={basePath}>
