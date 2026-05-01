@@ -36,5 +36,3 @@ packages = ["zip"]
 VITE_CLERK_PROXY_URL = "https://opinoza.com/api/__clerk"
 
 [userenv.shared]
-VITE_MAINTENANCE_MODE = "true"
-MAINTENANCE_MODE = "true"
