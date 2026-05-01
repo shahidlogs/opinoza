@@ -1,3 +1,4 @@
 earnqa-backup.zip filter=lfs diff=lfs merge=lfs -text
 opinoza-backup.zip filter=lfs diff=lfs merge=lfs -text
 opinoza-clean.zip filter=lfs diff=lfs merge=lfs -text
+opinoza_production_fresh.sql.gz filter=lfs diff=lfs merge=lfs -text
