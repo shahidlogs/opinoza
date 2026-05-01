@@ -514,8 +514,7 @@ function QuestionRow({
   onReject,
   onDelete,
   onArchiveDuplicate,
-  approvePending,
-  rejectPending,
+  isProcessing = false,
 }: {
   q: any;
   showApproveReject?: boolean;
@@ -526,14 +525,24 @@ function QuestionRow({
   onReject: (id: number) => void;
   onDelete: (id: number) => void;
   onArchiveDuplicate: (id: number) => void;
-  approvePending: boolean;
-  rejectPending: boolean;
+  isProcessing?: boolean;
 }) {
   const [showFeaturedControls, setShowFeaturedControls] = useState(false);
   const [featurePos, setFeaturePos] = useState<number>(q.featuredPosition ?? 1);
 
   return (
-    <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm">
+    <div className={`relative bg-card border border-card-border rounded-xl p-5 shadow-sm transition-opacity ${isProcessing ? "opacity-60" : ""}`}>
+      {/* Per-item processing overlay */}
+      {isProcessing && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/60 backdrop-blur-[1px]">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-border shadow-sm">
+            <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round"/>
+            </svg>
+            <span className="text-xs font-medium text-muted-foreground">Processing…</span>
+          </div>
+        </div>
+      )}
       <div className="flex items-start gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap gap-2 mb-2">
@@ -633,17 +642,23 @@ function QuestionRow({
           {showApproveReject && (
             <>
               <button
-                onClick={() => onApprove(q.id)}
-                disabled={approvePending}
-                className="px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs font-medium hover:bg-green-100 transition-colors disabled:opacity-40"
+                onClick={() => !isProcessing && onApprove(q.id)}
+                disabled={isProcessing}
+                className="px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs font-medium hover:bg-green-100 transition-colors disabled:opacity-40 flex items-center gap-1"
               >
+                {isProcessing
+                  ? <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round"/></svg>
+                  : null}
                 Approve
               </button>
               <button
-                onClick={() => onReject(q.id)}
-                disabled={rejectPending}
-                className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-xs font-medium hover:bg-red-100 transition-colors disabled:opacity-40"
+                onClick={() => !isProcessing && onReject(q.id)}
+                disabled={isProcessing}
+                className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-xs font-medium hover:bg-red-100 transition-colors disabled:opacity-40 flex items-center gap-1"
               >
+                {isProcessing
+                  ? <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round"/></svg>
+                  : null}
                 Reject
               </button>
             </>
@@ -825,6 +840,11 @@ export default function Admin() {
   const [pendingQPage, setPendingQPage] = useState(1);
   const [pendingQHasMore, setPendingQHasMore] = useState(false);
   const [pendingQTotal, setPendingQTotal] = useState(0);
+  // Per-item processing state — tracks which question IDs have an in-flight API call.
+  // Only that specific item's buttons are disabled; all others remain interactive.
+  const [processingIds, setProcessingIds] = useState<Set<number>>(new Set());
+  const addProcessingId    = useCallback((id: number) => setProcessingIds(p => new Set([...p, id])), []);
+  const removeProcessingId = useCallback((id: number) => setProcessingIds(p => { const n = new Set(p); n.delete(id); return n; }), []);
   // All questions (paginated)
   const [allQuestions, setAllQuestions] = useState<any[]>([]);
   const [allQLoading, setAllQLoading] = useState(false);
@@ -1428,14 +1448,34 @@ export default function Admin() {
   }, [getToken]);
 
   const handleApproveQuestion = useCallback((id: number) => {
+    if (processingIds.has(id)) return;
+    // Capture the item and its position for rollback on failure
+    const snapshot = pendingQuestions.find(q => q.id === id);
+    const snapshotIndex = pendingQuestions.findIndex(q => q.id === id);
+    // Mark as in-flight — shows per-item spinner, locks only this row
+    addProcessingId(id);
+    // Optimistically remove from pending list for instant visual feedback
+    setPendingQuestions(prev => prev.filter(q => q.id !== id));
+    setAdminCounts(prev => prev ? { ...prev, pendingQuestions: Math.max(0, prev.pendingQuestions - 1) } : prev);
     approveQuestion.mutate({ id }, {
       onSuccess: () => {
-        setPendingQuestions(prev => prev.filter(q => q.id !== id));
+        removeProcessingId(id);
         setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, status: "active" } : q));
-        setAdminCounts(prev => prev ? { ...prev, pendingQuestions: Math.max(0, prev.pendingQuestions - 1) } : prev);
+      },
+      onError: () => {
+        removeProcessingId(id);
+        // Rollback: re-insert at original position
+        if (snapshot) {
+          setPendingQuestions(prev => {
+            const next = [...prev];
+            next.splice(Math.min(snapshotIndex, next.length), 0, snapshot);
+            return next;
+          });
+          setAdminCounts(prev => prev ? { ...prev, pendingQuestions: prev.pendingQuestions + 1 } : prev);
+        }
       },
     });
-  }, [approveQuestion]);
+  }, [approveQuestion, pendingQuestions, processingIds, addProcessingId, removeProcessingId]);
 
   const handleRejectQuestion = useCallback((id: number) => {
     setRejectReason("");
@@ -1446,16 +1486,36 @@ export default function Admin() {
     if (rejectModalId === null || !rejectReason) return;
     const idToReject = rejectModalId;
     const reasonToSend = rejectReason;
+    if (processingIds.has(idToReject)) return;
+    // Capture for rollback
+    const snapshot = pendingQuestions.find(q => q.id === idToReject);
+    const snapshotIndex = pendingQuestions.findIndex(q => q.id === idToReject);
+    // Close modal immediately, mark in-flight
+    setRejectModalId(null);
+    setRejectReason("");
+    addProcessingId(idToReject);
+    // Optimistic removal
+    setPendingQuestions(prev => prev.filter(q => q.id !== idToReject));
+    setAdminCounts(prev => prev ? { ...prev, pendingQuestions: Math.max(0, prev.pendingQuestions - 1) } : prev);
     rejectQuestion.mutate({ id: idToReject, data: { rejectionReason: reasonToSend } }, {
       onSuccess: () => {
-        setRejectModalId(null);
-        setRejectReason("");
-        setPendingQuestions(prev => prev.filter(q => q.id !== idToReject));
+        removeProcessingId(idToReject);
         setAllQuestions(prev => prev.map(q => q.id === idToReject ? { ...q, status: "rejected", rejectionReason: reasonToSend } : q));
-        setAdminCounts(prev => prev ? { ...prev, pendingQuestions: Math.max(0, prev.pendingQuestions - 1) } : prev);
+      },
+      onError: () => {
+        removeProcessingId(idToReject);
+        // Rollback
+        if (snapshot) {
+          setPendingQuestions(prev => {
+            const next = [...prev];
+            next.splice(Math.min(snapshotIndex, next.length), 0, snapshot);
+            return next;
+          });
+          setAdminCounts(prev => prev ? { ...prev, pendingQuestions: prev.pendingQuestions + 1 } : prev);
+        }
       },
     });
-  }, [rejectModalId, rejectReason, rejectQuestion]);
+  }, [rejectModalId, rejectReason, rejectQuestion, pendingQuestions, processingIds, addProcessingId, removeProcessingId]);
 
   const handleDeleteQuestion = useCallback(async (id: number) => {
     if (!confirm("Permanently delete this question?\n\nThis will fail if the question already has answers — use 'Archive Duplicate' instead.")) return;
@@ -1759,16 +1819,27 @@ export default function Admin() {
             </div>
           ) : (
             <>
-              {pendingQuestions.map(q => (
-                <QuestionRow
-                  key={q.id} q={q} showApproveReject
-                  onEdit={handleEdit} onToggleProfile={handleToggleProfile}
-                  onFeature={handleFeatureQuestion}
-                  onApprove={handleApproveQuestion} onReject={handleRejectQuestion}
-                  onDelete={handleDeleteQuestion} onArchiveDuplicate={handleArchiveDuplicate}
-                  approvePending={approveQuestion.isPending} rejectPending={rejectQuestion.isPending}
-                />
-              ))}
+              <AnimatePresence initial={false}>
+                {pendingQuestions.map(q => (
+                  <motion.div
+                    key={q.id}
+                    layout
+                    initial={{ opacity: 1 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0, overflow: "hidden" }}
+                    transition={{ duration: 0.22, ease: "easeInOut" }}
+                    style={{ marginBottom: 16 }}
+                  >
+                    <QuestionRow
+                      q={q} showApproveReject
+                      onEdit={handleEdit} onToggleProfile={handleToggleProfile}
+                      onFeature={handleFeatureQuestion}
+                      onApprove={handleApproveQuestion} onReject={handleRejectQuestion}
+                      onDelete={handleDeleteQuestion} onArchiveDuplicate={handleArchiveDuplicate}
+                      isProcessing={processingIds.has(q.id)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               <div ref={pendingQSentinelRef} className="h-1" />
               {pendingQLoading && pendingQuestions.length > 0 && (
                 <div className="py-4 text-center text-sm text-muted-foreground animate-pulse">Loading more…</div>
@@ -1806,7 +1877,7 @@ export default function Admin() {
                   onFeature={handleFeatureQuestion}
                   onApprove={handleApproveQuestion} onReject={handleRejectQuestion}
                   onDelete={handleDeleteQuestion} onArchiveDuplicate={handleArchiveDuplicate}
-                  approvePending={approveQuestion.isPending} rejectPending={rejectQuestion.isPending}
+                  isProcessing={processingIds.has(q.id)}
                 />
               ))}
               <div ref={allQSentinelRef} className="h-1" />
