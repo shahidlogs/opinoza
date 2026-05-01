@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { Show, useUser, useClerk } from "@clerk/react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -166,6 +166,79 @@ function NavLink({ href, label, isActive, onClick }: { href: string; label: stri
     </Link>
   );
 }
+
+// ─── Service Restoration Banner ──────────────────────────────────────────────
+// Set SHOW_RESTORE_BANNER = false (or remove the banner) once no longer needed.
+const SHOW_RESTORE_BANNER = true;
+const BANNER_KEY = "restore_banner_dismissed_at";
+const BANNER_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function RestoreBanner() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!SHOW_RESTORE_BANNER) return;
+    try {
+      const dismissedAt = localStorage.getItem(BANNER_KEY);
+      if (dismissedAt) {
+        const elapsed = Date.now() - parseInt(dismissedAt, 10);
+        if (elapsed < BANNER_DURATION_MS) return; // still within 24h window
+        localStorage.removeItem(BANNER_KEY);
+      }
+    } catch {
+      // localStorage unavailable — show anyway
+    }
+    setVisible(true);
+  }, []);
+
+  const dismiss = useCallback(() => {
+    setVisible(false);
+    try { localStorage.setItem(BANNER_KEY, String(Date.now())); } catch { /* ignore */ }
+  }, []);
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="overflow-hidden w-full"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="w-full bg-emerald-50 border-b border-emerald-200 flex items-center min-h-[44px] px-3 py-2">
+            {/* Left spacer — mirrors the dismiss button width for true centering */}
+            <div className="w-7 shrink-0" />
+            <div className="flex-1 flex items-center justify-center gap-2 text-emerald-800 text-sm font-medium">
+              <svg
+                width="15" height="15" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                className="shrink-0 text-emerald-600"
+              >
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              <span>Service restored — thanks for your patience 🙏</span>
+            </div>
+            <button
+              onClick={dismiss}
+              aria-label="Dismiss banner"
+              className="w-7 shrink-0 flex items-center justify-center p-1 rounded-md text-emerald-500 hover:text-emerald-800 hover:bg-emerald-100 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -360,6 +433,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           )}
         </AnimatePresence>
       </header>
+
+      {/* Service restoration banner — directly below navbar */}
+      <RestoreBanner />
 
       {/* Main content */}
       <main className="flex-1 page-enter">
