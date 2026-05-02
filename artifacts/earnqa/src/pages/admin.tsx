@@ -22,7 +22,7 @@ import {
   VALID_CATEGORIES,
 } from "@workspace/api-client-react";
 
-type AdminTab = "questions" | "all-questions" | "users" | "withdrawals" | "stats" | "referrals" | "flags" | "verifications" | "system";
+type AdminTab = "questions" | "all-questions" | "users" | "withdrawals" | "stats" | "referrals" | "flags" | "verifications";
 
 const REJECTION_REASONS = [
   "Not an opinion, preference, habit, or behavior-based question",
@@ -770,7 +770,7 @@ function useInfiniteScroll(
       entries => {
         if (entries[0].isIntersecting && hasMore && !loading) callbackRef.current();
       },
-      { rootMargin: "200px" },
+      { rootMargin: "800px" },
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -795,7 +795,7 @@ export default function Admin() {
   const [byUserLoading, setByUserLoading] = useState(false);
   const [expandedReferrer, setExpandedReferrer] = useState<string | null>(null);
   const [editorToggling, setEditorToggling] = useState<string | null>(null);
-  const [flagsData, setFlagsData] = useState<{ items: any[]; pending: number; resolved: number; removed: number } | null>(null);
+  const [flagsData, setFlagsData] = useState<{ items: any[]; total: number; pending: number; resolved: number; removed: number } | null>(null);
   const [flagsLoading, setFlagsLoading] = useState(false);
   const [flagsLoaded, setFlagsLoaded] = useState(false);
   const [flagsPage, setFlagsPage] = useState(1);
@@ -821,14 +821,13 @@ export default function Admin() {
   const [verifRejectId, setVerifRejectId] = useState<string | null>(null);
   const [verifRejectReason, setVerifRejectReason] = useState("");
   const [verifSearch, setVerifSearch] = useState("");
+  const [verifFilter, setVerifFilter] = useState<"all" | "pending" | "approved" | "rejected" | "reupload_requested">("all");
   const [rejectModalId, setRejectModalId] = useState<number | null>(null);
   // ── Ban system state ──────────────────────────────────────────────────────
   const [banModalUser, setBanModalUser] = useState<any | null>(null);
   const [banReason, setBanReason] = useState("");
   const [banIp, setBanIp] = useState(false);
   const [banToggling, setBanToggling] = useState<string | null>(null);
-  const [bannedIpsData, setBannedIpsData] = useState<{ ip: string; reason: string | null; bannedAt: string }[] | null>(null);
-  const [bannedIpsLoading, setBannedIpsLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState<string>("");
   // ── Per-tab paginated data (lazy-loaded, not React Query) ─────────────────
   const [adminCounts, setAdminCounts] = useState<{ pendingQuestions: number; pendingWithdrawals: number; pendingVerifications: number; pendingFlags: number } | null>(null);
@@ -869,6 +868,7 @@ export default function Admin() {
   const [withdrawalsHasMore, setWithdrawalsHasMore] = useState(false);
   const [withdrawalsTotal, setWithdrawalsTotal] = useState(0);
   const [withdrawalsError, setWithdrawalsError] = useState<string | null>(null);
+  const [withdrawalStatus, setWithdrawalStatus] = useState<string>("");
   // Referral list (paginated, replaces React Query hook)
   const [referralList, setReferralList] = useState<any[]>([]);
   const [refListLoading, setRefListLoading] = useState(false);
@@ -938,12 +938,13 @@ export default function Admin() {
     } finally { setPendingQLoading(false); }
   }, [getToken]);
 
-  const fetchAllQuestions = useCallback(async (page = 1) => {
+  const fetchAllQuestions = useCallback(async (page = 1, q = "") => {
     setAllQLoading(true);
     if (page === 1) setAllQError(null);
     try {
       const token = await getToken();
-      const res = await fetch(`/api/admin/questions?page=${page}&limit=50`, {
+      const qParam = q.trim() ? `&q=${encodeURIComponent(q.trim())}` : "";
+      const res = await fetch(`/api/admin/questions?page=${page}&limit=50${qParam}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: AbortSignal.timeout(15000),
       });
@@ -980,12 +981,13 @@ export default function Admin() {
     } finally { setUsersLoading(false); }
   }, [getToken]);
 
-  const fetchWithdrawals = useCallback(async (page = 1) => {
+  const fetchWithdrawals = useCallback(async (page = 1, status = "") => {
     setWithdrawalsLoading(true);
     if (page === 1) setWithdrawalsError(null);
     try {
       const token = await getToken();
-      const res = await fetch(`/api/admin/withdrawals?page=${page}&limit=50`, {
+      const statusParam = status ? `&status=${encodeURIComponent(status)}` : "";
+      const res = await fetch(`/api/admin/withdrawals?page=${page}&limit=50${statusParam}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: AbortSignal.timeout(15000),
       });
@@ -1021,9 +1023,9 @@ export default function Admin() {
   // ── Lazy load on tab change (use 'loaded' flag as cache) ──────────────────
   useEffect(() => { if (me?.isAdmin || me?.isEditor) fetchAdminCounts(); }, [me?.isAdmin, me?.isEditor, fetchAdminCounts]);
   useEffect(() => { if (tab === "questions" && !pendingQLoaded) fetchPendingQuestions(1); }, [tab, pendingQLoaded, fetchPendingQuestions]);
-  useEffect(() => { if (tab === "all-questions" && !allQLoaded) fetchAllQuestions(1); }, [tab, allQLoaded, fetchAllQuestions]);
+  useEffect(() => { if (tab === "all-questions" && !allQLoaded) fetchAllQuestions(1, debouncedSearch); }, [tab, allQLoaded, fetchAllQuestions, debouncedSearch]);
   useEffect(() => { if (tab === "users" && !usersLoaded) fetchUsers(1, debouncedSearch, userSort); }, [tab, usersLoaded, fetchUsers, debouncedSearch, userSort]);
-  useEffect(() => { if (tab === "withdrawals" && !withdrawalsLoaded) fetchWithdrawals(1); }, [tab, withdrawalsLoaded, fetchWithdrawals]);
+  useEffect(() => { if (tab === "withdrawals" && !withdrawalsLoaded) fetchWithdrawals(1, withdrawalStatus); }, [tab, withdrawalsLoaded, fetchWithdrawals, withdrawalStatus]);
   useEffect(() => { if (tab === "referrals" && !refListLoaded) fetchReferralList(1); }, [tab, refListLoaded, fetchReferralList]);
 
   // ── User search/sort: reset loaded flag when debounced search or sort changes ─
@@ -1079,23 +1081,25 @@ export default function Admin() {
     if (tab === "referrals") fetchByUser();
   }, [tab, fetchByUser]);
 
-  const fetchFlags = useCallback(async (page = 1) => {
+  const fetchFlags = useCallback(async (page = 1, status = "pending", sort = "newest") => {
     setFlagsLoading(true);
     if (page === 1) setFlagsError(null);
     try {
       const token = await getToken();
-      const res = await fetch(`/api/admin/flags?page=${page}&limit=50`, {
+      const statusParam = status && status !== "all" ? `&status=${encodeURIComponent(status)}` : "";
+      const sortParam = sort !== "newest" ? `&sort=${encodeURIComponent(sort)}` : "";
+      const res = await fetch(`/api/admin/flags?page=${page}&limit=50${statusParam}${sortParam}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: AbortSignal.timeout(15000),
       });
       if (res.ok) {
         const json = await res.json();
         if (page === 1) {
-          setFlagsData({ items: json.items ?? [], pending: json.pending ?? 0, resolved: json.resolved ?? 0, removed: json.removed ?? 0 });
+          setFlagsData({ items: json.items ?? [], total: json.total ?? 0, pending: json.pending ?? 0, resolved: json.resolved ?? 0, removed: json.removed ?? 0 });
         } else {
           setFlagsData(prev => prev
             ? { ...prev, items: [...prev.items, ...(json.items ?? [])] }
-            : { items: json.items ?? [], pending: json.pending ?? 0, resolved: json.resolved ?? 0, removed: json.removed ?? 0 }
+            : { items: json.items ?? [], total: json.total ?? 0, pending: json.pending ?? 0, resolved: json.resolved ?? 0, removed: json.removed ?? 0 }
           );
         }
         setFlagsPage(page);
@@ -1113,15 +1117,17 @@ export default function Admin() {
   }, [getToken]);
 
   useEffect(() => {
-    if (tab === "flags" && !flagsLoaded) fetchFlags(1);
-  }, [tab, flagsLoaded, fetchFlags]);
+    if (tab === "flags" && !flagsLoaded) fetchFlags(1, flagFilter, flagSort);
+  }, [tab, flagsLoaded, fetchFlags, flagFilter, flagSort]);
 
-  const fetchVerifications = useCallback(async (page = 1) => {
+  const fetchVerifications = useCallback(async (page = 1, status = "", q = "") => {
     setVerificationsLoading(true);
     if (page === 1) setVerificationsError(null);
     try {
       const token = await getToken();
-      const res = await fetch(`/api/admin/verifications?page=${page}&limit=50`, {
+      const statusParam = status && status !== "all" ? `&status=${encodeURIComponent(status)}` : "";
+      const qParam = q.trim() ? `&q=${encodeURIComponent(q.trim())}` : "";
+      const res = await fetch(`/api/admin/verifications?page=${page}&limit=50${statusParam}${qParam}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: AbortSignal.timeout(15000),
       });
@@ -1145,8 +1151,8 @@ export default function Admin() {
   }, [getToken]);
 
   useEffect(() => {
-    if (tab === "verifications" && !verificationsLoaded) fetchVerifications(1);
-  }, [tab, verificationsLoaded, fetchVerifications]);
+    if (tab === "verifications" && !verificationsLoaded) fetchVerifications(1, verifFilter === "all" ? "" : verifFilter, verifSearch);
+  }, [tab, verificationsLoaded, fetchVerifications, verifFilter, verifSearch]);
 
   const handleVerifApprove = async (userId: string) => {
     setVerifActionId(userId);
@@ -1236,38 +1242,6 @@ export default function Admin() {
     }
   }, [getToken]);
 
-  const fetchBannedIps = useCallback(async () => {
-    setBannedIpsLoading(true);
-    try {
-      const token = await getToken();
-      const res = await fetch("/api/admin/banned-ips", {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setBannedIpsData(json.bannedIps ?? []);
-      }
-    } finally {
-      setBannedIpsLoading(false);
-    }
-  }, [getToken]);
-
-  useEffect(() => {
-    if (tab === "system") fetchBannedIps();
-  }, [tab, fetchBannedIps]);
-
-  const handleUnbanIp = useCallback(async (ip: string) => {
-    if (!confirm(`Remove ban for IP: ${ip}?`)) return;
-    try {
-      const token = await getToken();
-      const encoded = encodeURIComponent(ip);
-      const res = await fetch(`/api/admin/banned-ips/${encoded}`, {
-        method: "DELETE",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) fetchBannedIps();
-    } catch {}
-  }, [getToken, fetchBannedIps]);
 
   // ── In-place flag state helpers (no full refetch) ────────────────────────
   const applyFlagStatusLocally = (answerIds: number[], newStatus: "removed" | null) => {
@@ -1284,7 +1258,7 @@ export default function Admin() {
       const pending  = items.filter(i => i.flagStatus === "pending").length;
       const removed  = items.filter(i => i.flagStatus === "removed").length;
       const resolved = items.filter(i => i.flagStatus !== "pending" && i.flagStatus !== "removed").length;
-      return { items, pending, resolved, removed };
+      return { items, total: prev.total, pending, resolved, removed };
     });
   };
 
@@ -1300,7 +1274,7 @@ export default function Admin() {
       const pending  = items.filter(i => i.flagStatus === "pending").length;
       const removed  = items.filter(i => i.flagStatus === "removed").length;
       const resolved = items.filter(i => i.flagStatus !== "pending" && i.flagStatus !== "removed").length;
-      return { items, pending, resolved, removed };
+      return { items, total: prev.total, pending, resolved, removed };
     });
   };
 
@@ -1566,13 +1540,7 @@ export default function Admin() {
 
   const searchTerm = debouncedSearch.trim().toLowerCase();
 
-  const filteredQuestions = useMemo(() => {
-    if (!searchTerm) return allQuestions;
-    return allQuestions.filter(q =>
-      (q.title ?? "").toLowerCase().includes(searchTerm) ||
-      (q.description ?? "").toLowerCase().includes(searchTerm)
-    );
-  }, [allQuestions, searchTerm]);
+  const filteredQuestions = allQuestions;
 
   // sortedUsers removed — sorting is now server-side via the `sort` query param.
 
@@ -1590,11 +1558,11 @@ export default function Admin() {
     pendingQHasMore, pendingQLoading,
   );
   const allQSentinelRef = useInfiniteScroll(
-    () => fetchAllQuestions(allQPage + 1),
+    () => fetchAllQuestions(allQPage + 1, debouncedSearch),
     allQHasMore, allQLoading,
   );
   const withdrawalsSentinelRef = useInfiniteScroll(
-    () => fetchWithdrawals(withdrawalsPage + 1),
+    () => fetchWithdrawals(withdrawalsPage + 1, withdrawalStatus),
     withdrawalsHasMore, withdrawalsLoading,
   );
   const usersSentinelRef = useInfiniteScroll(
@@ -1606,86 +1574,95 @@ export default function Admin() {
     refListHasMore, refListLoading,
   );
   const verifSentinelRef = useInfiniteScroll(
-    () => fetchVerifications(verificationsPage + 1),
+    () => fetchVerifications(verificationsPage + 1, verifFilter === "all" ? "" : verifFilter, verifSearch),
     verificationsHasMore, verificationsLoading,
   );
   const flagsSentinelRef = useInfiniteScroll(
-    () => fetchFlags(flagsPage + 1),
+    () => fetchFlags(flagsPage + 1, flagFilter, flagSort),
     flagsHasMore, flagsLoading,
   );
 
-  // ── Background preloading (requestIdleCallback, All Questions only) ────────
-  // Kept only for All Questions — other tabs use IntersectionObserver scroll-
-  // driven loading which is stable enough without an additional background pump.
+  // ── Background preloading (requestIdleCallback — all tabs) ──────────────────
+  const ric = (cb: () => void) =>
+    typeof (window as any).requestIdleCallback === "function"
+      ? (window as any).requestIdleCallback(cb, { timeout: 2000 })
+      : setTimeout(cb, 1500);
   useEffect(() => {
     if (!allQLoaded || allQLoading || !allQHasMore) return;
     let cancelled = false;
-    const ric = (cb: () => void) =>
-      typeof (window as any).requestIdleCallback === "function"
-        ? (window as any).requestIdleCallback(cb, { timeout: 2000 })
-        : setTimeout(cb, 1500);
-    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchAllQuestions(allQPage + 1); }); }, 1500);
+    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchAllQuestions(allQPage + 1, debouncedSearch); }); }, 1500);
     return () => { cancelled = true; clearTimeout(id); };
-  }, [allQLoaded, allQLoading, allQHasMore, allQPage, fetchAllQuestions]);
+  }, [allQLoaded, allQLoading, allQHasMore, allQPage, fetchAllQuestions, debouncedSearch]);
+  useEffect(() => {
+    if (tab !== "questions" || !pendingQLoaded || pendingQLoading || !pendingQHasMore) return;
+    let cancelled = false;
+    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchPendingQuestions(pendingQPage + 1); }); }, 2000);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [tab, pendingQLoaded, pendingQLoading, pendingQHasMore, pendingQPage, fetchPendingQuestions]);
+  useEffect(() => {
+    if (tab !== "users" || !usersLoaded || usersLoading || !usersHasMore) return;
+    let cancelled = false;
+    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchUsers(usersPage + 1, debouncedSearch, userSort); }); }, 2500);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [tab, usersLoaded, usersLoading, usersHasMore, usersPage, fetchUsers, debouncedSearch, userSort]);
+  useEffect(() => {
+    if (tab !== "withdrawals" || !withdrawalsLoaded || withdrawalsLoading || !withdrawalsHasMore) return;
+    let cancelled = false;
+    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchWithdrawals(withdrawalsPage + 1, withdrawalStatus); }); }, 2000);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [tab, withdrawalsLoaded, withdrawalsLoading, withdrawalsHasMore, withdrawalsPage, fetchWithdrawals, withdrawalStatus]);
+  useEffect(() => {
+    if (tab !== "flags" || !flagsLoaded || flagsLoading || !flagsHasMore) return;
+    let cancelled = false;
+    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchFlags(flagsPage + 1, flagFilter, flagSort); }); }, 2000);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [tab, flagsLoaded, flagsLoading, flagsHasMore, flagsPage, fetchFlags, flagFilter, flagSort]);
+  useEffect(() => {
+    if (tab !== "verifications" || !verificationsLoaded || verificationsLoading || !verificationsHasMore) return;
+    let cancelled = false;
+    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchVerifications(verificationsPage + 1, verifFilter === "all" ? "" : verifFilter, verifSearch); }); }, 2000);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [tab, verificationsLoaded, verificationsLoading, verificationsHasMore, verificationsPage, fetchVerifications, verifFilter, verifSearch]);
+  useEffect(() => {
+    if (tab !== "referrals" || !refListLoaded || refListLoading || !refListHasMore) return;
+    let cancelled = false;
+    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchReferralList(refListPage + 1); }); }, 2000);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [tab, refListLoaded, refListLoading, refListHasMore, refListPage, fetchReferralList]);
 
-  // ── System / Maintenance state ─────────────────────────────────────────────
-  const [cleanupRunning, setCleanupRunning] = useState(false);
-  const [cleanupReport, setCleanupReport] = useState<Record<string, unknown> | null>(null);
-  const [cleanupError, setCleanupError] = useState<string | null>(null);
-
-  const callCleanup = async (dryRun: boolean) => {
-    const token = await getToken();
-    const url = dryRun
-      ? "/api/admin/internal/cleanup-rejected-answers?dryRun=true"
-      : "/api/admin/internal/cleanup-rejected-answers";
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token ?? ""}` },
-      });
-    } catch (netErr) {
-      throw new Error(`Network error (fetch failed): ${String(netErr)}`);
+  // ── Search / filter reset effects ────────────────────────────────────────────
+  const prevAllQSearchRef = useRef(debouncedSearch);
+  useEffect(() => {
+    if (debouncedSearch !== prevAllQSearchRef.current) {
+      prevAllQSearchRef.current = debouncedSearch;
+      setAllQuestions([]); setAllQPage(1); setAllQLoaded(false);
     }
-    const text = await res.text();
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status} ${res.statusText}: ${text.slice(0, 300)}`);
+  }, [debouncedSearch]);
+  const prevFlagFilterRef = useRef(flagFilter);
+  const prevFlagSortRef = useRef(flagSort);
+  useEffect(() => {
+    if (flagFilter !== prevFlagFilterRef.current || flagSort !== prevFlagSortRef.current) {
+      prevFlagFilterRef.current = flagFilter;
+      prevFlagSortRef.current = flagSort;
+      setFlagsData(null); setFlagsPage(1); setFlagsLoaded(false); setSelectedFlagIds(new Set());
     }
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new Error(`Server returned non-JSON (${res.status}): ${text.slice(0, 300)}`);
+  }, [flagFilter, flagSort]);
+  const prevVerifFilterRef = useRef(verifFilter);
+  const prevVerifSearchRef = useRef(verifSearch);
+  useEffect(() => {
+    if (verifFilter !== prevVerifFilterRef.current || verifSearch !== prevVerifSearchRef.current) {
+      prevVerifFilterRef.current = verifFilter;
+      prevVerifSearchRef.current = verifSearch;
+      setVerificationsData(null); setVerificationsPage(1); setVerificationsLoaded(false);
     }
-  };
-
-  const handleCleanupDryRun = async () => {
-    setCleanupRunning(true);
-    setCleanupReport(null);
-    setCleanupError(null);
-    try {
-      const data = await callCleanup(true);
-      setCleanupReport(data);
-    } catch (e) {
-      setCleanupError(String(e));
-    } finally {
-      setCleanupRunning(false);
+  }, [verifFilter, verifSearch]);
+  const prevWithdrawalStatusRef = useRef(withdrawalStatus);
+  useEffect(() => {
+    if (withdrawalStatus !== prevWithdrawalStatusRef.current) {
+      prevWithdrawalStatusRef.current = withdrawalStatus;
+      setWithdrawals([]); setWithdrawalsPage(1); setWithdrawalsLoaded(false);
     }
-  };
-
-  const handleCleanupRun = async () => {
-    if (!window.confirm("This will mark answers on rejected questions as removed and reverse their rewards. Continue?")) return;
-    setCleanupRunning(true);
-    setCleanupReport(null);
-    setCleanupError(null);
-    try {
-      const data = await callCleanup(false);
-      setCleanupReport(data);
-    } catch (e) {
-      setCleanupError(String(e));
-    } finally {
-      setCleanupRunning(false);
-    }
-  };
+  }, [withdrawalStatus]);
 
   const allTabs: { key: AdminTab; label: string; badge?: number }[] = [
     { key: "questions", label: "Pending Review", badge: adminCounts?.pendingQuestions ?? 0 },
@@ -1696,7 +1673,6 @@ export default function Admin() {
     { key: "referrals", label: "Referrals", badge: refStatsData?.flaggedCount ?? 0 },
     { key: "flags", label: "Flags", badge: adminCounts?.pendingFlags ?? undefined },
     { key: "verifications", label: "Verifications", badge: adminCounts?.pendingVerifications ?? undefined },
-    { key: "system", label: "System" },
   ];
   const editorAllowedTabs: AdminTab[] = ["questions", "all-questions"];
   const tabs = isEditorOnly
@@ -1704,15 +1680,7 @@ export default function Admin() {
     : allTabs;
   const effectiveTab = isEditorOnly && !editorAllowedTabs.includes(tab) ? "questions" : tab;
 
-  const filteredFlagItems = useMemo(() => {
-    if (!flagsData) return [];
-    let items = [...flagsData.items];
-    if (flagFilter !== "all") items = items.filter(i => i.flagStatus === flagFilter);
-    if (flagSort === "oldest") items.sort((a, b) => a.answerId - b.answerId);
-    else if (flagSort === "most-flagged") items.sort((a, b) => b.flagCount - a.flagCount);
-    else items.sort((a, b) => b.answerId - a.answerId);
-    return items;
-  }, [flagsData, flagFilter, flagSort]);
+  const flagItems = flagsData?.items ?? [];
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -1902,9 +1870,23 @@ export default function Admin() {
               <button onClick={() => setTransferMsg(null)} className="opacity-60 hover:opacity-100 text-base leading-none shrink-0">✕</button>
             </div>
           )}
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-muted-foreground">{withdrawalsTotal > 0 ? `${withdrawals.length} / ${withdrawalsTotal} shown` : ""}</span>
-            <button onClick={() => { setWithdrawals([]); setWithdrawalsPage(1); setWithdrawalsLoaded(false); setWithdrawalsError(null); }} disabled={withdrawalsLoading} className="text-xs text-amber-600 hover:underline disabled:opacity-40">Refresh</button>
+          {/* Status filter + count */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-1 bg-muted rounded-xl p-1">
+              {(["", "pending", "approved", "completed"] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setWithdrawalStatus(s)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${withdrawalStatus === s ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {s === "" ? "All" : s}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">{withdrawalsTotal > 0 ? `${withdrawals.length} / ${withdrawalsTotal} shown` : ""}</span>
+              <button onClick={() => { setWithdrawals([]); setWithdrawalsPage(1); setWithdrawalsLoaded(false); setWithdrawalsError(null); }} disabled={withdrawalsLoading} className="text-xs text-amber-600 hover:underline disabled:opacity-40">Refresh</button>
+            </div>
           </div>
           {withdrawalsLoading && withdrawals.length === 0 ? (
             <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-28 bg-muted rounded-xl animate-pulse" />)}</div>
@@ -2959,7 +2941,7 @@ export default function Admin() {
                   >
                     {f}
                     <span className="ml-1 opacity-60">
-                      ({f === "all" ? flagsData.items.length : f === "pending" ? flagsData.pending : f === "resolved" ? flagsData.resolved : flagsData.removed})
+                      ({f === "all" ? (flagsData.pending + flagsData.resolved + flagsData.removed) : f === "pending" ? flagsData.pending : f === "resolved" ? flagsData.resolved : flagsData.removed})
                     </span>
                   </button>
                 ))}
@@ -3022,16 +3004,11 @@ export default function Admin() {
                 Retry
               </button>
             </div>
-          ) : !flagsData || flagsData.items.length === 0 ? (
+          ) : !flagsData || flagItems.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <div className="text-4xl mb-3">🎉</div>
-              <p className="font-medium">No flagged answers found</p>
-              <p className="text-sm mt-1">All answers are in good standing</p>
-            </div>
-          ) : filteredFlagItems.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <p className="font-medium">No {flagFilter} items</p>
-              <p className="text-sm mt-1">Try a different filter above</p>
+              <p className="font-medium">No {flagFilter === "all" ? "flagged" : flagFilter} answers found</p>
+              <p className="text-sm mt-1">{flagFilter === "all" ? "All answers are in good standing" : "Try a different filter above"}</p>
             </div>
           ) : (
             <div>
@@ -3041,22 +3018,22 @@ export default function Admin() {
                   type="checkbox"
                   id="flags-select-all"
                   checked={
-                    filteredFlagItems.filter(i => i.flagStatus !== "removed").length > 0 &&
-                    filteredFlagItems.filter(i => i.flagStatus !== "removed").every(i => selectedFlagIds.has(i.answerId))
+                    flagItems.filter(i => i.flagStatus !== "removed").length > 0 &&
+                    flagItems.filter(i => i.flagStatus !== "removed").every(i => selectedFlagIds.has(i.answerId))
                   }
                   onChange={e => {
-                    const actionable = filteredFlagItems.filter(i => i.flagStatus !== "removed");
+                    const actionable = flagItems.filter(i => i.flagStatus !== "removed");
                     setSelectedFlagIds(e.target.checked ? new Set(actionable.map(i => i.answerId)) : new Set());
                   }}
                   className="w-4 h-4 rounded cursor-pointer accent-[#1e3a5f]"
                 />
                 <label htmlFor="flags-select-all" className="text-xs text-muted-foreground font-medium cursor-pointer select-none">
-                  Select all ({filteredFlagItems.filter(i => i.flagStatus !== "removed").length} actionable)
+                  Select all ({flagItems.filter(i => i.flagStatus !== "removed").length} actionable)
                 </label>
               </div>
 
               <div className="space-y-4">
-                {filteredFlagItems.map((item: any) => (
+                {flagItems.map((item: any) => (
                   <div
                     key={item.answerId}
                     className={`bg-card border rounded-2xl p-5 shadow-sm transition-all ${
@@ -3223,60 +3200,66 @@ export default function Admin() {
             <p className="text-muted-foreground text-sm text-center py-20">No data available.</p>
           ) : (
             <>
-              {/* Stats strip */}
-              <div className="grid grid-cols-4 gap-4 mb-6">
+              {/* Stats strip — clickable to filter */}
+              <div className="grid grid-cols-4 gap-4 mb-4">
                 {[
-                  { label: "Pending", value: verificationsData.pending, color: "text-amber-600" },
-                  { label: "Approved", value: verificationsData.approved, color: "text-green-600" },
-                  { label: "Rejected", value: verificationsData.rejected, color: "text-red-600" },
-                  { label: "Re-upload", value: verificationsData.reupload, color: "text-blue-600" },
+                  { label: "Pending", value: verificationsData.pending, color: "text-amber-600", filterKey: "pending" as const },
+                  { label: "Approved", value: verificationsData.approved, color: "text-green-600", filterKey: "approved" as const },
+                  { label: "Rejected", value: verificationsData.rejected, color: "text-red-600", filterKey: "rejected" as const },
+                  { label: "Re-upload", value: verificationsData.reupload, color: "text-blue-600", filterKey: "reupload_requested" as const },
                 ].map(s => (
-                  <div key={s.label} className="bg-card border border-card-border rounded-xl p-4 text-center shadow-sm">
+                  <button
+                    key={s.label}
+                    onClick={() => setVerifFilter(prev => prev === s.filterKey ? "all" : s.filterKey)}
+                    className={`bg-card border rounded-xl p-4 text-center shadow-sm transition-all ${verifFilter === s.filterKey ? "border-foreground/30 ring-1 ring-foreground/20" : "border-card-border hover:border-foreground/20"}`}
+                  >
                     <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
-                  </div>
+                    {verifFilter === s.filterKey && <p className="text-[10px] text-foreground/50 mt-0.5">● filtered</p>}
+                  </button>
                 ))}
               </div>
 
-              {/* Search */}
-              <div className="relative mb-5">
-                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                <input
-                  type="text"
-                  value={verifSearch}
-                  onChange={e => setVerifSearch(e.target.value)}
-                  placeholder="Search by name or email…"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-400"
-                />
-                {verifSearch && (
+              {/* Filter chips + search row */}
+              <div className="flex flex-wrap items-center gap-2 mb-5">
+                {verifFilter !== "all" && (
                   <button
-                    onClick={() => setVerifSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setVerifFilter("all")}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-foreground/10 text-xs font-medium text-foreground hover:bg-foreground/20 transition-colors"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    {verifFilter.replace("_", " ")} ×
                   </button>
                 )}
+                <div className="relative flex-1 min-w-48">
+                  <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                  <input
+                    type="text"
+                    value={verifSearch}
+                    onChange={e => setVerifSearch(e.target.value)}
+                    placeholder="Search by name or email…"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  {verifSearch && (
+                    <button
+                      onClick={() => setVerifSearch("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {(() => {
-                const needle = verifSearch.trim().toLowerCase();
-                const filtered = needle
-                  ? verificationsData.users.filter((u: any) =>
-                      (u.username ?? "").toLowerCase().includes(needle) ||
-                      (u.fullName ?? "").toLowerCase().includes(needle) ||
-                      (u.email ?? "").toLowerCase().includes(needle)
-                    )
-                  : verificationsData.users;
-                return filtered.length === 0 ? (
+              {verificationsData.users.length === 0 ? (
                   <div className="text-center py-16 text-muted-foreground text-sm">
-                    {needle ? `No results for "${verifSearch}"` : "No verification submissions yet."}
+                    {verifSearch || verifFilter !== "all" ? "No results for current filter / search." : "No verification submissions yet."}
                   </div>
                 ) : (
                 <div className="space-y-4">
                   {verificationsLoading && verificationsData && (
                     <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-20 bg-muted rounded-xl animate-pulse" />)}</div>
                   )}
-                  {filtered.map((user: any) => (
+                  {verificationsData.users.map((user: any) => (
                     <div key={user.clerkId} className="bg-card border border-card-border rounded-2xl p-5 shadow-sm">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="flex-1 min-w-0">
@@ -3376,100 +3359,17 @@ export default function Admin() {
                       )}
                     </div>
                   ))}
-                  {!needle && <div ref={verifSentinelRef} className="h-1" />}
-                  {verificationsLoading && (verificationsData?.users.length ?? 0) > 0 && !needle && (
+                  <div ref={verifSentinelRef} className="h-1" />
+                  {verificationsLoading && (verificationsData?.users.length ?? 0) > 0 && (
                     <div className="py-4 text-center text-sm text-muted-foreground animate-pulse">Loading more…</div>
                   )}
                 </div>
-              );
-              })()}
+              )}
             </>
           )}
         </div>
       )}
 
-      {/* ── System / Maintenance Tab ── */}
-      {effectiveTab === "system" && (
-        <div className="space-y-6">
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <h2 className="text-base font-semibold">Rejected-Answer Reward Cleanup</h2>
-            <p className="text-sm text-muted-foreground">
-              Marks answers on rejected questions as <code>removed</code> and reverses their
-              earning / creator-reward transactions. Fully idempotent — safe to run more than once.
-            </p>
-            <div className="flex gap-3 flex-wrap">
-              <button
-                onClick={handleCleanupDryRun}
-                disabled={cleanupRunning}
-                className="px-4 py-2 rounded-lg text-sm font-semibold border border-border bg-muted hover:bg-muted/80 disabled:opacity-50 transition-colors"
-              >
-                {cleanupRunning ? "Running…" : "Dry Run (preview only)"}
-              </button>
-              <button
-                onClick={handleCleanupRun}
-                disabled={cleanupRunning}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
-              >
-                {cleanupRunning ? "Running…" : "Run Cleanup"}
-              </button>
-            </div>
-
-            {cleanupError && (
-              <div className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg p-3">
-                Error: {cleanupError}
-              </div>
-            )}
-
-            {cleanupReport && (
-              <div className="bg-muted rounded-lg p-4 text-xs font-mono overflow-auto max-h-96 whitespace-pre-wrap">
-                {JSON.stringify(cleanupReport, null, 2)}
-              </div>
-            )}
-          </div>
-
-          {/* Banned IPs */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold">Banned IP Addresses</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">IPs blocked from all platform access. Managed via the Users tab when banning a user.</p>
-              </div>
-              <button
-                onClick={fetchBannedIps}
-                disabled={bannedIpsLoading}
-                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors disabled:opacity-40"
-              >
-                {bannedIpsLoading ? "Loading…" : "Refresh"}
-              </button>
-            </div>
-            {bannedIpsData === null && bannedIpsLoading && (
-              <div className="text-sm text-muted-foreground">Loading…</div>
-            )}
-            {bannedIpsData !== null && bannedIpsData.length === 0 && (
-              <div className="text-sm text-muted-foreground">No banned IPs.</div>
-            )}
-            {bannedIpsData && bannedIpsData.length > 0 && (
-              <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
-                {bannedIpsData.map(entry => (
-                  <div key={entry.ip} className="flex items-center justify-between px-4 py-3 bg-card hover:bg-muted/30 transition-colors">
-                    <div>
-                      <span className="font-mono text-sm text-foreground">{entry.ip}</span>
-                      {entry.reason && <span className="ml-2 text-xs text-muted-foreground">— {entry.reason}</span>}
-                      <div className="text-[10px] text-muted-foreground/60 mt-0.5">Banned {new Date(entry.bannedAt).toLocaleDateString()}</div>
-                    </div>
-                    <button
-                      onClick={() => handleUnbanIp(entry.ip)}
-                      className="text-xs text-green-700 hover:text-green-800 underline underline-offset-2 transition-colors shrink-0 ml-4"
-                    >
-                      Remove Ban
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
     </div>
   );

@@ -1,0 +1,45 @@
+Admin Panel cleanup + auto-loading fix
+
+Please update the Admin Panel carefully:
+
+1) Remove the “System” tab/feature from the Admin Panel UI completely.
+- Remove it from the tab navigation.
+- Remove any unused System component/import/state/code if it is only used for that tab.
+- Do not break any other admin tab.
+
+2) Improve all Admin Panel lists so they auto-load while scrolling.
+Current issue: Pending Review shows 449 / 1328 and admin has to scroll/load manually.
+Required behavior:
+- Pending Review, All Questions, Users, Withdrawals, Referrals, Flags, Verifications should keep loading automatically in chunks when admin scrolls near the bottom.
+- Use 50 or 100 items per request, whichever is safer for performance.
+- Add a loading indicator while next batch is loading.
+- Avoid duplicates.
+- Stop loading when all records are loaded.
+- Keep already loaded items visible and append new ones smoothly.
+
+3) Search and sort must work correctly on every tab where they exist.
+Please test these specifically:
+- Pending Review search/sort/filter
+- All Questions search/sort/filter
+- Users search/sort/filter
+- Withdrawals search/status filter
+- Flags filter/search
+- Verifications search/status filter
+- Referrals search/sort if available
+
+4) Important: search/filter/sort should work with the full dataset, not only the currently loaded 50/100 items.
+If the backend already supports query params like q, status, sort, limit, offset/cursor, use them.
+If not, add safe backend support.
+
+5) After changes, test the full admin panel:
+- Open every tab.
+- Confirm no blank screen.
+- Confirm Edit buttons still work.
+- Confirm Approve/Reject still work.
+- Confirm search returns correct results.
+- Confirm sorting changes order correctly.
+- Confirm scrolling loads more records automatically.
+- Check browser console for errors.
+- Check API logs for errors.
+
+Please make small, safe changes only. Do not redesign the admin panel. Do not touch auth, Clerk, payments, or database schema unless absolutely required.

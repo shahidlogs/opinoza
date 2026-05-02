@@ -4,7 +4,7 @@ import { db, questionsTable, usersTable, transactionsTable, answersTable, wallet
 import { sendEmail, sendEmailDirect, withdrawalApprovedEmail, withdrawalRejectedEmail, questionRejectedEmail, paymentTransferredEmail } from "../lib/email.js";
 import { pushQuestionApproved, pushBonusReceived, PUSH_CONFIG } from "../lib/push.js";
 import { cleanupRejectedAnswers } from "../lib/cleanup-rejected-answers.js";
-import { eq, count, sum, and, gte, desc, inArray, sql as drizzleSql } from "drizzle-orm";
+import { eq, count, sum, and, gte, desc, asc, inArray, sql as drizzleSql } from "drizzle-orm";
 import { notifCacheInvalidate } from "../lib/notifCache";
 
 const router: IRouter = Router();
@@ -76,12 +76,19 @@ router.get("/admin/questions", async (req, res): Promise<void> => {
   if (!await checkAdminOrEditor(req, res)) return;
 
   const { status } = req.query as Record<string, string>;
+  const textSearch = ((req.query.q as string) || "").trim().toLowerCase();
   const page  = Math.max(1, parseInt((req.query.page  as string) || "1",  10));
   const limit = Math.min(200, Math.max(0, parseInt((req.query.limit as string) || "0", 10)));
   const offset = (page - 1) * limit;
 
+  // Build WHERE conditions
+  const whereParts: any[] = [];
+  if (status) whereParts.push(eq(questionsTable.status, status));
+  if (textSearch) whereParts.push(drizzleSql`(LOWER(${questionsTable.title}) LIKE ${`%${textSearch}%`} OR LOWER(COALESCE(${questionsTable.description}, '')) LIKE ${`%${textSearch}%`})`);
+  const whereClause = whereParts.length === 0 ? undefined : whereParts.length === 1 ? whereParts[0] : and(...whereParts);
+
   let baseQuery = db.select().from(questionsTable).$dynamic();
-  if (status) baseQuery = baseQuery.where(eq(questionsTable.status, status));
+  if (whereClause) baseQuery = baseQuery.where(whereClause);
   baseQuery = baseQuery.orderBy(desc(questionsTable.createdAt));
 
   if (limit > 0) baseQuery = baseQuery.limit(limit).offset(offset);
@@ -91,7 +98,7 @@ router.get("/admin/questions", async (req, res): Promise<void> => {
   let hasMore = false;
   if (limit > 0) {
     let cq = db.select({ cnt: count() }).from(questionsTable).$dynamic();
-    if (status) cq = cq.where(eq(questionsTable.status, status));
+    if (whereClause) cq = cq.where(whereClause);
     const [{ cnt }] = await cq;
     total = Number(cnt);
     hasMore = offset + questions.length < total;
@@ -725,13 +732,14 @@ router.get("/admin/stats", async (req, res): Promise<void> => {
   });
 });
 
-// Withdrawal management. Supports ?page=1&limit=25
+// Withdrawal management. Supports ?page=1&limit=25&status=pending|approved|completed
 router.get("/admin/withdrawals", async (req, res): Promise<void> => {
   if (!await checkAdmin(req, res)) return;
 
   const page  = Math.max(1, parseInt((req.query.page  as string) || "1",  10));
   const limit = Math.min(200, Math.max(0, parseInt((req.query.limit as string) || "0", 10)));
   const offset = (page - 1) * limit;
+  const statusParam = ((req.query.status as string) || "").trim();
 
   const baseFields = {
     id: transactionsTable.id,
@@ -751,10 +759,14 @@ router.get("/admin/withdrawals", async (req, res): Promise<void> => {
     userClerkId: usersTable.clerkId,
   };
 
+  const whereConditions: any[] = [eq(transactionsTable.type, "withdrawal")];
+  if (statusParam) whereConditions.push(eq(transactionsTable.status, statusParam));
+  const whereClause = whereConditions.length === 1 ? whereConditions[0] : and(...whereConditions);
+
   let q = db.select(baseFields)
     .from(transactionsTable)
     .leftJoin(usersTable, eq(usersTable.clerkId, transactionsTable.userId))
-    .where(eq(transactionsTable.type, "withdrawal"))
+    .where(whereClause)
     .orderBy(desc(transactionsTable.createdAt))
     .$dynamic();
 
@@ -764,7 +776,7 @@ router.get("/admin/withdrawals", async (req, res): Promise<void> => {
   if (limit > 0) {
     const [{ cnt }] = await db.select({ cnt: count() })
       .from(transactionsTable)
-      .where(eq(transactionsTable.type, "withdrawal"));
+      .where(whereClause);
     total = Number(cnt);
     hasMore = offset + limit < total;
     q = q.limit(limit).offset(offset);
@@ -992,6 +1004,7 @@ router.get("/admin/flags", async (req, res): Promise<void> => {
   const limit  = Math.min(200, Math.max(0, parseInt((req.query.limit as string) || "0", 10)));
   const offset = (page - 1) * limit;
   const statusFilter = (req.query.status as string) || null;
+  const sort = (req.query.sort as string) || "newest";
 
   // Get counts (always global, not filtered by status)
   const [{ pending }, { resolved }, { removed }] = await Promise.all([
@@ -1018,8 +1031,12 @@ router.get("/admin/flags", async (req, res): Promise<void> => {
     .where(statusFilter
       ? eq(answersTable.flagStatus, statusFilter)
       : drizzleSql`${answersTable.flagStatus} IS NOT NULL`)
-    .orderBy(desc(answersTable.id))
     .$dynamic();
+
+  // Apply server-side sort
+  if (sort === "oldest") answerQ = answerQ.orderBy(asc(answersTable.id));
+  else if (sort === "most-flagged") answerQ = answerQ.orderBy(drizzleSql`(SELECT COUNT(*) FROM answer_flags WHERE answer_flags.answer_id = answers.id) DESC NULLS LAST, answers.id DESC`);
+  else answerQ = answerQ.orderBy(desc(answersTable.id));
 
   if (limit > 0) answerQ = answerQ.limit(limit).offset(offset);
   const flaggedAnswers = await answerQ;
@@ -1549,13 +1566,16 @@ router.get("/admin/earnings-analytics", async (req, res): Promise<void> => {
 
 // ── Identity Verification Admin Endpoints ────────────────────────────────────
 
-// GET /admin/verifications — list users who have submitted verification documents. Supports ?page=1&limit=25
+// GET /admin/verifications — list users who have submitted verification documents.
+// Supports ?page=1&limit=25&status=pending|approved|rejected|reupload_requested&q=text
 router.get("/admin/verifications", async (req, res): Promise<void> => {
   if (!await checkAdmin(req, res)) return;
 
   const page  = Math.max(1, parseInt((req.query.page  as string) || "1",  10));
   const limit = Math.min(200, Math.max(0, parseInt((req.query.limit as string) || "0", 10)));
   const offset = (page - 1) * limit;
+  const statusParam  = ((req.query.status as string) || "").trim();
+  const textSearch   = ((req.query.q      as string) || "").trim().toLowerCase();
 
   const fields = {
     clerkId: usersTable.clerkId,
@@ -1571,17 +1591,28 @@ router.get("/admin/verifications", async (req, res): Promise<void> => {
     createdAt: usersTable.createdAt,
   };
 
+  // Build WHERE for paged query
+  const pagedWhereParts: any[] = [drizzleSql`${usersTable.verificationStatus} != 'unverified'`];
+  if (statusParam) pagedWhereParts.push(eq(usersTable.verificationStatus, statusParam));
+  if (textSearch)  pagedWhereParts.push(drizzleSql`(LOWER(COALESCE(${usersTable.name}, '')) LIKE ${`%${textSearch}%`} OR LOWER(COALESCE(${usersTable.email}, '')) LIKE ${`%${textSearch}%`})`);
+  const pagedWhere = pagedWhereParts.length === 1 ? pagedWhereParts[0] : and(...pagedWhereParts);
+
+  // Counts WHERE: always by all statuses, but respect text search
+  const countWhereParts: any[] = [drizzleSql`${usersTable.verificationStatus} != 'unverified'`];
+  if (textSearch) countWhereParts.push(drizzleSql`(LOWER(COALESCE(${usersTable.name}, '')) LIKE ${`%${textSearch}%`} OR LOWER(COALESCE(${usersTable.email}, '')) LIKE ${`%${textSearch}%`})`);
+  const countWhere = countWhereParts.length === 1 ? countWhereParts[0] : and(...countWhereParts);
+
   let q = db.select(fields)
     .from(usersTable)
-    .where(drizzleSql`${usersTable.verificationStatus} != 'unverified'`)
+    .where(pagedWhere)
     .orderBy(desc(usersTable.updatedAt))
     .$dynamic();
 
-  // Global status counts (always full, not paged)
+  // Global status counts (always full, not filtered by status — only by text search)
   const [allUsers, pagedUsers] = await Promise.all([
     db.select({ status: usersTable.verificationStatus, cnt: count() })
       .from(usersTable)
-      .where(drizzleSql`${usersTable.verificationStatus} != 'unverified'`)
+      .where(countWhere)
       .groupBy(usersTable.verificationStatus),
     limit > 0 ? q.limit(limit).offset(offset) : q,
   ]);
@@ -1596,7 +1627,8 @@ router.get("/admin/verifications", async (req, res): Promise<void> => {
   const approved = statusMap["approved"]           ?? 0;
   const rejected = statusMap["rejected"]           ?? 0;
   const reupload = statusMap["reupload_requested"] ?? 0;
-  const hasMore  = limit > 0 ? offset + pagedUsers.length < total : false;
+  const filteredTotal = statusParam ? (statusMap[statusParam] ?? 0) : total;
+  const hasMore  = limit > 0 ? offset + pagedUsers.length < filteredTotal : false;
 
   const withDriveLinks = pagedUsers.map(u => ({
     ...u,
