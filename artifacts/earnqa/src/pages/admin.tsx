@@ -769,23 +769,30 @@ function useInfiniteScroll(
   hasMore: boolean,
   loading: boolean,
 ) {
-  const sentinelRef  = useRef<HTMLDivElement | null>(null);
-  const callbackRef  = useRef(onLoadMore);
-  // Keep callbackRef up-to-date without triggering re-subscribe
+  const callbackRef = useRef(onLoadMore);
+  // Always keep callbackRef current without re-subscribing the observer
   useEffect(() => { callbackRef.current = onLoadMore; });
+
+  // Track the sentinel DOM element via state so changes trigger the effect below
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
+    if (!element || !hasMore) return;
     const observer = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting && hasMore && !loading) callbackRef.current();
+        if (entries[0].isIntersecting && !loading) {
+          callbackRef.current();
+        }
       },
-      { rootMargin: "800px" },
+      { rootMargin: "400px" },
     );
-    observer.observe(el);
+    observer.observe(element);
     return () => observer.disconnect();
-  }, [hasMore, loading]);
-  return sentinelRef;
+  }, [element, hasMore, loading]);
+
+  // Callback ref: called with the DOM node when it mounts/unmounts.
+  // Using useCallback with [] keeps a stable function reference.
+  return useCallback((el: HTMLDivElement | null) => setElement(el), []);
 }
 
 export default function Admin() {
