@@ -92,7 +92,7 @@ function RejectQuestionModal({ reason, onReasonChange, onConfirm, onClose, isPen
 function EditQuestionModal({ question, onClose, onSaved }: {
   question: any;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (updated: { id: number; title: string; description: string | null; type: string; status: string; categories: string[]; pollOptions: string[] | null; isProfileQuestion: boolean }) => void;
 }) {
   const { getToken } = useAuth();
   const [title, setTitle] = useState(question.title);
@@ -136,7 +136,17 @@ function EditQuestionModal({ question, onClose, onSaved }: {
         setError(data.error || "Save failed");
         return;
       }
-      onSaved();
+      const finalCategories = editCategories.length > 0 ? editCategories : [question.category].filter(Boolean);
+      onSaved({
+        id: question.id,
+        title: title.trim(),
+        description: description.trim() || null,
+        type,
+        status,
+        categories: finalCategories,
+        pollOptions: type === "poll" ? pollOptions.filter(o => o.trim()) : null,
+        isProfileQuestion,
+      });
       onClose();
     } catch (e) {
       setError("Network error");
@@ -1582,53 +1592,6 @@ export default function Admin() {
     flagsHasMore, flagsLoading,
   );
 
-  // ── Background preloading (requestIdleCallback — all tabs) ──────────────────
-  const ric = (cb: () => void) =>
-    typeof (window as any).requestIdleCallback === "function"
-      ? (window as any).requestIdleCallback(cb, { timeout: 2000 })
-      : setTimeout(cb, 1500);
-  useEffect(() => {
-    if (!allQLoaded || allQLoading || !allQHasMore) return;
-    let cancelled = false;
-    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchAllQuestions(allQPage + 1, debouncedSearch); }); }, 1500);
-    return () => { cancelled = true; clearTimeout(id); };
-  }, [allQLoaded, allQLoading, allQHasMore, allQPage, fetchAllQuestions, debouncedSearch]);
-  useEffect(() => {
-    if (tab !== "questions" || !pendingQLoaded || pendingQLoading || !pendingQHasMore) return;
-    let cancelled = false;
-    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchPendingQuestions(pendingQPage + 1); }); }, 2000);
-    return () => { cancelled = true; clearTimeout(id); };
-  }, [tab, pendingQLoaded, pendingQLoading, pendingQHasMore, pendingQPage, fetchPendingQuestions]);
-  useEffect(() => {
-    if (tab !== "users" || !usersLoaded || usersLoading || !usersHasMore) return;
-    let cancelled = false;
-    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchUsers(usersPage + 1, debouncedSearch, userSort); }); }, 2500);
-    return () => { cancelled = true; clearTimeout(id); };
-  }, [tab, usersLoaded, usersLoading, usersHasMore, usersPage, fetchUsers, debouncedSearch, userSort]);
-  useEffect(() => {
-    if (tab !== "withdrawals" || !withdrawalsLoaded || withdrawalsLoading || !withdrawalsHasMore) return;
-    let cancelled = false;
-    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchWithdrawals(withdrawalsPage + 1, withdrawalStatus); }); }, 2000);
-    return () => { cancelled = true; clearTimeout(id); };
-  }, [tab, withdrawalsLoaded, withdrawalsLoading, withdrawalsHasMore, withdrawalsPage, fetchWithdrawals, withdrawalStatus]);
-  useEffect(() => {
-    if (tab !== "flags" || !flagsLoaded || flagsLoading || !flagsHasMore) return;
-    let cancelled = false;
-    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchFlags(flagsPage + 1, flagFilter, flagSort); }); }, 2000);
-    return () => { cancelled = true; clearTimeout(id); };
-  }, [tab, flagsLoaded, flagsLoading, flagsHasMore, flagsPage, fetchFlags, flagFilter, flagSort]);
-  useEffect(() => {
-    if (tab !== "verifications" || !verificationsLoaded || verificationsLoading || !verificationsHasMore) return;
-    let cancelled = false;
-    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchVerifications(verificationsPage + 1, verifFilter === "all" ? "" : verifFilter, verifSearch); }); }, 2000);
-    return () => { cancelled = true; clearTimeout(id); };
-  }, [tab, verificationsLoaded, verificationsLoading, verificationsHasMore, verificationsPage, fetchVerifications, verifFilter, verifSearch]);
-  useEffect(() => {
-    if (tab !== "referrals" || !refListLoaded || refListLoading || !refListHasMore) return;
-    let cancelled = false;
-    const id = setTimeout(() => { if (!cancelled) ric(() => { if (!cancelled) fetchReferralList(refListPage + 1); }); }, 2000);
-    return () => { cancelled = true; clearTimeout(id); };
-  }, [tab, refListLoaded, refListLoading, refListHasMore, refListPage, fetchReferralList]);
 
   // ── Search / filter reset effects ────────────────────────────────────────────
   const prevAllQSearchRef = useRef(debouncedSearch);
@@ -1690,9 +1653,11 @@ export default function Admin() {
           <EditQuestionModal
             question={editingQuestion}
             onClose={() => setEditingQuestion(null)}
-            onSaved={() => {
-              setPendingQLoaded(false);
-              setAllQLoaded(false);
+            onSaved={(updated) => {
+              // Update the edited question in-place in both lists — no scroll reset, no reload
+              const patchQ = (q: any) => q.id === updated.id ? { ...q, ...updated, category: updated.categories?.[0] ?? q.category } : q;
+              setPendingQuestions(prev => prev.map(patchQ));
+              setAllQuestions(prev => prev.map(patchQ));
             }}
           />
         )}
