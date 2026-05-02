@@ -1,0 +1,73 @@
+Focus only on Pending Review auto-load. Do not touch other admin tabs or edit/approve logic.
+
+Problem:
+Pending Review loads first 50, but it does NOT continue loading the next 50 automatically. I want Pending Review to keep loading 50-by-50 by itself until all pending questions are loaded, or at least until a large usable batch is loaded. Admin should not need to scroll.
+
+Required behavior:
+- On opening Pending Review, load first 50.
+- After first 50 finish loading, immediately request next 50.
+- Continue automatically: 50 → 100 → 150 → 200 etc.
+- Stop only when hasMore=false / loaded count reaches total pending count.
+- No scrolling should be required.
+- No duplicate requests.
+- No infinite loop after all records loaded.
+- Do not reset scroll.
+- Do not touch Flags tab.
+- Do not touch All Questions.
+- Do not touch edit question behavior.
+- Do not touch approve/reject behavior except keeping it working as-is.
+
+Implementation suggestion:
+For Pending Review only, add a dedicated auto-drain effect.
+
+Pseudo logic:
+
+useEffect(() => {
+  if (activeTab !== "pending") return;
+  if (!pendingHasMore) return;
+  if (pendingLoading || pendingLoadingMore) return;
+
+  const loadedCount = pendingQuestions.length;
+  const totalCount = pendingTotal;
+
+  if (totalCount && loadedCount >= totalCount) return;
+
+  const timer = setTimeout(() => {
+    loadMorePendingQuestions();
+  }, 150);
+
+  return () => clearTimeout(timer);
+}, [
+  activeTab,
+  pendingQuestions.length,
+  pendingTotal,
+  pendingHasMore,
+  pendingLoading,
+  pendingLoadingMore,
+  pendingSearch,
+  pendingSort,
+  pendingFilter
+]);
+
+Add a ref guard so the same offset/page is never requested twice:
+- pendingLastRequestedOffsetRef
+- before calling loadMore, calculate next offset/page
+- if same as last requested, return
+- set it before request starts
+- clear/update properly when search/sort/filter changes
+
+Important:
+If existing loadMore uses offset = pendingQuestions.length, make sure this effect uses the latest pendingQuestions.length after each successful append.
+
+Testing required:
+1. Hard refresh admin.
+2. Open Pending Review.
+3. Confirm it loads 50, then automatically 100, 150, 200 without scrolling.
+4. Confirm it stops at total count.
+5. Confirm no duplicate questions.
+6. Approve one pending question: item disappears and admin stays in same place.
+7. Edit one pending question: save/cancel returns to same tab and position.
+8. Browser console has no errors.
+9. PM2/API logs have no repeated error loop.
+
+Please keep this change minimal and isolated to Pending Review only.

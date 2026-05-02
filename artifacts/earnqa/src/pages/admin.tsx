@@ -1082,6 +1082,36 @@ export default function Admin() {
   useEffect(() => { if (tab === "withdrawals" && !withdrawalsLoaded) fetchWithdrawals(1, withdrawalStatus); }, [tab, withdrawalsLoaded, fetchWithdrawals, withdrawalStatus]);
   useEffect(() => { if (tab === "referrals" && !refListLoaded) fetchReferralList(1); }, [tab, refListLoaded, fetchReferralList]);
 
+  // ── Pending Review: auto-drain ─────────────────────────────────────────────
+  // Automatically loads the next page as soon as the previous one finishes,
+  // with no scrolling required.  Isolated to the "questions" tab only.
+  //
+  // Guard: pendingLastDrainedPageRef tracks the highest page we have already
+  // dispatched.  The ref resets to 0 whenever page resets to 1 (fresh load /
+  // filter change) so stale values from a previous session never block loading.
+  const pendingLastDrainedPageRef = useRef(0);
+  // Reset the guard whenever the list starts over (page back to 1).
+  useEffect(() => {
+    if (pendingQPage === 1) pendingLastDrainedPageRef.current = 0;
+  }, [pendingQPage]);
+  // Core drain loop.
+  useEffect(() => {
+    if (tab !== "questions") return;       // only on Pending Review tab
+    if (!pendingQLoaded) return;           // wait for the first page to arrive
+    if (!pendingQHasMore) return;          // nothing more to load
+    if (pendingQLoading) return;           // a fetch is already in flight
+
+    const nextPage = pendingQPage + 1;
+    if (nextPage <= pendingLastDrainedPageRef.current) return; // already requested
+
+    const timer = setTimeout(() => {
+      pendingLastDrainedPageRef.current = nextPage;
+      fetchPendingQuestions(nextPage);
+    }, 150); // small delay prevents hammering and lets React batch state updates
+
+    return () => clearTimeout(timer);
+  }, [tab, pendingQLoaded, pendingQHasMore, pendingQLoading, pendingQPage, fetchPendingQuestions]);
+
   // ── User search/sort: reset loaded flag when debounced search or sort changes ─
   const prevSearchRef = useRef(debouncedSearch);
   const prevUserSortRef = useRef(userSort);
