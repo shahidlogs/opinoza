@@ -760,38 +760,75 @@ function BanUserModal({ user, reason, onReasonChange, banIp, onBanIpChange, onCo
   );
 }
 
-// Reusable infinite-scroll sentinel hook.
-// Observes a sentinel div; when it enters the viewport, fires onLoadMore.
-// Uses a callback ref so the observer only reconnects when hasMore/loading changes
-// (not on every parent render).
+// Reusable infinite-scroll hook.
+//
+// Strategy (two complementary mechanisms, one strict guard):
+//
+//  1. Scroll listener + immediate check (primary)
+//     Fires tryLoad() on every window scroll and immediately when the sentinel
+//     element mounts.  Because it runs synchronously, it is guaranteed to catch
+//     the case where the first batch of items never fills the viewport.
+//
+//  2. Post-fetch re-check (secondary)
+//     Fires when `loading` transitions to false.  Catches the case where the
+//     IO / scroll path was blocked while a fetch was in flight.
+//
+//  3. Deduplication guard
+//     `loadingRef` is set to `true` BEFORE calling onLoadMore.  Both paths
+//     check this ref first so at most one request is in flight at a time.
+//     The ref is kept in sync with the `loading` prop so it resets correctly
+//     when each fetch finishes.
 function useInfiniteScroll(
   onLoadMore: () => void,
   hasMore: boolean,
   loading: boolean,
 ) {
   const callbackRef = useRef(onLoadMore);
-  // Always keep callbackRef current without re-subscribing the observer
-  useEffect(() => { callbackRef.current = onLoadMore; });
+  const hasMoreRef  = useRef(hasMore);
+  const loadingRef  = useRef(loading);
 
-  // Track the sentinel DOM element via state so changes trigger the effect below
+  // Keep all three refs in sync every render (no stale closures in scroll handler)
+  useEffect(() => { callbackRef.current = onLoadMore; });
+  useEffect(() => { hasMoreRef.current  = hasMore;  }, [hasMore]);
+  useEffect(() => { loadingRef.current  = loading;  }, [loading]);
+
+  // We need the sentinel element to trigger effects — use state so React tracks it
   const [element, setElement] = useState<HTMLDivElement | null>(null);
 
+  // ── PRIMARY: scroll listener + immediate mount check ──────────────────────
   useEffect(() => {
-    if (!element || !hasMore) return;
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && !loading) {
-          callbackRef.current();
-        }
-      },
-      { rootMargin: "400px" },
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [element, hasMore, loading]);
+    if (!element) return;
 
-  // Callback ref: called with the DOM node when it mounts/unmounts.
-  // Using useCallback with [] keeps a stable function reference.
+    const tryLoad = () => {
+      if (loadingRef.current || !hasMoreRef.current) return;
+      const rect = element.getBoundingClientRect();
+      // 400 px ahead of the viewport bottom
+      if (rect.top <= window.innerHeight + 400) {
+        loadingRef.current = true; // optimistic lock — prevents double-fire
+        callbackRef.current();
+      }
+    };
+
+    tryLoad(); // synchronous check: fires immediately if sentinel is visible
+    window.addEventListener("scroll", tryLoad, { passive: true });
+    return () => window.removeEventListener("scroll", tryLoad);
+  }, [element]);
+
+  // ── SECONDARY: re-check when a fetch completes ────────────────────────────
+  // `loading` is in deps, so this runs each time a fetch finishes.
+  // `loadingRef.current` guards against double-firing with the primary path
+  // (primary runs first in React's effect order, sets the lock).
+  useEffect(() => {
+    if (!element || loading || !hasMore) return;
+    if (loadingRef.current) return; // already handled by primary path
+    const rect = element.getBoundingClientRect();
+    if (rect.top <= window.innerHeight + 400) {
+      loadingRef.current = true;
+      callbackRef.current();
+    }
+  }, [loading, hasMore, element]);
+
+  // Stable callback ref: React calls this when the sentinel mounts / unmounts
   return useCallback((el: HTMLDivElement | null) => setElement(el), []);
 }
 

@@ -1,0 +1,73 @@
+Final Admin Panel auto-load fix — do not break existing fixes
+
+Auto-load is still not working. Please do not just explain the sentinel fix; verify it in the browser and make it work.
+
+Expected behavior:
+- Admin should NOT need to scroll manually to load the next 50.
+- When a tab has more records, it should keep loading 50-by-50 automatically until either:
+  1) enough items fill the visible page and normal scrolling can continue, OR
+  2) all records are loaded.
+- After that, when admin scrolls near bottom, next 50 should auto-load again.
+- No button/click/manual trigger.
+
+Important: do NOT break these existing working behaviors:
+- Flags page must not jitter, refresh repeatedly, or jump.
+- Edit question must return to same tab and same scroll/list position.
+- Pending Review approve/reject must remove the item and keep admin in the same place.
+- Search/sort/filter must continue to work.
+- Do not redesign UI.
+- Do not touch Clerk/auth/payments/database schema.
+
+Likely issue:
+The IntersectionObserver sentinel may attach, but if the first 50 items do not make the page scrollable, the sentinel may already be visible or not triggering again. Add a safe “auto-fill viewport” mechanism.
+
+Required implementation:
+1) Keep the callback-ref IntersectionObserver if useful.
+2) Add a controlled auto-fill check per active tab:
+   - After initial load
+   - After every successful loadMore
+   - After tab change
+   - After search/filter/sort reset
+3) If hasMore is true, loading is false, and the page/list height is not enough to scroll OR the sentinel is already near/inside viewport, automatically call loadMore once.
+4) Repeat safely until the list fills the viewport or hasMore becomes false.
+5) Use strict guards to prevent loops:
+   - never load if loading/loadingMore is true
+   - never load if hasMore is false
+   - keep lastRequestedPage/offset/cursor guard to avoid duplicate same request
+   - debounce/throttle the auto-fill check
+   - max 1 request at a time
+6) Append new records. Do not reset list unless tab/filter/search/sort actually changes.
+7) Use stable keys, not array indexes.
+
+Testing required before saying done:
+A) Pending Review:
+- Hard refresh admin panel.
+- Open Pending Review.
+- Without clicking anything, confirm it loads 50, then automatically continues loading more if page still has room.
+- Scroll near bottom and confirm next 50 loads automatically.
+- Approve/Reject one item: item disappears, admin stays in same place.
+
+B) All Questions:
+- Open All Questions.
+- Confirm auto-load 50-by-50 works.
+- Edit a question, save/cancel, confirm admin returns to same tab and same position.
+- Confirm auto-load still works after edit.
+
+C) Flags:
+- Open Flags.
+- Confirm auto-load works.
+- Confirm no jitter, no repeated refresh, no jumping.
+
+D) Users, Withdrawals, Referrals, Verifications:
+- Confirm each tab auto-loads more records automatically.
+
+E) Search/sort/filter:
+- Search something on Pending Review / All Questions / Users / Verifications.
+- Confirm search works on backend/full dataset and auto-load still works for search results.
+
+Please provide proof:
+- Which file(s) changed.
+- Exact logic added.
+- Browser test result for every tab.
+- Console errors: none.
+- PM2/API logs errors: none.
