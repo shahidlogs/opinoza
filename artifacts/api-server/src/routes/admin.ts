@@ -2146,5 +2146,38 @@ router.delete("/admin/banned-ips/:ip", async (req, res): Promise<void> => {
   res.json({ ok: true });
 });
 
+// ── Test email endpoint (admin-only) ─────────────────────────────────────────
+// Sends a simple test email via sendEmailDirect to verify SMTP is working.
+// Does NOT touch any withdrawal, wallet, or user data.
+router.post("/admin/test-email", async (req, res): Promise<void> => {
+  if (!await checkAdmin(req, res)) return;
+
+  const to = (req.body?.to as string | undefined)?.trim();
+  if (!to || !to.includes("@")) {
+    res.status(400).json({ error: "Provide a valid recipient email in body: { to: '...' }" });
+    return;
+  }
+
+  const smtpUser = process.env.SMTP_USER ?? "(not set)";
+  console.info(`[test-email] Sending test email to ${to} via SMTP_USER: ${smtpUser}`);
+
+  const sent = await sendEmailDirect({
+    to,
+    subject: "Opinoza — SMTP test email",
+    html: `<p>If you received this, Gmail SMTP is working correctly.</p>
+           <p><b>Sent at:</b> ${new Date().toISOString()}</p>
+           <p><b>From SMTP_USER:</b> ${smtpUser}</p>`,
+    text: `Opinoza SMTP test — sent at ${new Date().toISOString()} via ${smtpUser}`,
+  });
+
+  if (sent) {
+    console.info(`[test-email] ✅ Delivered to ${to}`);
+    res.json({ ok: true, sent: true, smtpUser });
+  } else {
+    console.warn(`[test-email] ❌ sendEmailDirect returned false for ${to}`);
+    res.json({ ok: false, sent: false, smtpUser });
+  }
+});
+
 export default router;
 
