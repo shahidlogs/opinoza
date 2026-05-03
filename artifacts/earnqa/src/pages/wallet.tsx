@@ -322,7 +322,7 @@ export default function Wallet() {
   const transactions = txData?.transactions ?? [];
   const balance = wallet?.balanceCents ?? 0;
 
-  const MIN_WITHDRAWAL = 500; // $5 in cents
+  const MIN_WITHDRAWAL = 1000; // $10 in cents
 
   const amountNum = parseInt(amount, 10);
   const isValidAmount = amount && !isNaN(amountNum) && amountNum >= MIN_WITHDRAWAL && amountNum <= balance;
@@ -615,9 +615,9 @@ export default function Wallet() {
                   <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
                 </svg>
                 <div>
-                  <p className="text-sm font-semibold text-amber-800">Minimum withdrawal amount is $5</p>
+                  <p className="text-sm font-semibold text-amber-800">Minimum withdrawal amount is $10</p>
                   <p className="text-xs text-amber-700 mt-0.5">
-                    You have <span className="font-bold">{balance}¢</span> — need <span className="font-bold">{500 - balance}¢</span> more to unlock withdrawals.
+                    You have <span className="font-bold">{balance}¢</span> — need <span className="font-bold">{1000 - balance}¢</span> more to unlock withdrawals.
                   </p>
                 </div>
               </motion.div>
@@ -651,15 +651,15 @@ export default function Wallet() {
               {/* Amount */}
               <div>
                 <label className="block text-sm font-semibold text-foreground mb-2">
-                  Amount <span className="text-muted-foreground font-normal">(cents · min 500¢ = $5)</span>
+                  Amount <span className="text-muted-foreground font-normal">(cents · min 1000¢ = $10)</span>
                 </label>
                 <div className="relative">
                   <input
                     type="number"
                     value={amount}
                     onChange={e => setAmount(e.target.value)}
-                    placeholder={`500 – ${balance}`}
-                    min="500"
+                    placeholder={`1000 – ${balance}`}
+                    min="1000"
                     max={balance}
                     className="w-full px-4 py-3 pr-20 rounded-xl border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-amber-400 tabular-nums"
                   />
@@ -672,7 +672,7 @@ export default function Wallet() {
                 {amount && !isNaN(amountNum) && amountNum > 0 && amountNum < MIN_WITHDRAWAL && (
                   <p className="text-xs text-amber-700 mt-1.5 flex items-center gap-1 font-medium">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
-                    Minimum withdrawal amount is $5 (500¢)
+                    Minimum withdrawal amount is $10 (1000¢)
                   </p>
                 )}
                 {amount && amountNum > balance && (
@@ -685,7 +685,7 @@ export default function Wallet() {
                   <p className="text-xs text-destructive mt-1.5">Amount must be greater than 0</p>
                 )}
                 <div className="flex gap-2 mt-2">
-                  {[500, 1000, 2500, 5000, balance].filter((v, i, arr) => v > 0 && v <= balance && arr.indexOf(v) === i).slice(0, 4).map(preset => (
+                  {[1000, 2500, 5000, balance].filter((v, i, arr) => v > 0 && v <= balance && arr.indexOf(v) === i).slice(0, 4).map(preset => (
                     <button
                       key={preset}
                       type="button"
