@@ -1,0 +1,92 @@
+Perform ONLY the following two tasks. Do not modify anything else in the system.
+
+-----------------------------------
+TASK 1 — Change Admin to Editor
+-----------------------------------
+
+User email: vishnoogurug@gmail.com
+
+- Find this user in the users table
+- Currently: is_admin = true
+- Update role so the user is no longer admin
+
+Do:
+- Set is_admin = false
+- If roles system exists (e.g., role column), set role = "editor"
+- Do NOT delete or modify any other user data
+
+Verify:
+- User can no longer access admin-only features
+- User still has normal access (editor-level)
+
+-----------------------------------
+TASK 2 — Fix Withdrawal Email (Still Not Sending)
+-----------------------------------
+
+Issue:
+Email is still not being delivered after marking withdrawal as transferred.
+
+Goal:
+Ensure payment confirmation email is successfully sent on transfer.
+
+Steps:
+
+1. Confirm sendEmailDirect is actually being executed
+- Add log before sending:
+  "Attempting to send withdrawal email to <email>"
+
+2. Log the full error clearly
+- In catch block, log:
+  err.message
+  err.stack
+  transaction ID
+  recipient email
+
+3. Verify recipient email
+- Confirm userRow.email is not null or empty
+- Log the email before sending
+
+4. Check nodemailer transporter
+- Verify transporter config uses correct SMTP_USER and SMTP_PASSWORD
+- Confirm "from" email matches SMTP user
+
+5. Add debug test (important)
+- Temporarily send a simple test email:
+  subject: "Test email"
+  body: "If you receive this, email is working"
+- This isolates template issues vs SMTP issues
+
+6. Check email template
+- Ensure paymentTransferredEmail does NOT break HTML
+- Ensure no invalid links or dynamic variables
+
+7. Check Gmail restrictions
+- If using Gmail SMTP:
+  - Ensure App Password is used (not normal password)
+  - Ensure "less secure apps" issue is not blocking
+  - Check if emails are going to spam
+
+8. Final behavior
+- On success:
+  emailSent = true
+- On failure:
+  emailError must contain real error message
+
+-----------------------------------
+TEST AFTER FIX
+-----------------------------------
+
+- Mark one withdrawal as transferred
+- Confirm:
+  ✅ emailSent = true
+  ✅ user receives email
+  ❌ no warning message shown
+
+-----------------------------------
+IMPORTANT
+-----------------------------------
+
+- Do NOT change withdrawal logic
+- Do NOT touch wallet balances
+- Do NOT modify unrelated code
+- Only fix email sending and user role

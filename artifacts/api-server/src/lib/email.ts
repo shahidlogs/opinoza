@@ -64,6 +64,12 @@ export async function sendEmail(opts: {
 /**
  * Sends an email bypassing the global disable flag.
  * Use only for critical transactional emails (e.g. payment confirmation).
+ *
+ * IMPORTANT — Gmail SMTP restriction:
+ * The "from" address MUST match the authenticated SMTP_USER account.
+ * Sending from an alias (e.g. support@opinoza.com) will cause Gmail to
+ * silently reject the message unless the alias is configured in Gmail settings.
+ * We therefore always use SMTP_USER as the sender address.
  */
 export async function sendEmailDirect(opts: {
   to: string;
@@ -72,26 +78,47 @@ export async function sendEmailDirect(opts: {
   text?: string;
   attachments?: Array<{ filename: string; path: string; contentType?: string }>;
 }): Promise<boolean> {
-  const transporter = createTransporter();
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASSWORD;
 
-  if (!transporter) {
+  if (!smtpUser || !smtpPass) {
     console.warn("[email:direct] SMTP_USER / SMTP_PASSWORD not set — email skipped");
     return false;
   }
 
+  // Gmail requires the "from" address to match the authenticated account.
+  // Using a custom display name keeps branding while satisfying Gmail's rules.
+  const fromAddress = `"${FROM_NAME}" <${smtpUser}>`;
+
+  console.info(`[email:direct] Attempting to send "${opts.subject}" to ${opts.to} (from: ${smtpUser})`);
+
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,
+    auth: { user: smtpUser, pass: smtpPass },
+    tls: { rejectUnauthorized: false },
+  });
+
   try {
     const info = await transporter.sendMail({
-      from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+      from: fromAddress,
       to: opts.to,
       subject: opts.subject,
       html: opts.html,
       text: opts.text,
       attachments: opts.attachments,
     });
-    console.info(`[email:direct] Sent to ${opts.to} — messageId: ${info.messageId}`);
+    console.info(`[email:direct] ✅ Sent to ${opts.to} — messageId: ${info.messageId}`);
     return true;
-  } catch (err) {
-    console.error("[email:direct] Send failed:", err);
+  } catch (err: any) {
+    console.error(
+      `[email:direct] ❌ Send failed — to: ${opts.to}, subject: "${opts.subject}"\n` +
+      `  message: ${err?.message ?? String(err)}\n` +
+      `  code:    ${err?.code ?? "—"}\n` +
+      `  response:${err?.response ?? "—"}\n` +
+      `  stack:   ${err?.stack ?? "—"}`
+    );
     return false;
   }
 }
