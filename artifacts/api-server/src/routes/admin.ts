@@ -889,58 +889,73 @@ router.post("/admin/withdrawals/:id/transfer", async (req, res): Promise<void> =
 
   // ── Payment confirmation email ────────────────────────────────────────────
   let emailSent = false;
-  let emailError: string | undefined;
-  if (!updated.paymentEmailSentAt) {
+  let emailError: string | null = null;
+
+  if (updated.paymentEmailSentAt) {
+    console.info(`[withdrawal] tx ${transaction.id}: paymentEmailSentAt already set — skipping email`);
+    emailSent = true; // already sent previously, treat as success
+  } else {
+    console.info(
+      `[withdrawal] tx ${transaction.id}: starting email flow — userId: ${transaction.userId}`
+    );
     try {
       const [userRow] = await db
         .select({ email: usersTable.email, name: usersTable.name, referralCode: usersTable.referralCode })
         .from(usersTable)
         .where(eq(usersTable.clerkId, transaction.userId));
 
-      if (userRow?.email) {
-        // Parse payment method from description: "Withdrawal via METHOD — ..."
-        const descMatch = (transaction.description || "").match(/^Withdrawal via (.+?) —/);
-        const paymentMethod = descMatch ? descMatch[1] : "Bank Transfer";
+      console.info(
+        `[withdrawal] tx ${transaction.id}: userRow found: ${!!userRow}, email: ${userRow?.email ?? "(missing)"}`
+      );
 
-        const mail = paymentTransferredEmail({
-          name: userRow.name,
-          amountCents: Math.abs(transaction.amountCents),
-          paymentMethod,
-          referralCode: userRow.referralCode,
-        });
-
-        emailSent = await sendEmailDirect({
-          to: userRow.email,
-          subject: mail.subject,
-          html: mail.html,
-          text: mail.text,
-          // No file attachment — the poster image is already embedded as a URL
-          // in the HTML body (APP_BASE_URL/payment.png). Attaching a local file
-          // was the original cause of failure (path did not exist on the server).
-        });
-
-        if (emailSent) {
-          await db.update(transactionsTable)
-            .set({ paymentEmailSentAt: new Date() })
-            .where(eq(transactionsTable.id, transaction.id))
-            .catch(err => console.error("[withdrawal] Failed to set paymentEmailSentAt:", err));
-          console.info(`[withdrawal] Payment confirmation email sent to ${userRow.email} (tx ${transaction.id})`);
-        } else {
-          console.warn(`[withdrawal] sendEmailDirect returned false for tx ${transaction.id} — recipient: ${userRow.email}`);
-        }
-      } else {
-        console.warn(`[withdrawal] No email on user record for tx ${transaction.id} (userId: ${transaction.userId})`);
+      if (!userRow?.email) {
+        throw new Error(`User record has no email — userId: ${transaction.userId}, txId: ${transaction.id}`);
       }
+
+      // Parse payment method from description: "Withdrawal via METHOD — ..."
+      const descMatch = (transaction.description || "").match(/^Withdrawal via (.+?) —/);
+      const paymentMethod = descMatch ? descMatch[1] : "Bank Transfer";
+
+      const mail = paymentTransferredEmail({
+        name: userRow.name,
+        amountCents: Math.abs(transaction.amountCents),
+        paymentMethod,
+        referralCode: userRow.referralCode,
+      });
+
+      console.info(
+        `[withdrawal] tx ${transaction.id}: calling sendEmailDirect — to: ${userRow.email}, subject: "${mail.subject}"`
+      );
+
+      // sendEmailDirect now throws on any failure — error is captured below
+      await sendEmailDirect({
+        to: userRow.email,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+      });
+
+      // Reached here = email sent successfully
+      emailSent = true;
+      await db.update(transactionsTable)
+        .set({ paymentEmailSentAt: new Date() })
+        .where(eq(transactionsTable.id, transaction.id))
+        .catch(err => console.error(`[withdrawal] Failed to set paymentEmailSentAt for tx ${transaction.id}:`, err));
+      console.info(`[withdrawal] ✅ Payment confirmation email sent to ${userRow.email} (tx ${transaction.id})`);
+
     } catch (err: any) {
-      const detail = err?.message ?? String(err);
-      console.error(`[withdrawal] Payment confirmation email error for tx ${transaction.id}: ${detail}`);
-      emailError = detail;
+      emailError =
+        `${err?.message ?? String(err)}` +
+        (err?.code ? ` | code: ${err.code}` : "") +
+        (err?.response ? ` | smtp-response: ${err.response}` : "");
+      console.error(
+        `[withdrawal] ❌ Email failed for tx ${transaction.id} — ${emailError}\n` +
+        `  stack: ${err?.stack ?? "—"}`
+      );
     }
-  } else {
-    console.info(`[withdrawal] Payment email already sent for tx ${transaction.id} — skipping`);
   }
 
-  res.json({ ...updated, emailSent, emailError: emailError ?? null });
+  res.json({ ...updated, emailSent, emailError });
 });
 
 router.post("/admin/withdrawals/:id/reject", async (req, res): Promise<void> => {
@@ -2159,23 +2174,24 @@ router.post("/admin/test-email", async (req, res): Promise<void> => {
   }
 
   const smtpUser = process.env.SMTP_USER ?? "(not set)";
-  console.info(`[test-email] Sending test email to ${to} via SMTP_USER: ${smtpUser}`);
+  const smtpPassSet = !!process.env.SMTP_PASSWORD;
+  console.info(`[test-email] Sending test email to ${to} via SMTP_USER: ${smtpUser}, SMTP_PASSWORD set: ${smtpPassSet}`);
 
-  const sent = await sendEmailDirect({
-    to,
-    subject: "Opinoza — SMTP test email",
-    html: `<p>If you received this, Gmail SMTP is working correctly.</p>
-           <p><b>Sent at:</b> ${new Date().toISOString()}</p>
-           <p><b>From SMTP_USER:</b> ${smtpUser}</p>`,
-    text: `Opinoza SMTP test — sent at ${new Date().toISOString()} via ${smtpUser}`,
-  });
-
-  if (sent) {
+  try {
+    await sendEmailDirect({
+      to,
+      subject: "Opinoza — SMTP test email",
+      html: `<p>If you received this, Gmail SMTP is working correctly.</p>
+             <p><b>Sent at:</b> ${new Date().toISOString()}</p>
+             <p><b>From SMTP_USER:</b> ${smtpUser}</p>`,
+      text: `Opinoza SMTP test — sent at ${new Date().toISOString()} via ${smtpUser}`,
+    });
     console.info(`[test-email] ✅ Delivered to ${to}`);
     res.json({ ok: true, sent: true, smtpUser });
-  } else {
-    console.warn(`[test-email] ❌ sendEmailDirect returned false for ${to}`);
-    res.json({ ok: false, sent: false, smtpUser });
+  } catch (err: any) {
+    const error = `${err?.message ?? String(err)}` + (err?.code ? ` | code: ${err.code}` : "");
+    console.error(`[test-email] ❌ Failed to ${to}: ${error}`);
+    res.json({ ok: false, sent: false, smtpUser, error });
   }
 });
 

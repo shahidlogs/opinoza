@@ -65,10 +65,14 @@ export async function sendEmail(opts: {
  * Sends an email bypassing the global disable flag.
  * Use only for critical transactional emails (e.g. payment confirmation).
  *
+ * THROWS on any failure — callers must catch and handle the error themselves.
+ * This ensures the real SMTP error message is always visible to the caller
+ * (e.g. stored in emailError and returned in the API response).
+ *
  * IMPORTANT — Gmail SMTP restriction:
  * The "from" address MUST match the authenticated SMTP_USER account.
- * Sending from an alias (e.g. support@opinoza.com) will cause Gmail to
- * silently reject the message unless the alias is configured in Gmail settings.
+ * Sending from an alias (e.g. support@opinoza.com) causes Gmail to reject
+ * the message unless the alias is configured as a "Send mail as" address.
  * We therefore always use SMTP_USER as the sender address.
  */
 export async function sendEmailDirect(opts: {
@@ -77,17 +81,21 @@ export async function sendEmailDirect(opts: {
   html: string;
   text?: string;
   attachments?: Array<{ filename: string; path: string; contentType?: string }>;
-}): Promise<boolean> {
+}): Promise<void> {
   const smtpUser = process.env.SMTP_USER;
   const smtpPass = process.env.SMTP_PASSWORD;
 
+  console.info(
+    `[email:direct] SMTP config — SMTP_USER: ${smtpUser ?? "(NOT SET)"}, SMTP_PASSWORD: ${smtpPass ? "set" : "NOT SET"}`
+  );
+
   if (!smtpUser || !smtpPass) {
-    console.warn("[email:direct] SMTP_USER / SMTP_PASSWORD not set — email skipped");
-    return false;
+    throw new Error(
+      `SMTP credentials missing — SMTP_USER: ${smtpUser ?? "NOT SET"}, SMTP_PASSWORD: ${smtpPass ? "set" : "NOT SET"}`
+    );
   }
 
   // Gmail requires the "from" address to match the authenticated account.
-  // Using a custom display name keeps branding while satisfying Gmail's rules.
   const fromAddress = `"${FROM_NAME}" <${smtpUser}>`;
 
   console.info(`[email:direct] Attempting to send "${opts.subject}" to ${opts.to} (from: ${smtpUser})`);
@@ -100,26 +108,31 @@ export async function sendEmailDirect(opts: {
     tls: { rejectUnauthorized: false },
   });
 
+  // Verify SMTP credentials before attempting to send
   try {
-    const info = await transporter.sendMail({
-      from: fromAddress,
-      to: opts.to,
-      subject: opts.subject,
-      html: opts.html,
-      text: opts.text,
-      attachments: opts.attachments,
-    });
-    console.info(`[email:direct] ✅ Sent to ${opts.to} — messageId: ${info.messageId}`);
-    return true;
-  } catch (err: any) {
-    console.error(
-      `[email:direct] ❌ Send failed — to: ${opts.to}, subject: "${opts.subject}"\n` +
-      `  message: ${err?.message ?? String(err)}\n` +
-      `  code:    ${err?.code ?? "—"}\n` +
-      `  response:${err?.response ?? "—"}\n` +
-      `  stack:   ${err?.stack ?? "—"}`
-    );
-    return false;
+    await transporter.verify();
+    console.info(`[email:direct] SMTP connection verified OK`);
+  } catch (verifyErr: any) {
+    const msg = `SMTP verify failed — ${verifyErr?.message ?? String(verifyErr)} (code: ${verifyErr?.code ?? "—"}, response: ${verifyErr?.response ?? "—"})`;
+    console.error(`[email:direct] ❌ ${msg}`);
+    throw new Error(msg);
+  }
+
+  const info = await transporter.sendMail({
+    from: fromAddress,
+    to: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    text: opts.text,
+    attachments: opts.attachments,
+  });
+
+  console.info(
+    `[email:direct] ✅ Sent to ${opts.to} — messageId: ${info.messageId}, accepted: ${JSON.stringify(info.accepted)}, rejected: ${JSON.stringify(info.rejected)}`
+  );
+
+  if (info.rejected && info.rejected.length > 0) {
+    throw new Error(`Gmail accepted the send but rejected these recipients: ${JSON.stringify(info.rejected)}`);
   }
 }
 
