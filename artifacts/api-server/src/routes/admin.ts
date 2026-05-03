@@ -889,6 +889,7 @@ router.post("/admin/withdrawals/:id/transfer", async (req, res): Promise<void> =
 
   // ── Payment confirmation email ────────────────────────────────────────────
   let emailSent = false;
+  let emailError: string | undefined;
   if (!updated.paymentEmailSentAt) {
     try {
       const [userRow] = await db
@@ -908,14 +909,14 @@ router.post("/admin/withdrawals/:id/transfer", async (req, res): Promise<void> =
           referralCode: userRow.referralCode,
         });
 
-        const paymentImgPath = new URL("../public/payment.png", import.meta.url).pathname;
-
         emailSent = await sendEmailDirect({
           to: userRow.email,
           subject: mail.subject,
           html: mail.html,
           text: mail.text,
-          attachments: [{ filename: "payment.png", path: paymentImgPath, contentType: "image/png" }],
+          // No file attachment — the poster image is already embedded as a URL
+          // in the HTML body (APP_BASE_URL/payment.png). Attaching a local file
+          // was the original cause of failure (path did not exist on the server).
         });
 
         if (emailSent) {
@@ -923,16 +924,23 @@ router.post("/admin/withdrawals/:id/transfer", async (req, res): Promise<void> =
             .set({ paymentEmailSentAt: new Date() })
             .where(eq(transactionsTable.id, transaction.id))
             .catch(err => console.error("[withdrawal] Failed to set paymentEmailSentAt:", err));
+          console.info(`[withdrawal] Payment confirmation email sent to ${userRow.email} (tx ${transaction.id})`);
+        } else {
+          console.warn(`[withdrawal] sendEmailDirect returned false for tx ${transaction.id} — recipient: ${userRow.email}`);
         }
+      } else {
+        console.warn(`[withdrawal] No email on user record for tx ${transaction.id} (userId: ${transaction.userId})`);
       }
-    } catch (err) {
-      console.error("[withdrawal] Payment confirmation email error:", err);
+    } catch (err: any) {
+      const detail = err?.message ?? String(err);
+      console.error(`[withdrawal] Payment confirmation email error for tx ${transaction.id}: ${detail}`);
+      emailError = detail;
     }
   } else {
     console.info(`[withdrawal] Payment email already sent for tx ${transaction.id} — skipping`);
   }
 
-  res.json({ ...updated, emailSent });
+  res.json({ ...updated, emailSent, emailError: emailError ?? null });
 });
 
 router.post("/admin/withdrawals/:id/reject", async (req, res): Promise<void> => {
