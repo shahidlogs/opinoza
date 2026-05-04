@@ -54,7 +54,7 @@ A full-stack Q&A platform where users earn real money (in cents) for sharing the
 ## Database Schema (`lib/db/src/schema/index.ts`)
 - `users` — Clerk user ID, email, name, city, ageGroup, gender, phoneNumber (optional), isAdmin, referralCode (unique), referredByUserId, signupIp, userAgent
 - `questions` — title, description, type (short_answer/poll/rating), category, status, pollOptions[], isCustom, isProfileQuestion, totalAnswers, creatorId, creatorName
-- `answers` — questionId, userId, answerText, pollOption, rating, reason
+- `answers` — questionId, userId, answerText, pollOption, rating, reason, normalizedAnswer (admin-set canonical label), isFlagged (hidden from graph), normalizedByAdminId, normalizedAt
 - `wallets` — userId, balanceCents, totalEarnedCents, totalWithdrawnCents
 - `transactions` — userId, type (earning/withdrawal/question_creation/creator_bonus/profile_reward/referral_signup_bonus/referral_answer_bonus/referral_reversal), amountCents, description, status, relatedId
 - `question_milestones` — questionId, milestone (10/50/100/150...), rewardCents; unique(questionId, milestone) prevents duplicates
@@ -66,7 +66,7 @@ A full-stack Q&A platform where users earn real money (in cents) for sharing the
 - `answers.ts` — POST submit answer (type-validated, duplicate-blocked), GET /my; fires referral answer bonus
 - `users.ts` — GET /me (returns isNew + referralCode), PATCH /me, GET /me/stats, GET /me/questions; auto-generates referralCode for new/existing users
 - `wallet.ts` — GET balance, GET /transactions, POST /withdraw (deducts balance immediately)
-- `admin.ts` — GET/approve/reject/PATCH/DELETE questions, GET users, GET/approve/reject withdrawals, GET stats, PATCH toggle-admin
+- `admin.ts` — GET/approve/reject/PATCH/DELETE questions, GET users, GET/approve/reject withdrawals, GET stats, PATCH toggle-admin; GET /admin/questions/:id/text-stats (enhanced with answerIds per group + flaggedGroups); POST /admin/answers/bulk-normalize (set canonical label); POST /admin/answers/bulk-flag (hide/restore from graph)
 - `analytics.ts` — by-category, by-gender, by-age, by-city (all with optional questionId filter), platform-summary
 - `referrals.ts` — GET /me (code, link, stats, list), POST /click (analytics), POST /claim (process referral); admin: GET stats, GET list, PATCH status, POST reverse
 - `health.ts` — Health check

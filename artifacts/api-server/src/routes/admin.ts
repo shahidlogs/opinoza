@@ -2161,6 +2161,138 @@ router.delete("/admin/banned-ips/:ip", async (req, res): Promise<void> => {
   res.json({ ok: true });
 });
 
+// ── Answer cleanup (admin-only) ───────────────────────────────────────────────
+
+// GET /admin/questions/:id/text-stats
+// Enhanced version of the public text-stats: returns groups with constituent
+// answer IDs so the admin UI can select groups for bulk normalize/flag actions.
+// Also returns flagged groups separately (hidden from public view).
+router.get("/admin/questions/:id/text-stats", async (req, res): Promise<void> => {
+  if (!await checkAdmin(req, res)) return;
+  const questionId = parseId(req.params.id);
+  if (isNaN(questionId) || questionId <= 0) { res.json({ groups: [], flaggedGroups: [], total: 0 }); return; }
+
+  const [q] = await db.select({ status: questionsTable.status, type: questionsTable.type })
+    .from(questionsTable).where(eq(questionsTable.id, questionId));
+  if (!q) { res.status(404).json({ error: "Question not found" }); return; }
+
+  const [activeRows, flaggedRows] = await Promise.all([
+    // Non-flagged groups with answer IDs
+    db.execute(drizzleSql`
+      SELECT
+        COALESCE(normalized_answer, lower(trim(answer_text))) AS key,
+        COALESCE(max(normalized_answer), min(answer_text))    AS label,
+        cast(count(*) as integer)                              AS count,
+        array_agg(id ORDER BY id)                              AS answer_ids,
+        array_agg(answer_text ORDER BY id)                     AS raw_samples
+      FROM answers
+      WHERE question_id = ${questionId}
+        AND answer_text IS NOT NULL
+        AND trim(answer_text) <> ''
+        AND (flag_status IS NULL OR flag_status != 'removed')
+        AND is_flagged = false
+      GROUP BY COALESCE(normalized_answer, lower(trim(answer_text)))
+      ORDER BY count DESC
+      LIMIT 50
+    `),
+    // Admin-flagged groups (hidden from public but shown to admin)
+    db.execute(drizzleSql`
+      SELECT
+        COALESCE(normalized_answer, lower(trim(answer_text))) AS key,
+        COALESCE(max(normalized_answer), min(answer_text))    AS label,
+        cast(count(*) as integer)                              AS count,
+        array_agg(id ORDER BY id)                              AS answer_ids,
+        array_agg(answer_text ORDER BY id)                     AS raw_samples
+      FROM answers
+      WHERE question_id = ${questionId}
+        AND answer_text IS NOT NULL
+        AND trim(answer_text) <> ''
+        AND (flag_status IS NULL OR flag_status != 'removed')
+        AND is_flagged = true
+      GROUP BY COALESCE(normalized_answer, lower(trim(answer_text)))
+      ORDER BY count DESC
+    `),
+  ]);
+
+  const toGroup = (r: any) => ({
+    key:        String(r.key),
+    label:      String(r.label).trim(),
+    count:      Number(r.count),
+    answerIds:  Array.isArray(r.answer_ids) ? r.answer_ids.map(Number) : [],
+    rawSamples: (Array.isArray(r.raw_samples) ? r.raw_samples : [])
+                  .filter(Boolean)
+                  .slice(0, 5)
+                  .map(String),
+  });
+
+  const toRows = (raw: any) => {
+    const arr: any[] = Array.isArray(raw) ? raw : (raw as any).rows ?? [];
+    return arr.map(toGroup);
+  };
+
+  const groups       = toRows(activeRows);
+  const flaggedGroups = toRows(flaggedRows);
+  const total        = groups.reduce((s, g) => s + g.count, 0);
+
+  // Compute percentages against active total
+  const groupsWithPct = groups.map(g => ({
+    ...g,
+    percentage: total > 0 ? Math.round((g.count / total) * 100) : 0,
+  }));
+
+  res.json({ groups: groupsWithPct, flaggedGroups, total });
+});
+
+// POST /admin/answers/bulk-normalize
+// Sets normalized_answer on the given answer IDs so they merge into one graph bar.
+// Raw answer_text is never modified — only normalized_answer is written.
+router.post("/admin/answers/bulk-normalize", async (req, res): Promise<void> => {
+  const adminId = await checkAdmin(req, res);
+  if (!adminId) return;
+
+  const { answerIds, normalizedAnswer } = req.body;
+  if (!Array.isArray(answerIds) || answerIds.length === 0) {
+    res.status(400).json({ error: "answerIds must be a non-empty array" }); return;
+  }
+  const ids: number[] = answerIds.map(Number).filter(n => !isNaN(n));
+  if (ids.length === 0) { res.status(400).json({ error: "No valid answer IDs" }); return; }
+
+  const value = typeof normalizedAnswer === "string" ? normalizedAnswer.trim() : null;
+  if (!value) { res.status(400).json({ error: "normalizedAnswer must be a non-empty string" }); return; }
+  if (value.length > 100) { res.status(400).json({ error: "normalizedAnswer must be 100 characters or fewer" }); return; }
+
+  const now = new Date();
+  await db.update(answersTable)
+    .set({ normalizedAnswer: value, normalizedByAdminId: adminId, normalizedAt: now, isFlagged: false })
+    .where(inArray(answersTable.id, ids));
+
+  console.info(`[admin] bulk-normalize: admin ${adminId} set normalizedAnswer="${value}" on ${ids.length} answers`);
+  res.json({ ok: true, updated: ids.length, normalizedAnswer: value });
+});
+
+// POST /admin/answers/bulk-flag
+// Marks answers as admin-flagged (hidden from public graph) or unflagged.
+// Does NOT modify answer_text. Flagged answers remain in DB for audit.
+router.post("/admin/answers/bulk-flag", async (req, res): Promise<void> => {
+  const adminId = await checkAdmin(req, res);
+  if (!adminId) return;
+
+  const { answerIds, flagged } = req.body;
+  if (!Array.isArray(answerIds) || answerIds.length === 0) {
+    res.status(400).json({ error: "answerIds must be a non-empty array" }); return;
+  }
+  const ids: number[] = answerIds.map(Number).filter(n => !isNaN(n));
+  if (ids.length === 0) { res.status(400).json({ error: "No valid answer IDs" }); return; }
+
+  const isFlagged = flagged !== false; // default true unless explicitly false
+  await db.update(answersTable)
+    .set({ isFlagged })
+    .where(inArray(answersTable.id, ids));
+
+  console.info(`[admin] bulk-flag: admin ${adminId} set isFlagged=${isFlagged} on ${ids.length} answers`);
+  res.json({ ok: true, updated: ids.length, isFlagged });
+});
+
 // ── Test email endpoint (admin-only) ─────────────────────────────────────────
 // Sends a simple test email via sendEmailDirect to verify SMTP is working.
 // Does NOT touch any withdrawal, wallet, or user data.

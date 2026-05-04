@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Show, useUser } from "@clerk/react";
+import { Show, useUser, useAuth } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetQuestion,
@@ -235,9 +235,22 @@ interface TextStatGroup {
   percentage: number;
 }
 
+interface AdminTextStatGroup extends TextStatGroup {
+  key: string;
+  answerIds: number[];
+  rawSamples: string[];
+}
+
+interface AdminTextStats {
+  groups: AdminTextStatGroup[];
+  flaggedGroups: AdminTextStatGroup[];
+  total: number;
+}
+
 function useShortAnswerStats(questionId: number, enabled: boolean) {
   const [data, setData] = useState<{ groups: TextStatGroup[]; total: number } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -248,21 +261,141 @@ function useShortAnswerStats(questionId: number, enabled: boolean) {
       .then(d => { if (d) setData(d); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [questionId, enabled]);
+  }, [questionId, enabled, version]);
 
-  return { data, loading };
+  return { data, loading, refresh: () => setVersion(v => v + 1) };
+}
+
+function useAdminTextStats(
+  questionId: number,
+  enabled: boolean,
+  getToken: () => Promise<string | null>,
+) {
+  const [data, setData] = useState<AdminTextStats | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) return;
+    setLoading(true);
+    const base = (import.meta as any).env.BASE_URL?.replace(/\/$/, "") ?? "";
+    getToken()
+      .then(token =>
+        fetch(`${base}/api/admin/questions/${questionId}/text-stats`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: "include",
+        })
+      )
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setData(d); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [questionId, enabled, version]);
+
+  return { data, loading, refresh: () => setVersion(v => v + 1) };
 }
 
 function ShortAnswerStats({
   questionId,
   userAnswerText,
   totalAnswers,
+  isAdmin,
+  getToken,
 }: {
   questionId: number;
   userAnswerText: string | null | undefined;
   totalAnswers: number;
+  isAdmin?: boolean;
+  getToken?: () => Promise<string | null>;
 }) {
-  const { data, loading } = useShortAnswerStats(questionId, true);
+  const publicStats = useShortAnswerStats(questionId, !isAdmin);
+  const adminStats  = useAdminTextStats(questionId, !!isAdmin, getToken ?? (() => Promise.resolve(null)));
+  const base = (import.meta as any).env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+  // Admin selection state
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [showFlagModal, setShowFlagModal]   = useState(false);
+  const [showUnflagModal, setShowUnflagModal] = useState(false);
+  const [mergeValue, setMergeValue]         = useState("");
+  const [actionLoading, setActionLoading]   = useState(false);
+  const [actionMsg, setActionMsg]           = useState<{ ok: boolean; text: string } | null>(null);
+
+  const loading = isAdmin ? adminStats.loading : publicStats.loading;
+  const refresh = isAdmin ? adminStats.refresh  : publicStats.refresh;
+
+  function getSelectedAnswerIds(groups: AdminTextStatGroup[]): number[] {
+    return groups.filter(g => selectedKeys.has(g.key)).flatMap(g => g.answerIds);
+  }
+
+  async function callAdminApi(path: string, body: object) {
+    const token = await getToken?.();
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || "Request failed");
+    return res.json();
+  }
+
+  async function handleMerge() {
+    if (!mergeValue.trim() || !adminStats.data) return;
+    const ids = getSelectedAnswerIds(adminStats.data.groups);
+    if (ids.length === 0) return;
+    setActionLoading(true);
+    setActionMsg(null);
+    try {
+      const result = await callAdminApi("/api/admin/answers/bulk-normalize", {
+        answerIds: ids,
+        normalizedAnswer: mergeValue.trim(),
+      });
+      setActionMsg({ ok: true, text: `Merged ${result.updated} answers → "${result.normalizedAnswer}"` });
+      setSelectedKeys(new Set());
+      setMergeValue("");
+      setShowMergeModal(false);
+      adminStats.refresh();
+      publicStats.refresh();
+    } catch (err: any) {
+      setActionMsg({ ok: false, text: err.message });
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleFlag(flagged: boolean, fromFlagged = false) {
+    if (!adminStats.data) return;
+    const sourceGroups = fromFlagged ? adminStats.data.flaggedGroups : adminStats.data.groups;
+    const ids = getSelectedAnswerIds(sourceGroups);
+    if (ids.length === 0) return;
+    setActionLoading(true);
+    setActionMsg(null);
+    try {
+      const result = await callAdminApi("/api/admin/answers/bulk-flag", { answerIds: ids, flagged });
+      setActionMsg({ ok: true, text: `${result.updated} answers ${flagged ? "hidden from graph" : "restored to graph"}` });
+      setSelectedKeys(new Set());
+      setShowFlagModal(false);
+      setShowUnflagModal(false);
+      adminStats.refresh();
+      publicStats.refresh();
+    } catch (err: any) {
+      setActionMsg({ ok: false, text: err.message });
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  function toggleKey(key: string) {
+    setSelectedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
 
   if (loading) {
     return (
@@ -281,44 +414,306 @@ function ShortAnswerStats({
     );
   }
 
-  if (!data || data.groups.length === 0) {
+  // ── Public (non-admin) view ────────────────────────────────────────────────
+  if (!isAdmin) {
+    const data = publicStats.data;
+    if (!data || data.groups.length === 0) {
+      return (
+        <div className="bg-muted/50 border border-border rounded-xl p-4 text-center text-sm text-muted-foreground mb-5">
+          {totalAnswers} {totalAnswers === 1 ? "person has" : "people have"} shared their perspective on this question.
+        </div>
+      );
+    }
+    const userKey = userAnswerText?.toLowerCase().replace(/\s+/g, " ").trim() ?? "";
     return (
-      <div className="bg-muted/50 border border-border rounded-xl p-4 text-center text-sm text-muted-foreground mb-5">
-        {totalAnswers} {totalAnswers === 1 ? "person has" : "people have"} shared their perspective on this question.
+      <div className="bg-card border border-card-border rounded-2xl p-6 shadow-sm mb-5">
+        <h3 className="font-bold text-lg mb-5">Answer Breakdown</h3>
+        <div className="space-y-4">
+          {data.groups.map(g => {
+            const isOwn = g.label !== "Other" && g.label.toLowerCase().replace(/\s+/g, " ").trim() === userKey;
+            return (
+              <div key={g.label}>
+                <div className="flex justify-between text-sm mb-1.5">
+                  <span className={`font-medium ${isOwn ? "text-amber-700" : "text-foreground"}`}>
+                    {g.label}
+                    {isOwn && <span className="ml-1.5 text-xs text-amber-500">(your answer)</span>}
+                  </span>
+                  <span className="text-muted-foreground">{g.percentage}% ({g.count})</span>
+                </div>
+                <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${g.percentage}%` }}
+                    transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
+                    className={`h-full rounded-full ${isOwn ? "gold-gradient" : "bg-blue-400"}`}
+                  />
+                </div>
+              </div>
+            );
+          })}
+          <p className="text-xs text-muted-foreground mt-2">{data.total} total {data.total === 1 ? "answer" : "answers"}</p>
+        </div>
       </div>
     );
   }
 
+  // ── Admin view ─────────────────────────────────────────────────────────────
+  const ad = adminStats.data;
   const userKey = userAnswerText?.toLowerCase().replace(/\s+/g, " ").trim() ?? "";
+  const selCount = selectedKeys.size;
+  const selectedActiveIds  = ad ? getSelectedAnswerIds(ad.groups) : [];
+  const selectedFlaggedIds = ad ? getSelectedAnswerIds(ad.flaggedGroups) : [];
 
-  return (
-    <div className="bg-card border border-card-border rounded-2xl p-6 shadow-sm mb-5">
-      <h3 className="font-bold text-lg mb-5">Answer Breakdown</h3>
-      <div className="space-y-4">
-        {data.groups.map(g => {
-          const isOwn = g.label !== "Other" && g.label.toLowerCase().replace(/\s+/g, " ").trim() === userKey;
-          return (
-            <div key={g.label}>
-              <div className="flex justify-between text-sm mb-1.5">
-                <span className={`font-medium ${isOwn ? "text-amber-700" : "text-foreground"}`}>
-                  {g.label}
-                  {isOwn && <span className="ml-1.5 text-xs text-amber-500">(your answer)</span>}
-                </span>
-                <span className="text-muted-foreground">{g.percentage}% ({g.count})</span>
-              </div>
-              <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+  function GroupRow({ g, section }: { g: AdminTextStatGroup; section: "active" | "flagged" }) {
+    const isOwn = section === "active" && g.label !== "Other" && g.label.toLowerCase().replace(/\s+/g, " ").trim() === userKey;
+    const checked = selectedKeys.has(g.key);
+    return (
+      <div
+        className={`rounded-xl border p-3 cursor-pointer transition-colors ${checked ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20" : "border-transparent hover:border-border"}`}
+        onClick={() => toggleKey(g.key)}
+      >
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={() => toggleKey(g.key)}
+            onClick={e => e.stopPropagation()}
+            className="w-4 h-4 accent-amber-500 flex-shrink-0 cursor-pointer"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between text-sm mb-1">
+              <span className={`font-medium truncate ${section === "flagged" ? "text-rose-600 line-through opacity-60" : isOwn ? "text-amber-700" : "text-foreground"}`}>
+                {g.label}
+                {isOwn && <span className="ml-1.5 text-xs text-amber-500">(your answer)</span>}
+              </span>
+              <span className="text-muted-foreground ml-2 flex-shrink-0 text-xs">
+                {section === "active" ? `${g.percentage}%` : "hidden"} ({g.count})
+              </span>
+            </div>
+            {section === "active" && (
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${g.percentage}%` }}
-                  transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
-                  className={`h-full rounded-full ${isOwn ? "gold-gradient" : "bg-blue-400"}`}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className={`h-full rounded-full ${checked ? "bg-amber-400" : isOwn ? "gold-gradient" : "bg-blue-400"}`}
                 />
               </div>
-            </div>
-          );
-        })}
-        <p className="text-xs text-muted-foreground mt-2">{data.total} total {data.total === 1 ? "answer" : "answers"}</p>
+            )}
+            {g.rawSamples.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1 truncate">
+                Raw: {g.rawSamples.slice(0, 3).join(" · ")}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="bg-card border border-card-border rounded-2xl p-6 shadow-sm mb-5">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold text-lg">Answer Breakdown</h3>
+        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Admin</span>
+      </div>
+
+      {/* Action feedback */}
+      {actionMsg && (
+        <div className={`text-sm rounded-lg px-3 py-2 mb-3 ${actionMsg.ok ? "bg-green-50 text-green-700 border border-green-200" : "bg-rose-50 text-rose-700 border border-rose-200"}`}>
+          {actionMsg.text}
+        </div>
+      )}
+
+      {/* Bulk action toolbar — shown only when rows are selected */}
+      {selCount > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-xl">
+          <span className="text-sm text-amber-700 font-medium self-center">{selCount} group{selCount > 1 ? "s" : ""} selected ({selectedActiveIds.length + selectedFlaggedIds.length} answers)</span>
+          <div className="flex gap-2 ml-auto flex-wrap">
+            {selectedActiveIds.length > 0 && (
+              <>
+                <button
+                  onClick={() => { setMergeValue(""); setShowMergeModal(true); setActionMsg(null); }}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium transition-colors"
+                >
+                  Merge / Normalize
+                </button>
+                <button
+                  onClick={() => { setShowFlagModal(true); setActionMsg(null); }}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 font-medium transition-colors"
+                >
+                  Hide from Graph
+                </button>
+              </>
+            )}
+            {selectedFlaggedIds.length > 0 && (
+              <button
+                onClick={() => { setShowUnflagModal(true); setActionMsg(null); }}
+                className="text-xs px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 font-medium transition-colors"
+              >
+                Restore to Graph
+              </button>
+            )}
+            <button
+              onClick={() => setSelectedKeys(new Set())}
+              className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Active groups */}
+      {!ad || ad.groups.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">No active answers yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {ad.groups.map(g => <GroupRow key={g.key} g={g} section="active" />)}
+          <p className="text-xs text-muted-foreground pt-1">{ad.total} total active answers</p>
+        </div>
+      )}
+
+      {/* Flagged / hidden groups */}
+      {ad && ad.flaggedGroups.length > 0 && (
+        <div className="mt-5 pt-4 border-t border-border">
+          <p className="text-xs font-semibold text-rose-600 mb-2 uppercase tracking-wide">Hidden from graph ({ad.flaggedGroups.reduce((s, g) => s + g.count, 0)} answers)</p>
+          <div className="space-y-2">
+            {ad.flaggedGroups.map(g => <GroupRow key={g.key} g={g} section="flagged" />)}
+          </div>
+        </div>
+      )}
+
+      {/* Merge / Normalize modal */}
+      <AnimatePresence>
+        {showMergeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={e => { if (e.target === e.currentTarget) setShowMergeModal(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-card border border-card-border rounded-2xl p-6 w-full max-w-md shadow-xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <h4 className="font-bold text-lg mb-1">Merge / Normalize Answers</h4>
+              <p className="text-sm text-muted-foreground mb-4">
+                {selectedActiveIds.length} answer{selectedActiveIds.length !== 1 ? "s" : ""} will be grouped under a single normalized label.
+                Raw text is never overwritten.
+              </p>
+              <label className="block text-sm font-medium mb-1.5">Normalized value</label>
+              <input
+                type="text"
+                value={mergeValue}
+                onChange={e => setMergeValue(e.target.value)}
+                placeholder='e.g. "Pakistan"'
+                maxLength={100}
+                className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400 mb-4"
+                autoFocus
+                onKeyDown={e => { if (e.key === "Enter" && mergeValue.trim()) handleMerge(); }}
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowMergeModal(false)}
+                  className="px-4 py-2 text-sm rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors"
+                >Cancel</button>
+                <button
+                  onClick={handleMerge}
+                  disabled={!mergeValue.trim() || actionLoading}
+                  className="px-4 py-2 text-sm rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-semibold disabled:opacity-50 transition-colors"
+                >
+                  {actionLoading ? "Saving…" : "Apply"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Flag / Hide modal */}
+      <AnimatePresence>
+        {showFlagModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={e => { if (e.target === e.currentTarget) setShowFlagModal(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-card border border-card-border rounded-2xl p-6 w-full max-w-md shadow-xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <h4 className="font-bold text-lg mb-1">Hide from Graph</h4>
+              <p className="text-sm text-muted-foreground mb-6">
+                {selectedActiveIds.length} answer{selectedActiveIds.length !== 1 ? "s" : ""} will be hidden from the public graph.
+                They remain in the database for auditing and can be restored at any time.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowFlagModal(false)}
+                  className="px-4 py-2 text-sm rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors"
+                >Cancel</button>
+                <button
+                  onClick={() => handleFlag(true)}
+                  disabled={actionLoading}
+                  className="px-4 py-2 text-sm rounded-xl bg-rose-600 text-white hover:bg-rose-700 font-semibold disabled:opacity-50 transition-colors"
+                >
+                  {actionLoading ? "Hiding…" : "Hide Answers"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Unflag / Restore modal */}
+      <AnimatePresence>
+        {showUnflagModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={e => { if (e.target === e.currentTarget) setShowUnflagModal(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-card border border-card-border rounded-2xl p-6 w-full max-w-md shadow-xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <h4 className="font-bold text-lg mb-1">Restore to Graph</h4>
+              <p className="text-sm text-muted-foreground mb-6">
+                {selectedFlaggedIds.length} answer{selectedFlaggedIds.length !== 1 ? "s" : ""} will be made visible again in the public graph.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowUnflagModal(false)}
+                  className="px-4 py-2 text-sm rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors"
+                >Cancel</button>
+                <button
+                  onClick={() => handleFlag(false, true)}
+                  disabled={actionLoading}
+                  className="px-4 py-2 text-sm rounded-xl bg-green-600 text-white hover:bg-green-700 font-semibold disabled:opacity-50 transition-colors"
+                >
+                  {actionLoading ? "Restoring…" : "Restore Answers"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -708,6 +1103,24 @@ export default function QuestionDetail() {
   const questionId = parseInt(id || "0", 10);
   const queryClient = useQueryClient();
   const { user } = useUser();
+  const { getToken } = useAuth();
+
+  // Admin status — fetched from the backend (stored in DB, not Clerk metadata)
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    const base = (import.meta as any).env.BASE_URL?.replace(/\/$/, "") ?? "";
+    getToken()
+      .then(token =>
+        fetch(`${base}/api/users/me`, {
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+      )
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.isAdmin) setIsAdmin(true); })
+      .catch(() => {});
+  }, [user?.id]);
 
   const { data: question, isLoading, isError } = useGetQuestion(questionId);
   const submitAnswer = useSubmitAnswer();
@@ -1452,13 +1865,15 @@ export default function QuestionDetail() {
       )}
 
       {/* Short answer results — grouped stats */}
-      {question.type === "short_answer" && userHasAnswered && (
+      {question.type === "short_answer" && (userHasAnswered || isAdmin) && (
         <ShortAnswerStats
           questionId={questionId}
           userAnswerText={
             question.userAnswer?.answerText ?? (localSubmitted ? answerText : null)
           }
           totalAnswers={question.totalAnswers}
+          isAdmin={isAdmin}
+          getToken={getToken}
         />
       )}
 

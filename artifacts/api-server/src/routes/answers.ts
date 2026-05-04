@@ -670,6 +670,7 @@ router.get("/questions/:id/answers", async (req, res): Promise<void> => {
 // GET /api/questions/:id/text-stats
 // Returns grouped answer counts for a short-answer question (top 7 + Other bucket).
 // No auth required — stats are public.
+// Uses normalized_answer when set by admin; excludes admin-flagged (is_flagged) answers.
 router.get("/questions/:id/text-stats", async (req, res): Promise<void> => {
   const questionId = parseInt(req.params.id, 10);
   if (isNaN(questionId) || questionId <= 0) {
@@ -682,24 +683,25 @@ router.get("/questions/:id/text-stats", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Question not found" }); return;
   }
 
-  // Group by lower(trim(answer_text)) in Postgres, keep a representative display label
-  // Exclude removed answers from stats
+  // Group by COALESCE(normalized_answer, lower(trim(answer_text))).
+  // If admin has set normalized_answer, that becomes the canonical key and label.
+  // Admin-flagged answers (is_flagged=true) are excluded from public stats.
   const rows = await db.execute(sql`
     SELECT
-      lower(trim(answer_text))        AS key,
-      min(answer_text)                AS label,
-      cast(count(*) as integer)       AS count
+      COALESCE(normalized_answer, lower(trim(answer_text))) AS key,
+      COALESCE(max(normalized_answer), min(answer_text))    AS label,
+      cast(count(*) as integer)                              AS count
     FROM answers
     WHERE question_id = ${questionId}
       AND answer_text IS NOT NULL
       AND trim(answer_text) <> ''
       AND (flag_status IS NULL OR flag_status != 'removed')
-    GROUP BY lower(trim(answer_text))
+      AND is_flagged = false
+    GROUP BY COALESCE(normalized_answer, lower(trim(answer_text)))
     ORDER BY count DESC
     LIMIT 20
   `);
 
-  // db.execute returns { rows: [...] } for drizzle-orm postgres
   const rawRows: any[] = Array.isArray(rows) ? rows : (rows as any).rows ?? [];
   const allGroups = rawRows.map(r => ({
     key:   String(r.key),
@@ -707,7 +709,6 @@ router.get("/questions/:id/text-stats", async (req, res): Promise<void> => {
     count: Number(r.count),
   }));
 
-  // Total distinct-answer submissions (may differ from question.totalAnswers for mixed types)
   const total = allGroups.reduce((s, g) => s + g.count, 0);
 
   const TOP = 7;

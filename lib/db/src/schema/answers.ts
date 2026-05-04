@@ -14,6 +14,11 @@ export const answersTable = pgTable("answers", {
   flagStatus: text("flag_status"),
   noRewardReason: text("no_reward_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  // Admin answer cleanup
+  normalizedAnswer: text("normalized_answer"),
+  isFlagged: boolean("is_flagged").default(false).notNull(),
+  normalizedByAdminId: text("normalized_by_admin_id"),
+  normalizedAt: timestamp("normalized_at", { withTimezone: true }),
 });
 
 export const insertAnswerSchema = createInsertSchema(answersTable).omit({ id: true, createdAt: true });
