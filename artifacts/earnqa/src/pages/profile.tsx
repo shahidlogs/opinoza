@@ -73,8 +73,14 @@ function TextStats({ questionId, userLabel, totalAnswers, isAdmin, getToken }: {
   const publicData = useTextStats(questionId, !isAdmin);
   const [adminData, setAdminData] = useState<AdminTextData | null>(null);
   const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set());
+  // flag state
   const [flagging, setFlagging] = useState(false);
-  const [flagMsg, setFlagMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  // normalize state
+  const [showNormalizePanel, setShowNormalizePanel] = useState(false);
+  const [normalizeValue, setNormalizeValue] = useState("");
+  const [normalizing, setNormalizing] = useState(false);
+  // shared message
+  const [actionMsg, setActionMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     if (!isAdmin || !getToken) return;
@@ -90,6 +96,7 @@ function TextStats({ questionId, userLabel, totalAnswers, isAdmin, getToken }: {
 
   if (isAdmin && adminData) {
     const userKey = userLabel.toLowerCase().replace(/\s+/g, " ").trim();
+
     const toggleLabel = (label: string) => {
       setSelectedLabels(prev => {
         const next = new Set(prev);
@@ -97,6 +104,7 @@ function TextStats({ questionId, userLabel, totalAnswers, isAdmin, getToken }: {
         return next;
       });
     };
+
     const getSelectedIds = () =>
       adminData.groups.filter(g => selectedLabels.has(g.label)).flatMap(g => g.answerIds);
 
@@ -122,36 +130,133 @@ function TextStats({ questionId, userLabel, totalAnswers, isAdmin, getToken }: {
             ],
           } : prev);
           setSelectedLabels(new Set());
-          setFlagMsg({ type: "success", text: `${ids.length} answer${ids.length !== 1 ? "s" : ""} flagged.` });
-          setTimeout(() => setFlagMsg(null), 4000);
+          setActionMsg({ type: "success", text: `${ids.length} answer${ids.length !== 1 ? "s" : ""} flagged.` });
+          setTimeout(() => setActionMsg(null), 4000);
         } else {
-          setFlagMsg({ type: "error", text: "Failed to flag answers." });
-          setTimeout(() => setFlagMsg(null), 4000);
+          setActionMsg({ type: "error", text: "Failed to flag answers." });
+          setTimeout(() => setActionMsg(null), 4000);
         }
       } catch {
-        setFlagMsg({ type: "error", text: "Network error." });
-        setTimeout(() => setFlagMsg(null), 4000);
+        setActionMsg({ type: "error", text: "Network error." });
+        setTimeout(() => setActionMsg(null), 4000);
       } finally {
         setFlagging(false);
       }
     };
 
+    const handleNormalize = async () => {
+      const value = normalizeValue.trim();
+      const ids = getSelectedIds();
+      if (!value || ids.length === 0) return;
+      setNormalizing(true);
+      try {
+        const token = getToken ? await getToken() : null;
+        const res = await fetch(`${base}/api/admin/answers/bulk-normalize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ answerIds: ids, normalizedAnswer: value }),
+        });
+        if (res.ok) {
+          // Merge all selected groups into one group under the new normalized label
+          const mergedLabels = new Set(selectedLabels);
+          setAdminData(prev => {
+            if (!prev) return prev;
+            const mergedGroups = prev.groups.filter(g => mergedLabels.has(g.label));
+            const mergedCount = mergedGroups.reduce((s, g) => s + g.count, 0);
+            const mergedIds = mergedGroups.flatMap(g => g.answerIds);
+            const remaining = prev.groups.filter(g => !mergedLabels.has(g.label));
+            const existingNorm = remaining.find(g => g.label === value);
+            let newGroups: typeof prev.groups;
+            if (existingNorm) {
+              newGroups = remaining.map(g =>
+                g.label === value
+                  ? { ...g, count: g.count + mergedCount, answerIds: [...g.answerIds, ...mergedIds] }
+                  : g
+              );
+            } else {
+              const newGroup: AdminTextGroup = { label: value, count: mergedCount, percentage: 0, answerIds: mergedIds, rawSamples: [] };
+              newGroups = [...remaining, newGroup];
+            }
+            const total = newGroups.reduce((s, g) => s + g.count, 0);
+            newGroups = newGroups.map(g => ({ ...g, percentage: total > 0 ? Math.round((g.count / total) * 100) : 0 }));
+            return { ...prev, groups: newGroups };
+          });
+          setSelectedLabels(new Set());
+          setShowNormalizePanel(false);
+          setNormalizeValue("");
+          setActionMsg({ type: "success", text: `${ids.length} answer${ids.length !== 1 ? "s" : ""} normalized as "${value}".` });
+          setTimeout(() => setActionMsg(null), 4000);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          setActionMsg({ type: "error", text: data.error || "Failed to normalize." });
+          setTimeout(() => setActionMsg(null), 4000);
+        }
+      } catch {
+        setActionMsg({ type: "error", text: "Network error." });
+        setTimeout(() => setActionMsg(null), 4000);
+      } finally {
+        setNormalizing(false);
+      }
+    };
+
     return (
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 space-y-2">
+        {/* Toolbar */}
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">How others answered</p>
           {selectedLabels.size > 0 && (
-            <button onClick={handleFlag} disabled={flagging}
-              className="text-xs px-2.5 py-1 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700 disabled:opacity-50 transition-colors">
-              {flagging ? "Flagging…" : `Flag Answer (${selectedLabels.size})`}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => { setShowNormalizePanel(true); }}
+                className="text-xs px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors">
+                Merge / Normalize
+              </button>
+              <button onClick={handleFlag} disabled={flagging}
+                className="text-xs px-2.5 py-1 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700 disabled:opacity-50 transition-colors">
+                {flagging ? "…" : "Flag"}
+              </button>
+            </div>
           )}
         </div>
-        {flagMsg && (
-          <p className={`text-xs px-3 py-1.5 rounded-lg ${flagMsg.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
-            {flagMsg.text}
+
+        {/* Normalize inline panel */}
+        {showNormalizePanel && selectedLabels.size > 0 && (
+          <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 space-y-2">
+            <p className="text-xs font-semibold text-blue-800">
+              Merge / Normalize ({getSelectedIds().length} answer{getSelectedIds().length !== 1 ? "s" : ""})
+            </p>
+            <p className="text-xs text-blue-700">Raw text is never changed — only the display label.</p>
+            <input
+              type="text"
+              value={normalizeValue}
+              onChange={e => setNormalizeValue(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && normalizeValue.trim()) handleNormalize(); if (e.key === "Escape") setShowNormalizePanel(false); }}
+              placeholder='e.g. "Pakistan"'
+              maxLength={100}
+              autoFocus
+              className="w-full border border-blue-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => { setShowNormalizePanel(false); setNormalizeValue(""); }}
+                className="px-3 py-1.5 text-xs rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleNormalize} disabled={!normalizeValue.trim() || normalizing}
+                className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold disabled:opacity-50 transition-colors">
+                {normalizing ? "Applying…" : "Apply"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Message */}
+        {actionMsg && (
+          <p className={`text-xs px-3 py-1.5 rounded-lg ${actionMsg.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+            {actionMsg.text}
           </p>
         )}
+
+        {/* Groups */}
         {adminData.groups.map(g => {
           const isOwn = g.label !== "Other" && g.label.toLowerCase().replace(/\s+/g, " ").trim() === userKey;
           const checked = selectedLabels.has(g.label);
@@ -172,11 +277,15 @@ function TextStats({ questionId, userLabel, totalAnswers, isAdmin, getToken }: {
                     <motion.div initial={{ width: 0 }} animate={{ width: `${g.percentage}%` }} transition={{ duration: 0.7, ease: "easeOut" }}
                       className={`h-full rounded-full ${checked ? "bg-amber-400" : isOwn ? "gold-gradient" : "bg-blue-400"}`} />
                   </div>
+                  {g.rawSamples.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1 truncate">Raw: {g.rawSamples.slice(0, 3).join(" · ")}</p>
+                  )}
                 </div>
               </div>
             </div>
           );
         })}
+
         {adminData.flaggedGroups.length > 0 && (
           <div className="pt-2 border-t border-border">
             <p className="text-xs font-semibold text-rose-500 uppercase tracking-wide mb-1.5">Flagged (hidden)</p>

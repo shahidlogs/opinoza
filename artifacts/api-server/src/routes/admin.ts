@@ -496,6 +496,7 @@ router.get("/admin/users/:id/answers", async (req, res): Promise<void> => {
     createdAt: answersTable.createdAt,
     flagStatus: answersTable.flagStatus,
     isFlagged: answersTable.isFlagged,
+    normalizedAnswer: answersTable.normalizedAnswer,
     questionTitle: questionsTable.title,
     questionType: questionsTable.type,
     questionCategory: questionsTable.category,

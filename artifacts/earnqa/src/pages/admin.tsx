@@ -456,9 +456,15 @@ function UserAnswersModal({ user, getToken, onClose }: { user: any; getToken: ()
   const [answers, setAnswers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  // flag state
   const [showFlagConfirm, setShowFlagConfirm] = useState(false);
   const [flagging, setFlagging] = useState(false);
-  const [flagMsg, setFlagMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  // normalize state
+  const [showNormalizeModal, setShowNormalizeModal] = useState(false);
+  const [normalizeValue, setNormalizeValue] = useState("");
+  const [normalizing, setNormalizing] = useState(false);
+  // shared message
+  const [actionMsg, setActionMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     getToken().then(token =>
@@ -479,64 +485,127 @@ function UserAnswersModal({ user, getToken, onClose }: { user: any; getToken: ()
     });
   };
 
+  const selectedArr = Array.from(selectedIds);
+  // Only short_answer type answers can be normalized
+  const selectedShortAnswerIds = selectedArr.filter(id => answers.find(a => a.id === id)?.questionType === "short_answer");
+  const hasAlreadyNormalized = selectedShortAnswerIds.some(id => !!answers.find(a => a.id === id)?.normalizedAnswer);
+
   const handleFlag = async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    if (selectedArr.length === 0) return;
     setFlagging(true);
     try {
       const token = await getToken();
       const res = await fetch("/api/admin/answers/bulk-flag", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ answerIds: ids, flagged: true, reason: "Admin review: flagged from user answers" }),
+        body: JSON.stringify({ answerIds: selectedArr, flagged: true, reason: "Admin review: flagged from user answers" }),
       });
       if (res.ok) {
-        setAnswers(prev => prev.map(a => ids.includes(a.id) ? { ...a, flagStatus: "pending", isFlagged: true } : a));
+        setAnswers(prev => prev.map(a => selectedArr.includes(a.id) ? { ...a, flagStatus: "pending", isFlagged: true } : a));
         setSelectedIds(new Set());
         setShowFlagConfirm(false);
-        setFlagMsg({ type: "success", text: `${ids.length} answer${ids.length !== 1 ? "s" : ""} flagged and added to the Flags tab.` });
-        setTimeout(() => setFlagMsg(null), 5000);
+        setActionMsg({ type: "success", text: `${selectedArr.length} answer${selectedArr.length !== 1 ? "s" : ""} flagged and added to the Flags tab.` });
+        setTimeout(() => setActionMsg(null), 5000);
       } else {
-        setFlagMsg({ type: "error", text: "Failed to flag answers. Please try again." });
-        setTimeout(() => setFlagMsg(null), 5000);
+        setActionMsg({ type: "error", text: "Failed to flag answers. Please try again." });
+        setTimeout(() => setActionMsg(null), 5000);
       }
     } catch {
-      setFlagMsg({ type: "error", text: "Network error. Please try again." });
-      setTimeout(() => setFlagMsg(null), 5000);
+      setActionMsg({ type: "error", text: "Network error. Please try again." });
+      setTimeout(() => setActionMsg(null), 5000);
     } finally {
       setFlagging(false);
     }
   };
+
+  const handleNormalize = async () => {
+    const value = normalizeValue.trim();
+    if (!value || selectedShortAnswerIds.length === 0) return;
+    setNormalizing(true);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/answers/bulk-normalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ answerIds: selectedShortAnswerIds, normalizedAnswer: value }),
+      });
+      if (res.ok) {
+        setAnswers(prev => prev.map(a =>
+          selectedShortAnswerIds.includes(a.id) ? { ...a, normalizedAnswer: value, isFlagged: false } : a
+        ));
+        setSelectedIds(new Set());
+        setShowNormalizeModal(false);
+        setNormalizeValue("");
+        setActionMsg({ type: "success", text: `${selectedShortAnswerIds.length} answer${selectedShortAnswerIds.length !== 1 ? "s" : ""} normalized as "${value}".` });
+        setTimeout(() => setActionMsg(null), 5000);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setActionMsg({ type: "error", text: data.error || "Failed to normalize. Please try again." });
+        setTimeout(() => setActionMsg(null), 5000);
+      }
+    } catch {
+      setActionMsg({ type: "error", text: "Network error. Please try again." });
+      setTimeout(() => setActionMsg(null), 5000);
+    } finally {
+      setNormalizing(false);
+    }
+  };
+
+  const activePanel = showNormalizeModal ? "normalize" : showFlagConfirm ? "flag" : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
         onClick={e => e.stopPropagation()}
-        className="bg-card border border-card-border rounded-2xl shadow-xl p-6 w-full max-w-2xl max-h-[80vh] flex flex-col"
+        className="bg-card border border-card-border rounded-2xl shadow-xl p-6 w-full max-w-2xl max-h-[85vh] flex flex-col"
       >
-        <div className="flex items-center justify-between mb-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-foreground">
             Answers by {user.name || user.email}
           </h2>
-          <div className="flex items-center gap-3">
-            {selectedIds.size > 0 && (
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-xl leading-none">&times;</button>
+        </div>
+
+        {/* Toolbar — shown when selections exist */}
+        {selectedIds.size > 0 && (
+          <div className="mb-3 flex items-center gap-2 flex-wrap p-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+            <span className="text-xs text-amber-700 font-medium">{selectedIds.size} selected</span>
+            <div className="flex gap-2 ml-auto flex-wrap">
+              {selectedShortAnswerIds.length > 0 && (
+                <button
+                  onClick={() => { setNormalizeValue(""); setShowNormalizeModal(true); setShowFlagConfirm(false); }}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold transition-colors"
+                >
+                  Merge / Normalize
+                </button>
+              )}
               <button
-                onClick={() => setShowFlagConfirm(true)}
+                onClick={() => { setShowFlagConfirm(true); setShowNormalizeModal(false); }}
                 className="text-xs px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 font-semibold transition-colors"
               >
-                Flag Selected ({selectedIds.size})
+                Flag Answer
               </button>
-            )}
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-xl leading-none">&times;</button>
-          </div>
-        </div>
-        {flagMsg && (
-          <div className={`mb-3 px-3 py-2 rounded-xl text-xs font-medium ${flagMsg.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
-            {flagMsg.text}
+              <button
+                onClick={() => { setSelectedIds(new Set()); setShowFlagConfirm(false); setShowNormalizeModal(false); }}
+                className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
+              >
+                Clear
+              </button>
+            </div>
           </div>
         )}
-        <div className="overflow-y-auto flex-1 space-y-2">
+
+        {/* Action message */}
+        {actionMsg && (
+          <div className={`mb-3 px-3 py-2 rounded-xl text-xs font-medium ${actionMsg.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+            {actionMsg.text}
+          </div>
+        )}
+
+        {/* Answer list */}
+        <div className="overflow-y-auto flex-1 space-y-2 min-h-0">
           {loading ? (
             <p className="text-muted-foreground text-center py-8">Loading...</p>
           ) : answers.length === 0 ? (
@@ -564,7 +633,14 @@ function UserAnswersModal({ user, getToken, onClose }: { user: any; getToken: ()
                       <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{a.questionType}</span>
                       {a.pollOption && <span className="text-xs text-foreground">Chose: <strong>{a.pollOption}</strong></span>}
                       {a.rating != null && <span className="text-xs text-foreground">Rating: <strong>{a.rating}/10</strong></span>}
-                      {a.answerText && <span className="text-xs text-muted-foreground truncate max-w-[200px]">{a.answerText}</span>}
+                      {a.answerText && (
+                        <span className="text-xs text-muted-foreground truncate max-w-[180px]">{a.answerText}</span>
+                      )}
+                      {a.normalizedAnswer && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200 font-medium">
+                          Normalized: {a.normalizedAnswer}
+                        </span>
+                      )}
                       {isFlagged && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 border border-rose-200 font-medium">flagged</span>
                       )}
@@ -576,22 +652,53 @@ function UserAnswersModal({ user, getToken, onClose }: { user: any; getToken: ()
             );
           })}
         </div>
-        {/* Flag confirmation */}
-        {showFlagConfirm && (
+
+        {/* Normalize panel */}
+        {activePanel === "normalize" && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-sm font-semibold text-foreground mb-1">Merge / Normalize ({selectedShortAnswerIds.length} answer{selectedShortAnswerIds.length !== 1 ? "s" : ""})</p>
+            {hasAlreadyNormalized && (
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mb-2">
+                Some selected answers are already normalized — this will overwrite them.
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground mb-2">Raw answer text is never changed. Only the display label is updated.</p>
+            <input
+              type="text"
+              value={normalizeValue}
+              onChange={e => setNormalizeValue(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && normalizeValue.trim()) handleNormalize(); if (e.key === "Escape") setShowNormalizeModal(false); }}
+              placeholder='e.g. "Pakistan"'
+              maxLength={100}
+              autoFocus
+              className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400 mb-3"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setShowNormalizeModal(false)}
+                className="px-4 py-2 text-sm rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleNormalize} disabled={!normalizeValue.trim() || normalizing}
+                className="px-4 py-2 text-sm rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-semibold disabled:opacity-50 transition-colors">
+                {normalizing ? "Applying…" : "Apply"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Flag confirmation panel */}
+        {activePanel === "flag" && (
           <div className="mt-4 pt-4 border-t border-border">
             <p className="text-sm text-foreground mb-3">
-              Flag <strong>{selectedIds.size}</strong> answer{selectedIds.size !== 1 ? "s" : ""}? They will be hidden from graphs and added to the Flags tab. A $0.10 penalty can be applied from there.
+              Flag <strong>{selectedArr.length}</strong> answer{selectedArr.length !== 1 ? "s" : ""}? They will be hidden from graphs and added to the Flags tab. A $0.10 penalty can be applied from there.
             </p>
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowFlagConfirm(false)}
-                className="px-4 py-2 text-sm rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors"
-              >Cancel</button>
-              <button
-                onClick={handleFlag}
-                disabled={flagging}
-                className="px-4 py-2 text-sm rounded-xl bg-rose-600 text-white hover:bg-rose-700 font-semibold disabled:opacity-50 transition-colors"
-              >
+              <button onClick={() => setShowFlagConfirm(false)}
+                className="px-4 py-2 text-sm rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleFlag} disabled={flagging}
+                className="px-4 py-2 text-sm rounded-xl bg-rose-600 text-white hover:bg-rose-700 font-semibold disabled:opacity-50 transition-colors">
                 {flagging ? "Flagging…" : "Confirm Flag"}
               </button>
             </div>
