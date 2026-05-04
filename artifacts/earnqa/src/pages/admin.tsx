@@ -455,6 +455,10 @@ function UserQuestionsModal({ user, questions, onClose }: { user: any; questions
 function UserAnswersModal({ user, getToken, onClose }: { user: any; getToken: () => Promise<string | null>; onClose: () => void }) {
   const [answers, setAnswers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [showFlagConfirm, setShowFlagConfirm] = useState(false);
+  const [flagging, setFlagging] = useState(false);
+  const [flagMsg, setFlagMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     getToken().then(token =>
@@ -467,6 +471,43 @@ function UserAnswersModal({ user, getToken, onClose }: { user: any; getToken: ()
       .catch(() => setLoading(false));
   }, [user.clerkId]);
 
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleFlag = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setFlagging(true);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/answers/bulk-flag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ answerIds: ids, flagged: true, reason: "Admin review: flagged from user answers" }),
+      });
+      if (res.ok) {
+        setAnswers(prev => prev.map(a => ids.includes(a.id) ? { ...a, flagStatus: "pending", isFlagged: true } : a));
+        setSelectedIds(new Set());
+        setShowFlagConfirm(false);
+        setFlagMsg({ type: "success", text: `${ids.length} answer${ids.length !== 1 ? "s" : ""} flagged and added to the Flags tab.` });
+        setTimeout(() => setFlagMsg(null), 5000);
+      } else {
+        setFlagMsg({ type: "error", text: "Failed to flag answers. Please try again." });
+        setTimeout(() => setFlagMsg(null), 5000);
+      }
+    } catch {
+      setFlagMsg({ type: "error", text: "Network error. Please try again." });
+      setTimeout(() => setFlagMsg(null), 5000);
+    } finally {
+      setFlagging(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div
@@ -478,26 +519,84 @@ function UserAnswersModal({ user, getToken, onClose }: { user: any; getToken: ()
           <h2 className="text-lg font-bold text-foreground">
             Answers by {user.name || user.email}
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-xl leading-none">&times;</button>
+          <div className="flex items-center gap-3">
+            {selectedIds.size > 0 && (
+              <button
+                onClick={() => setShowFlagConfirm(true)}
+                className="text-xs px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 font-semibold transition-colors"
+              >
+                Flag Selected ({selectedIds.size})
+              </button>
+            )}
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-xl leading-none">&times;</button>
+          </div>
         </div>
+        {flagMsg && (
+          <div className={`mb-3 px-3 py-2 rounded-xl text-xs font-medium ${flagMsg.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+            {flagMsg.text}
+          </div>
+        )}
         <div className="overflow-y-auto flex-1 space-y-2">
           {loading ? (
             <p className="text-muted-foreground text-center py-8">Loading...</p>
           ) : answers.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No answers yet</p>
-          ) : answers.map(a => (
-            <div key={a.id} className="p-3 rounded-xl border border-border bg-muted/30">
-              <p className="font-medium text-foreground text-sm">{a.questionTitle || `Question #${a.questionId}`}</p>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{a.questionType}</span>
-                {a.pollOption && <span className="text-xs text-foreground">Chose: <strong>{a.pollOption}</strong></span>}
-                {a.rating != null && <span className="text-xs text-foreground">Rating: <strong>{a.rating}/10</strong></span>}
-                {a.answerText && <span className="text-xs text-muted-foreground truncate max-w-[200px]">{a.answerText}</span>}
-                <span className="text-xs text-muted-foreground ml-auto">{new Date(a.createdAt).toLocaleDateString()}</span>
+          ) : answers.map(a => {
+            const isFlagged = a.flagStatus === "pending" || a.flagStatus === "removed" || a.isFlagged;
+            const selected = selectedIds.has(a.id);
+            return (
+              <div
+                key={a.id}
+                className={`p-3 rounded-xl border transition-colors cursor-pointer ${selected ? "border-amber-400 bg-amber-50/60" : "border-border bg-muted/30 hover:border-amber-200"}`}
+                onClick={() => toggleSelect(a.id)}
+              >
+                <div className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => toggleSelect(a.id)}
+                    onClick={e => e.stopPropagation()}
+                    className="mt-0.5 w-3.5 h-3.5 accent-amber-500 flex-shrink-0 cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground text-sm leading-snug">{a.questionTitle || `Question #${a.questionId}`}</p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{a.questionType}</span>
+                      {a.pollOption && <span className="text-xs text-foreground">Chose: <strong>{a.pollOption}</strong></span>}
+                      {a.rating != null && <span className="text-xs text-foreground">Rating: <strong>{a.rating}/10</strong></span>}
+                      {a.answerText && <span className="text-xs text-muted-foreground truncate max-w-[200px]">{a.answerText}</span>}
+                      {isFlagged && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 border border-rose-200 font-medium">flagged</span>
+                      )}
+                      <span className="text-xs text-muted-foreground ml-auto">{new Date(a.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+        {/* Flag confirmation */}
+        {showFlagConfirm && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-sm text-foreground mb-3">
+              Flag <strong>{selectedIds.size}</strong> answer{selectedIds.size !== 1 ? "s" : ""}? They will be hidden from graphs and added to the Flags tab. A $0.10 penalty can be applied from there.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowFlagConfirm(false)}
+                className="px-4 py-2 text-sm rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors"
+              >Cancel</button>
+              <button
+                onClick={handleFlag}
+                disabled={flagging}
+                className="px-4 py-2 text-sm rounded-xl bg-rose-600 text-white hover:bg-rose-700 font-semibold disabled:opacity-50 transition-colors"
+              >
+                {flagging ? "Flagging…" : "Confirm Flag"}
+              </button>
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );

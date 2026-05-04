@@ -59,8 +59,139 @@ function useTextStats(questionId: number, enabled: boolean) {
   return data;
 }
 
-function TextStats({ questionId, userLabel, totalAnswers }: { questionId: number; userLabel: string; totalAnswers: number }) {
-  const data = useTextStats(questionId, true);
+type AdminTextGroup = { label: string; count: number; percentage: number; answerIds: number[]; rawSamples: string[] };
+type AdminTextData = { groups: AdminTextGroup[]; flaggedGroups: { label: string; count: number; answerIds: number[] }[]; total: number };
+
+function TextStats({ questionId, userLabel, totalAnswers, isAdmin, getToken }: {
+  questionId: number;
+  userLabel: string;
+  totalAnswers: number;
+  isAdmin?: boolean;
+  getToken?: () => Promise<string | null>;
+}) {
+  const base = (import.meta as any).env.BASE_URL?.replace(/\/$/, "") ?? "";
+  const publicData = useTextStats(questionId, !isAdmin);
+  const [adminData, setAdminData] = useState<AdminTextData | null>(null);
+  const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set());
+  const [flagging, setFlagging] = useState(false);
+  const [flagMsg, setFlagMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin || !getToken) return;
+    getToken().then(token =>
+      fetch(`${base}/api/admin/questions/${questionId}/text-stats`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+    )
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setAdminData(d); })
+      .catch(() => {});
+  }, [questionId, isAdmin, getToken, base]);
+
+  if (isAdmin && adminData) {
+    const userKey = userLabel.toLowerCase().replace(/\s+/g, " ").trim();
+    const toggleLabel = (label: string) => {
+      setSelectedLabels(prev => {
+        const next = new Set(prev);
+        if (next.has(label)) next.delete(label); else next.add(label);
+        return next;
+      });
+    };
+    const getSelectedIds = () =>
+      adminData.groups.filter(g => selectedLabels.has(g.label)).flatMap(g => g.answerIds);
+
+    const handleFlag = async () => {
+      const ids = getSelectedIds();
+      if (ids.length === 0) return;
+      setFlagging(true);
+      try {
+        const token = getToken ? await getToken() : null;
+        const res = await fetch(`${base}/api/admin/answers/bulk-flag`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ answerIds: ids, flagged: true }),
+        });
+        if (res.ok) {
+          const flaggedLabels = new Set(selectedLabels);
+          setAdminData(prev => prev ? {
+            ...prev,
+            groups: prev.groups.filter(g => !flaggedLabels.has(g.label)),
+            flaggedGroups: [
+              ...prev.flaggedGroups,
+              ...prev.groups.filter(g => flaggedLabels.has(g.label)).map(g => ({ label: g.label, count: g.count, answerIds: g.answerIds })),
+            ],
+          } : prev);
+          setSelectedLabels(new Set());
+          setFlagMsg({ type: "success", text: `${ids.length} answer${ids.length !== 1 ? "s" : ""} flagged.` });
+          setTimeout(() => setFlagMsg(null), 4000);
+        } else {
+          setFlagMsg({ type: "error", text: "Failed to flag answers." });
+          setTimeout(() => setFlagMsg(null), 4000);
+        }
+      } catch {
+        setFlagMsg({ type: "error", text: "Network error." });
+        setTimeout(() => setFlagMsg(null), 4000);
+      } finally {
+        setFlagging(false);
+      }
+    };
+
+    return (
+      <div className="mt-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">How others answered</p>
+          {selectedLabels.size > 0 && (
+            <button onClick={handleFlag} disabled={flagging}
+              className="text-xs px-2.5 py-1 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700 disabled:opacity-50 transition-colors">
+              {flagging ? "Flagging…" : `Flag Answer (${selectedLabels.size})`}
+            </button>
+          )}
+        </div>
+        {flagMsg && (
+          <p className={`text-xs px-3 py-1.5 rounded-lg ${flagMsg.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+            {flagMsg.text}
+          </p>
+        )}
+        {adminData.groups.map(g => {
+          const isOwn = g.label !== "Other" && g.label.toLowerCase().replace(/\s+/g, " ").trim() === userKey;
+          const checked = selectedLabels.has(g.label);
+          return (
+            <div key={g.label}
+              className={`rounded-xl border p-2.5 cursor-pointer transition-colors ${checked ? "border-amber-400 bg-amber-50" : "border-transparent hover:border-border"}`}
+              onClick={() => toggleLabel(g.label)}>
+              <div className="flex items-center gap-2.5">
+                <input type="checkbox" checked={checked} onChange={() => toggleLabel(g.label)} onClick={e => e.stopPropagation()} className="w-3.5 h-3.5 accent-amber-500 flex-shrink-0 cursor-pointer" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className={`font-medium ${isOwn ? "text-amber-700" : "text-foreground"}`}>
+                      {g.label}{isOwn && <span className="ml-1.5 text-xs text-amber-500">(your answer)</span>}
+                    </span>
+                    <span className="text-muted-foreground text-xs">{g.percentage}% ({g.count})</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${g.percentage}%` }} transition={{ duration: 0.7, ease: "easeOut" }}
+                      className={`h-full rounded-full ${checked ? "bg-amber-400" : isOwn ? "gold-gradient" : "bg-blue-400"}`} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {adminData.flaggedGroups.length > 0 && (
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs font-semibold text-rose-500 uppercase tracking-wide mb-1.5">Flagged (hidden)</p>
+            {adminData.flaggedGroups.map(g => (
+              <div key={g.label} className="text-xs text-rose-500 line-through opacity-60 px-1 py-0.5">{g.label} ({g.count})</div>
+            ))}
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">{adminData.total} total answers</p>
+      </div>
+    );
+  }
+
+  // Non-admin: public stats
+  const data = publicData;
   if (!data || data.groups.length === 0) {
     return <p className="text-sm text-muted-foreground mt-3">{totalAnswers} {totalAnswers === 1 ? "person has" : "people have"} answered.</p>;
   }
@@ -142,7 +273,7 @@ type ProfileQuestion = {
   ratingAverage?: number | null;
 };
 
-function ProfileQuestionCard({ question, onAnswered, nameLocked }: { question: ProfileQuestion; onAnswered: (id: number) => void; nameLocked?: boolean }) {
+function ProfileQuestionCard({ question, onAnswered, nameLocked, isAdmin }: { question: ProfileQuestion; onAnswered: (id: number) => void; nameLocked?: boolean; isAdmin?: boolean }) {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
   const base = (import.meta as any).env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -288,7 +419,7 @@ function ProfileQuestionCard({ question, onAnswered, nameLocked }: { question: P
           </div>
         </div>
         {!isNameQuestion && question.type === "short_answer" && currentAnswer?.answerText && (
-          <TextStats questionId={question.id} userLabel={currentAnswer.answerText} totalAnswers={totalAnswers} />
+          <TextStats questionId={question.id} userLabel={currentAnswer.answerText} totalAnswers={totalAnswers} isAdmin={isAdmin} getToken={getToken} />
         )}
         {!isNameQuestion && question.type === "poll" && pollResults && currentAnswer?.pollOption && (
           <PollStats results={pollResults} userVote={currentAnswer.pollOption} total={totalAnswers} />
@@ -624,7 +755,7 @@ export default function Profile() {
       ) : (
         <div className="space-y-4">
           {questions.map(q => (
-            <ProfileQuestionCard key={q.id} question={q} onAnswered={handleAnswered} nameLocked={!!(me as any)?.nameLocked} />
+            <ProfileQuestionCard key={q.id} question={q} onAnswered={handleAnswered} nameLocked={!!(me as any)?.nameLocked} isAdmin={!!(me as any)?.isAdmin} />
           ))}
         </div>
       )}

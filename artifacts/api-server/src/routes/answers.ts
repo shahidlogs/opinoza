@@ -557,7 +557,7 @@ router.put("/answers/:id", async (req, res): Promise<void> => {
         : existing.rating,
       notFamiliar: question.type === "rating" ? (notFamiliar === true) : existing.notFamiliar,
       reason: reason?.trim() || null,
-      ...(clearFlag ? { flagStatus: "resolved" } : {}),
+      ...(clearFlag ? { flagStatus: "resolved", isFlagged: false } : {}),
     })
     .where(eq(answersTable.id, answerId))
     .returning();

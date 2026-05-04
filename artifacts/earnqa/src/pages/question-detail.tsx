@@ -543,7 +543,7 @@ function ShortAnswerStats({
                   onClick={() => { setShowFlagModal(true); setActionMsg(null); }}
                   className="text-xs px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 font-medium transition-colors"
                 >
-                  Hide from Graph
+                  Flag Answer
                 </button>
               </>
             )}
@@ -552,7 +552,7 @@ function ShortAnswerStats({
                 onClick={() => { setShowUnflagModal(true); setActionMsg(null); }}
                 className="text-xs px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 font-medium transition-colors"
               >
-                Restore to Graph
+                Unflag Answers
               </button>
             )}
             <button
@@ -653,10 +653,10 @@ function ShortAnswerStats({
               className="bg-card border border-card-border rounded-2xl p-6 w-full max-w-md shadow-xl"
               onClick={e => e.stopPropagation()}
             >
-              <h4 className="font-bold text-lg mb-1">Hide from Graph</h4>
+              <h4 className="font-bold text-lg mb-1">Flag Answers</h4>
               <p className="text-sm text-muted-foreground mb-6">
-                {selectedActiveIds.length} answer{selectedActiveIds.length !== 1 ? "s" : ""} will be hidden from the public graph.
-                They remain in the database for auditing and can be restored at any time.
+                {selectedActiveIds.length} answer{selectedActiveIds.length !== 1 ? "s" : ""} will be flagged: hidden from the public graph and marked pending review.
+                A $0.10 penalty can be applied from the Flags tab if needed.
               </p>
               <div className="flex gap-2 justify-end">
                 <button
@@ -668,7 +668,7 @@ function ShortAnswerStats({
                   disabled={actionLoading}
                   className="px-4 py-2 text-sm rounded-xl bg-rose-600 text-white hover:bg-rose-700 font-semibold disabled:opacity-50 transition-colors"
                 >
-                  {actionLoading ? "Hiding…" : "Hide Answers"}
+                  {actionLoading ? "Flagging…" : "Flag Answers"}
                 </button>
               </div>
             </motion.div>
@@ -693,9 +693,9 @@ function ShortAnswerStats({
               className="bg-card border border-card-border rounded-2xl p-6 w-full max-w-md shadow-xl"
               onClick={e => e.stopPropagation()}
             >
-              <h4 className="font-bold text-lg mb-1">Restore to Graph</h4>
+              <h4 className="font-bold text-lg mb-1">Unflag Answers</h4>
               <p className="text-sm text-muted-foreground mb-6">
-                {selectedFlaggedIds.length} answer{selectedFlaggedIds.length !== 1 ? "s" : ""} will be made visible again in the public graph.
+                {selectedFlaggedIds.length} answer{selectedFlaggedIds.length !== 1 ? "s" : ""} will be unflagged and made visible again in the public graph.
               </p>
               <div className="flex gap-2 justify-end">
                 <button
@@ -707,7 +707,7 @@ function ShortAnswerStats({
                   disabled={actionLoading}
                   className="px-4 py-2 text-sm rounded-xl bg-green-600 text-white hover:bg-green-700 font-semibold disabled:opacity-50 transition-colors"
                 >
-                  {actionLoading ? "Restoring…" : "Restore Answers"}
+                  {actionLoading ? "Unflagging…" : "Unflag Answers"}
                 </button>
               </div>
             </motion.div>

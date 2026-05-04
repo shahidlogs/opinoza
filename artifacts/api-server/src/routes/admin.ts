@@ -6,6 +6,7 @@ import { pushQuestionApproved, pushBonusReceived, PUSH_CONFIG } from "../lib/pus
 import { cleanupRejectedAnswers } from "../lib/cleanup-rejected-answers.js";
 import { eq, count, sum, and, gte, desc, asc, inArray, sql as drizzleSql } from "drizzle-orm";
 import { notifCacheInvalidate } from "../lib/notifCache";
+import { invalidateFlagStatusCache } from "./answers.js";
 
 const router: IRouter = Router();
 
@@ -493,6 +494,8 @@ router.get("/admin/users/:id/answers", async (req, res): Promise<void> => {
     rating: answersTable.rating,
     reason: answersTable.reason,
     createdAt: answersTable.createdAt,
+    flagStatus: answersTable.flagStatus,
+    isFlagged: answersTable.isFlagged,
     questionTitle: questionsTable.title,
     questionType: questionsTable.type,
     questionCategory: questionsTable.category,
@@ -2271,26 +2274,77 @@ router.post("/admin/answers/bulk-normalize", async (req, res): Promise<void> => 
 });
 
 // POST /admin/answers/bulk-flag
-// Marks answers as admin-flagged (hidden from public graph) or unflagged.
-// Does NOT modify answer_text. Flagged answers remain in DB for audit.
+// Flags answers through the standard answer_flags system: creates flag records,
+// sets flag_status = "pending" (puts them in the Flags tab), and hides from graph.
+// When flagged=false, marks admin's flag records as "ignored" and clears graph hiding.
+// Uses ON CONFLICT upsert to handle re-flagging previously ignored admin flags.
 router.post("/admin/answers/bulk-flag", async (req, res): Promise<void> => {
   const adminId = await checkAdmin(req, res);
   if (!adminId) return;
 
-  const { answerIds, flagged } = req.body;
+  const { answerIds, flagged, reason: rawReason } = req.body;
   if (!Array.isArray(answerIds) || answerIds.length === 0) {
     res.status(400).json({ error: "answerIds must be a non-empty array" }); return;
   }
   const ids: number[] = answerIds.map(Number).filter(n => !isNaN(n));
   if (ids.length === 0) { res.status(400).json({ error: "No valid answer IDs" }); return; }
 
-  const isFlagged = flagged !== false; // default true unless explicitly false
-  await db.update(answersTable)
-    .set({ isFlagged })
-    .where(inArray(answersTable.id, ids));
+  const isFlagging = flagged !== false;
+  const reason = (typeof rawReason === "string" && rawReason.trim())
+    ? rawReason.trim()
+    : "Admin review: flagged from answer graph";
 
-  console.info(`[admin] bulk-flag: admin ${adminId} set isFlagged=${isFlagged} on ${ids.length} answers`);
-  res.json({ ok: true, updated: ids.length, isFlagged });
+  if (isFlagging) {
+    // Fetch answers to get userIds for cache invalidation
+    const answers = await db.select({ id: answersTable.id, userId: answersTable.userId })
+      .from(answersTable)
+      .where(inArray(answersTable.id, ids));
+
+    // Upsert: insert new flag record or re-activate a previously ignored admin flag
+    for (const answer of answers) {
+      await db.execute(drizzleSql`
+        INSERT INTO answer_flags (answer_id, flagged_by_user_id, reason, status)
+        VALUES (${answer.id}, ${adminId}, ${reason}, 'pending')
+        ON CONFLICT ON CONSTRAINT answer_flags_unique_per_user
+        DO UPDATE SET status = 'pending', reason = EXCLUDED.reason
+      `);
+    }
+
+    // Mark answers as pending-flagged AND hide from public graph
+    await db.update(answersTable)
+      .set({ flagStatus: "pending", isFlagged: true })
+      .where(inArray(answersTable.id, ids));
+
+    // Invalidate per-user flag status cache so users are blocked immediately
+    const userIds = [...new Set(answers.map(a => a.userId))];
+    for (const uid of userIds) invalidateFlagStatusCache(uid);
+
+    console.info(`[admin] bulk-flag: admin ${adminId} flagged ${ids.length} answers`);
+    res.json({ ok: true, updated: ids.length, flagged: true });
+  } else {
+    // Unflag: mark admin's pending flag records as "ignored"
+    await db.execute(drizzleSql`
+      UPDATE answer_flags
+      SET status = 'ignored'
+      WHERE answer_id = ANY(${ids}::int[])
+        AND flagged_by_user_id = ${adminId}
+        AND status = 'pending'
+    `);
+
+    // For each answer: clear is_flagged; only clear flagStatus if no other pending flags remain
+    for (const id of ids) {
+      const [rem] = await db.select({ cnt: count() })
+        .from(answerFlagsTable)
+        .where(and(eq(answerFlagsTable.answerId, id), eq(answerFlagsTable.status, "pending")));
+      const noPendingLeft = Number(rem?.cnt ?? 0) === 0;
+      await db.update(answersTable)
+        .set({ isFlagged: false, ...(noPendingLeft ? { flagStatus: null } : {}) })
+        .where(eq(answersTable.id, id));
+    }
+
+    console.info(`[admin] bulk-unflag: admin ${adminId} unflagged ${ids.length} answers`);
+    res.json({ ok: true, updated: ids.length, flagged: false });
+  }
 });
 
 // ── Test email endpoint (admin-only) ─────────────────────────────────────────
