@@ -150,7 +150,7 @@ function AdminBadge() {
 function NavLink({ href, label, isActive, onClick }: { href: string; label: string; isActive: boolean; onClick?: () => void }) {
   return (
     <Link href={href} onClick={onClick}>
-      <span className={`relative px-3.5 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+      <span className={`relative px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
         isActive
           ? "text-amber-700 bg-amber-50"
           : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
