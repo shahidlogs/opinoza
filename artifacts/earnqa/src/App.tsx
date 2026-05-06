@@ -119,6 +119,7 @@ const Insights        = lazy(() => import("@/pages/insights"));
 const Admin           = lazy(() => import("@/pages/admin"));
 const Profile         = lazy(() => import("@/pages/profile"));
 const ProfileQuestions = lazy(() => import("@/pages/profile-questions"));
+const PublicProfile   = lazy(() => import("@/pages/public-profile"));
 const Privacy         = lazy(() => import("@/pages/privacy"));
 const Terms           = lazy(() => import("@/pages/terms"));
 const Contact         = lazy(() => import("@/pages/contact"));
@@ -442,6 +443,7 @@ function ClerkProviderWithRoutes() {
               <Route path="/profile">
                 {() => <ProtectedRoute component={Profile} />}
               </Route>
+              <Route path="/u/:id" component={PublicProfile} />
               <Route path="/privacy" component={Privacy} />
               <Route path="/terms" component={Terms} />
               <Route path="/contact" component={Contact} />

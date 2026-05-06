@@ -162,6 +162,13 @@ export default function Dashboard() {
               iconBg: "bg-violet-500",
               icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>,
             },
+            ...(me?.id ? [{
+              href: `/u/${me.id}`,
+              title: "Public Profile",
+              desc: "See your public question archive",
+              iconBg: "bg-slate-600",
+              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+            }] : []),
           ].map((action, i) => (
             <Link key={action.href} href={action.href}>
               <motion.div

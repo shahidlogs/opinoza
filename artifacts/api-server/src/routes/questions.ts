@@ -541,6 +541,14 @@ router.get("/questions/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // Resolve creator's numeric DB id for public profile links
+  let creatorDbId: number | null = null;
+  if (question.creatorId) {
+    const [creator] = await db.select({ id: usersTable.id })
+      .from(usersTable).where(eq(usersTable.clerkId, question.creatorId));
+    creatorDbId = creator?.id ?? null;
+  }
+
   const auth = getAuth(req);
   let userHasAnswered = false;
   let userAnswer: typeof answersTable.$inferSelect | null = null;
@@ -599,7 +607,7 @@ router.get("/questions/:id", async (req, res): Promise<void> => {
     });
   }
 
-  res.json({ ...question, ratingAverage, notFamiliarCount, ratingCount, pollResults, userHasAnswered, userAnswer });
+  res.json({ ...question, ratingAverage, notFamiliarCount, ratingCount, pollResults, userHasAnswered, userAnswer, creatorDbId });
 });
 
 router.post("/questions", async (req, res): Promise<void> => {

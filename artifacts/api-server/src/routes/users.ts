@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
-import { db, usersTable, walletsTable, answersTable, questionsTable, transactionsTable } from "@workspace/db";
-import { eq, count, sum, and, gte, desc, ne, or, isNull, sql } from "drizzle-orm";
+import { db, usersTable, walletsTable, answersTable, questionsTable, transactionsTable, referralsTable } from "@workspace/db";
+import { eq, count, sum, and, gte, desc, ne, or, isNull, sql, inArray } from "drizzle-orm";
 import { sendEmail, welcomeEmail } from "../lib/email.js";
 import { randomBytes } from "crypto";
 import { uploadIdDocumentToDrive } from "../lib/drive-upload.js";
@@ -443,6 +443,76 @@ router.post("/users/me/verification", async (req, res): Promise<void> => {
   res.status(201).json({
     verificationStatus: "pending",
     message: "Your identity document has been submitted for review. We will notify you once it is verified.",
+  });
+});
+
+// ─── Public Profile (no auth required) ───────────────────────────────────────
+router.get("/users/:id/public", async (req, res): Promise<void> => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    res.status(400).json({ error: "Invalid user ID" });
+    return;
+  }
+
+  const [user] = await db.select({
+    id: usersTable.id,
+    clerkId: usersTable.clerkId,
+    name: usersTable.name,
+    createdAt: usersTable.createdAt,
+  }).from(usersTable).where(eq(usersTable.id, userId));
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  // Approved questions created by this user
+  const questions = await db.select({
+    id: questionsTable.id,
+    title: questionsTable.title,
+    description: questionsTable.description,
+    type: questionsTable.type,
+    categories: questionsTable.categories,
+    totalAnswers: questionsTable.totalAnswers,
+    createdAt: questionsTable.createdAt,
+    pollOptions: questionsTable.pollOptions,
+  }).from(questionsTable)
+    .where(and(
+      eq(questionsTable.creatorId, user.clerkId),
+      eq(questionsTable.status, "active"),
+    ))
+    .orderBy(desc(questionsTable.createdAt));
+
+  // Total answers received across all their active questions
+  let totalAnswersReceived = 0;
+  if (questions.length > 0) {
+    const qIds = questions.map(q => q.id);
+    const [{ total }] = await db.select({ total: sum(questionsTable.totalAnswers) })
+      .from(questionsTable)
+      .where(inArray(questionsTable.id, qIds));
+    totalAnswersReceived = Number(total ?? 0);
+  }
+
+  // Total non-rejected referrals made by this user
+  const [{ invited }] = await db.select({ invited: count() })
+    .from(referralsTable)
+    .where(and(
+      eq(referralsTable.referrerUserId, user.clerkId),
+      ne(referralsTable.status, "rejected"),
+    ));
+
+  // Format joined date as "Month YYYY"
+  const joinedDate = new Date(user.createdAt);
+  const joinedLabel = joinedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  res.json({
+    id: user.id,
+    displayName: user.name || "Anonymous",
+    joinedLabel,
+    approvedQuestionsCount: questions.length,
+    totalAnswersReceived,
+    totalInvited: Number(invited),
+    questions,
   });
 });
 

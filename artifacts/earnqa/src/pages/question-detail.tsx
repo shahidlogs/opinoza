@@ -1650,7 +1650,17 @@ export default function QuestionDetail() {
           {question.creatorName && (
             <span className="flex items-center gap-1.5">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              By {question.creatorName}
+              {(question as any).creatorDbId ? (
+                <a
+                  href={`/u/${(question as any).creatorDbId}`}
+                  className="hover:text-amber-600 hover:underline transition-colors"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {question.creatorName}
+                </a>
+              ) : (
+                question.creatorName
+              )}
             </span>
           )}
         </div>
