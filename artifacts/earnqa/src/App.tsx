@@ -125,6 +125,7 @@ const Terms           = lazy(() => import("@/pages/terms"));
 const Contact         = lazy(() => import("@/pages/contact"));
 const About           = lazy(() => import("@/pages/about"));
 const HowItWorks      = lazy(() => import("@/pages/how-it-works"));
+const HowEarningsWork = lazy(() => import("@/pages/how-earnings-work"));
 const Invite          = lazy(() => import("@/pages/invite"));
 const Safety          = lazy(() => import("@/pages/safety"));
 const BlogIndex       = lazy(() => import("@/pages/blog-index"));
@@ -444,6 +445,7 @@ function ClerkProviderWithRoutes() {
                 {() => <ProtectedRoute component={Profile} />}
               </Route>
               <Route path="/u/:id" component={PublicProfile} />
+              <Route path="/how-earnings-work" component={HowEarningsWork} />
               <Route path="/privacy" component={Privacy} />
               <Route path="/terms" component={Terms} />
               <Route path="/contact" component={Contact} />

@@ -332,15 +332,26 @@ export default function Home() {
             <p className="font-bold text-amber-900 text-lg mb-1">New here? Learn how Opinoza works</p>
             <p className="text-sm text-amber-700">Earn coins by just answering questions with one click — no experience needed.</p>
           </div>
-          <Link href="/how-it-works">
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
-              className="shrink-0 px-6 py-3 rounded-xl font-bold text-sm gold-gradient text-white shadow-md hover:opacity-90 transition-opacity"
-            >
-              See Full Guide →
-            </motion.button>
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+            <Link href="/how-earnings-work">
+              <motion.button
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className="px-5 py-2.5 rounded-xl font-bold text-sm bg-emerald-600 text-white shadow-md hover:bg-emerald-700 transition-colors whitespace-nowrap"
+              >
+                💰 How Earnings Work
+              </motion.button>
+            </Link>
+            <Link href="/how-it-works">
+              <motion.button
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className="px-5 py-2.5 rounded-xl font-bold text-sm gold-gradient text-white shadow-md hover:opacity-90 transition-opacity whitespace-nowrap"
+              >
+                See Full Guide →
+              </motion.button>
+            </Link>
+          </div>
         </motion.div>
       </section>
 
