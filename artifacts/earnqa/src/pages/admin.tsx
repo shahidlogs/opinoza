@@ -1130,6 +1130,7 @@ export default function Admin() {
   const [withdrawalsError, setWithdrawalsError] = useState<string | null>(null);
   const [withdrawalStatus, setWithdrawalStatus] = useState<string>("");
   const [withdrawalSearch, setWithdrawalSearch] = useState("");
+  const [debouncedWithdrawalSearch, setDebouncedWithdrawalSearch] = useState("");
   // Referral list (paginated, replaces React Query hook)
   const [referralList, setReferralList] = useState<any[]>([]);
   const [refListLoading, setRefListLoading] = useState(false);
@@ -1143,6 +1144,11 @@ export default function Admin() {
     const id = setTimeout(() => setDebouncedSearch(adminSearch), 200);
     return () => clearTimeout(id);
   }, [adminSearch]);
+  // Debounce withdrawal search
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedWithdrawalSearch(withdrawalSearch), 300);
+    return () => clearTimeout(id);
+  }, [withdrawalSearch]);
 
   const isStatsTab = tab === "stats";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1242,13 +1248,14 @@ export default function Admin() {
     } finally { setUsersLoading(false); }
   }, [getToken]);
 
-  const fetchWithdrawals = useCallback(async (page = 1, status = "") => {
+  const fetchWithdrawals = useCallback(async (page = 1, status = "", search = "") => {
     setWithdrawalsLoading(true);
     if (page === 1) setWithdrawalsError(null);
     try {
       const token = await getToken();
       const statusParam = status ? `&status=${encodeURIComponent(status)}` : "";
-      const res = await fetch(`/api/admin/withdrawals?page=${page}&limit=50${statusParam}`, {
+      const searchParam = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : "";
+      const res = await fetch(`/api/admin/withdrawals?page=${page}&limit=50${statusParam}${searchParam}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: AbortSignal.timeout(15000),
       });
@@ -1286,7 +1293,7 @@ export default function Admin() {
   useEffect(() => { if (tab === "questions" && !pendingQLoaded) fetchPendingQuestions(1); }, [tab, pendingQLoaded, fetchPendingQuestions]);
   useEffect(() => { if (tab === "all-questions" && !allQLoaded) fetchAllQuestions(1, debouncedSearch); }, [tab, allQLoaded, fetchAllQuestions, debouncedSearch]);
   useEffect(() => { if (tab === "users" && !usersLoaded) fetchUsers(1, debouncedSearch, userSort); }, [tab, usersLoaded, fetchUsers, debouncedSearch, userSort]);
-  useEffect(() => { if (tab === "withdrawals" && !withdrawalsLoaded) fetchWithdrawals(1, withdrawalStatus); }, [tab, withdrawalsLoaded, fetchWithdrawals, withdrawalStatus]);
+  useEffect(() => { if (tab === "withdrawals" && !withdrawalsLoaded) fetchWithdrawals(1, withdrawalStatus, debouncedWithdrawalSearch); }, [tab, withdrawalsLoaded, fetchWithdrawals, withdrawalStatus, debouncedWithdrawalSearch]);
   useEffect(() => { if (tab === "referrals" && !refListLoaded) fetchReferralList(1); }, [tab, refListLoaded, fetchReferralList]);
 
   // ── Pending Review: auto-drain ─────────────────────────────────────────────
@@ -1853,7 +1860,7 @@ export default function Admin() {
     allQHasMore, allQLoading,
   );
   const withdrawalsSentinelRef = useInfiniteScroll(
-    () => fetchWithdrawals(withdrawalsPage + 1, withdrawalStatus),
+    () => fetchWithdrawals(withdrawalsPage + 1, withdrawalStatus, debouncedWithdrawalSearch),
     withdrawalsHasMore, withdrawalsLoading,
   );
   const usersSentinelRef = useInfiniteScroll(
@@ -1901,12 +1908,16 @@ export default function Admin() {
     }
   }, [verifFilter, verifSearch]);
   const prevWithdrawalStatusRef = useRef(withdrawalStatus);
+  const prevWithdrawalSearchRef = useRef(debouncedWithdrawalSearch);
   useEffect(() => {
-    if (withdrawalStatus !== prevWithdrawalStatusRef.current) {
+    const statusChanged = withdrawalStatus !== prevWithdrawalStatusRef.current;
+    const searchChanged = debouncedWithdrawalSearch !== prevWithdrawalSearchRef.current;
+    if (statusChanged || searchChanged) {
       prevWithdrawalStatusRef.current = withdrawalStatus;
+      prevWithdrawalSearchRef.current = debouncedWithdrawalSearch;
       setWithdrawals([]); setWithdrawalsPage(1); setWithdrawalsLoaded(false);
     }
-  }, [withdrawalStatus]);
+  }, [withdrawalStatus, debouncedWithdrawalSearch]);
 
   const allTabs: { key: AdminTab; label: string; badge?: number }[] = [
     { key: "questions", label: "Pending Review", badge: adminCounts?.pendingQuestions ?? 0 },
@@ -2160,11 +2171,7 @@ export default function Admin() {
             <div className="bg-card border border-card-border rounded-xl p-10 text-center text-muted-foreground">No withdrawal requests</div>
           ) : (
             <>
-              {withdrawals.filter((tx: any) => {
-                if (!withdrawalSearch.trim()) return true;
-                const q = withdrawalSearch.toLowerCase();
-                return (tx.userName || "").toLowerCase().includes(q) || (tx.userEmail || "").toLowerCase().includes(q);
-              }).map((tx: any, i: number) => {
+              {withdrawals.map((tx: any, i: number) => {
               // Parse method + details from description: "Withdrawal via METHOD — DETAILS"
               const descMatch = (tx.description || "").match(/^Withdrawal via (.+?) — (.+)$/);
               const parsedMethod = descMatch ? descMatch[1] : null;

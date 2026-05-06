@@ -736,7 +736,7 @@ router.get("/admin/stats", async (req, res): Promise<void> => {
   });
 });
 
-// Withdrawal management. Supports ?page=1&limit=25&status=pending|approved|completed
+// Withdrawal management. Supports ?page=1&limit=25&status=pending|approved|transferred&search=term
 router.get("/admin/withdrawals", async (req, res): Promise<void> => {
   if (!await checkAdmin(req, res)) return;
 
@@ -744,6 +744,7 @@ router.get("/admin/withdrawals", async (req, res): Promise<void> => {
   const limit = Math.min(200, Math.max(0, parseInt((req.query.limit as string) || "0", 10)));
   const offset = (page - 1) * limit;
   const statusParam = ((req.query.status as string) || "").trim();
+  const searchParam = ((req.query.search as string) || "").trim();
 
   const baseFields = {
     id: transactionsTable.id,
@@ -765,6 +766,12 @@ router.get("/admin/withdrawals", async (req, res): Promise<void> => {
 
   const whereConditions: any[] = [eq(transactionsTable.type, "withdrawal")];
   if (statusParam) whereConditions.push(eq(transactionsTable.status, statusParam));
+  if (searchParam) {
+    const term = `%${searchParam.toLowerCase()}%`;
+    whereConditions.push(
+      drizzleSql`(lower(coalesce(${usersTable.name},'')) like ${term} or lower(coalesce(${usersTable.email},'')) like ${term} or lower(coalesce(${transactionsTable.description},'')) like ${term} or lower(coalesce(${transactionsTable.accountTitle},'')) like ${term} or lower(coalesce(${transactionsTable.bankName},'')) like ${term})`
+    );
+  }
   const whereClause = whereConditions.length === 1 ? whereConditions[0] : and(...whereConditions);
 
   let q = db.select(baseFields)
@@ -780,6 +787,7 @@ router.get("/admin/withdrawals", async (req, res): Promise<void> => {
   if (limit > 0) {
     const [{ cnt }] = await db.select({ cnt: count() })
       .from(transactionsTable)
+      .leftJoin(usersTable, eq(usersTable.clerkId, transactionsTable.userId))
       .where(whereClause);
     total = Number(cnt);
     hasMore = offset + limit < total;
