@@ -142,7 +142,7 @@ export default function Home() {
               Share honest answers on polls, ratings, and questions — every insight you give puts real money in your wallet.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center flex-wrap">
               <motion.button
                 onClick={() => navigate(isSignedIn ? "/invite" : "/sign-up")}
                 whileHover={{ scale: 1.04, boxShadow: "0 8px 24px rgba(245,158,11,0.4)" }}
@@ -158,6 +158,15 @@ export default function Home() {
                   className="w-full sm:w-auto px-8 py-4 rounded-xl font-semibold text-base bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all"
                 >
                   Browse Questions
+                </motion.button>
+              </Link>
+              <Link href="/how-earnings-work">
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-semibold text-sm bg-emerald-500/20 border border-emerald-400/40 text-emerald-100 hover:bg-emerald-500/30 transition-all"
+                >
+                  💰 How Earnings Work
                 </motion.button>
               </Link>
             </div>
@@ -319,40 +328,6 @@ export default function Home() {
             </motion.div>
           ))}
         </div>
-        {/* "New here?" CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mt-14 bg-amber-50 border border-amber-200 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-5"
-        >
-          <div className="text-4xl shrink-0">💡</div>
-          <div className="flex-1 text-center sm:text-left">
-            <p className="font-bold text-amber-900 text-lg mb-1">New here? Learn how Opinoza works</p>
-            <p className="text-sm text-amber-700">Earn coins by just answering questions with one click — no experience needed.</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-            <Link href="/how-earnings-work">
-              <motion.button
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                className="px-5 py-2.5 rounded-xl font-bold text-sm bg-emerald-600 text-white shadow-md hover:bg-emerald-700 transition-colors whitespace-nowrap"
-              >
-                💰 How Earnings Work
-              </motion.button>
-            </Link>
-            <Link href="/how-it-works">
-              <motion.button
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                className="px-5 py-2.5 rounded-xl font-bold text-sm gold-gradient text-white shadow-md hover:opacity-90 transition-opacity whitespace-nowrap"
-              >
-                See Full Guide →
-              </motion.button>
-            </Link>
-          </div>
-        </motion.div>
       </section>
 
       {/* ── Blog / Guides ── */}
