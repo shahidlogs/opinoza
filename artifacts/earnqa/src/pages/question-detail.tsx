@@ -1653,7 +1653,7 @@ export default function QuestionDetail() {
               {(question as any).creatorDbId ? (
                 <a
                   href={`/u/${(question as any).creatorDbId}`}
-                  className="hover:text-amber-600 hover:underline transition-colors"
+                  className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
                   onClick={e => e.stopPropagation()}
                 >
                   {question.creatorName}

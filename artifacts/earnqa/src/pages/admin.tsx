@@ -1129,6 +1129,7 @@ export default function Admin() {
   const [withdrawalsTotal, setWithdrawalsTotal] = useState(0);
   const [withdrawalsError, setWithdrawalsError] = useState<string | null>(null);
   const [withdrawalStatus, setWithdrawalStatus] = useState<string>("");
+  const [withdrawalSearch, setWithdrawalSearch] = useState("");
   // Referral list (paginated, replaces React Query hook)
   const [referralList, setReferralList] = useState<any[]>([]);
   const [refListLoading, setRefListLoading] = useState(false);
@@ -2115,22 +2116,36 @@ export default function Admin() {
               <button onClick={() => setTransferMsg(null)} className="opacity-60 hover:opacity-100 text-base leading-none shrink-0">✕</button>
             </div>
           )}
-          {/* Status filter + count */}
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-            <div className="flex items-center gap-1 bg-muted rounded-xl p-1">
-              {(["", "pending", "approved", "completed"] as const).map(s => (
-                <button
-                  key={s}
-                  onClick={() => setWithdrawalStatus(s)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${withdrawalStatus === s ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  {s === "" ? "All" : s}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">{withdrawalsTotal > 0 ? `${withdrawals.length} / ${withdrawalsTotal} shown` : ""}</span>
-              <button onClick={() => { setWithdrawals([]); setWithdrawalsPage(1); setWithdrawalsLoaded(false); setWithdrawalsError(null); }} disabled={withdrawalsLoading} className="text-xs text-amber-600 hover:underline disabled:opacity-40">Refresh</button>
+          {/* Search + Status filter + count */}
+          <div className="space-y-2 mb-3">
+            <input
+              type="text"
+              value={withdrawalSearch}
+              onChange={e => setWithdrawalSearch(e.target.value)}
+              placeholder="Search by name or email…"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+            />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-1 bg-muted rounded-xl p-1">
+                {([
+                  { value: "",            label: "All"       },
+                  { value: "pending",     label: "Pending"   },
+                  { value: "approved",    label: "Approved"  },
+                  { value: "transferred", label: "Completed" },
+                ] as const).map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setWithdrawalStatus(value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${withdrawalStatus === value ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">{withdrawalsTotal > 0 ? `${withdrawals.length} / ${withdrawalsTotal} shown` : ""}</span>
+                <button onClick={() => { setWithdrawals([]); setWithdrawalsPage(1); setWithdrawalsLoaded(false); setWithdrawalsError(null); }} disabled={withdrawalsLoading} className="text-xs text-amber-600 hover:underline disabled:opacity-40">Refresh</button>
+              </div>
             </div>
           </div>
           {withdrawalsLoading && withdrawals.length === 0 ? (
@@ -2145,7 +2160,11 @@ export default function Admin() {
             <div className="bg-card border border-card-border rounded-xl p-10 text-center text-muted-foreground">No withdrawal requests</div>
           ) : (
             <>
-              {withdrawals.map((tx: any, i: number) => {
+              {withdrawals.filter((tx: any) => {
+                if (!withdrawalSearch.trim()) return true;
+                const q = withdrawalSearch.toLowerCase();
+                return (tx.userName || "").toLowerCase().includes(q) || (tx.userEmail || "").toLowerCase().includes(q);
+              }).map((tx: any, i: number) => {
               // Parse method + details from description: "Withdrawal via METHOD — DETAILS"
               const descMatch = (tx.description || "").match(/^Withdrawal via (.+?) — (.+)$/);
               const parsedMethod = descMatch ? descMatch[1] : null;
