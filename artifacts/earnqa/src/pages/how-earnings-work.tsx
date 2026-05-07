@@ -3,7 +3,7 @@ import { Link } from "wouter";
 
 // ─── Edit these constants to update displayed amounts ─────────────────────────
 const EARN = {
-  invite:         { label: "Invite a new user",                          amount: "$0.10", cents: "10¢" },
+  invite:         { label: "Invite a new user",                          amount: "$0.20", cents: "20¢" },
   answer:         { label: "Answer any question",                        amount: "$0.01", cents: "1¢"  },
   receiveAnswer:  { label: "Someone answers your question",              amount: "$0.005", cents: "0.5¢" },
   referralAnswer: { label: "Your invited friend answers a question",     amount: "$0.005", cents: "0.5¢" },
@@ -257,7 +257,7 @@ export default function HowEarningsWork() {
           <h3 className="text-lg font-extrabold text-amber-900 mb-5">Quick Reference</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { icon: "👥", label: "Invite friend",             value: "+$0.10", green: true  },
+              { icon: "👥", label: "Invite friend",             value: "+$0.20", green: true  },
               { icon: "✍️", label: "Answer question",           value: "+$0.01", green: true  },
               { icon: "📥", label: "Receive answer",            value: "+$0.005", green: true },
               { icon: "🔗", label: "Friend answers",            value: "+$0.005", green: true },

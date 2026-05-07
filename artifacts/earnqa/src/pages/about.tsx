@@ -97,7 +97,7 @@ export default function About() {
             <FeatureRow
               icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="hsl(43 96% 46%)" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>}
               title="Withdraw Earnings"
-              body="Once your balance reaches $10 (1000¢), you can request a withdrawal via PayPal, bank transfer, or gift card. Requests are processed within 2–3 business days."
+              body="Once your balance reaches $20 (2000¢), you can request a withdrawal via PayPal, bank transfer, or gift card. Requests are processed within 2–3 business days."
             />
           </div>
         </div>

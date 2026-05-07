@@ -1463,13 +1463,13 @@ router.get("/admin/earnings-analytics", async (req, res): Promise<void> => {
   const walletRow = await db.execute(drizzleSql`
     SELECT
       COALESCE(SUM(balance_cents), 0)::float                                                      AS total_balance,
-      COALESCE(SUM(CASE WHEN balance_cents >= 1000 THEN balance_cents ELSE 0 END), 0)::float      AS withdrawable,
-      COALESCE(SUM(CASE WHEN balance_cents < 1000  THEN balance_cents ELSE 0 END), 0)::float      AS non_withdrawable,
+      COALESCE(SUM(CASE WHEN balance_cents >= 2000 THEN balance_cents ELSE 0 END), 0)::float      AS withdrawable,
+      COALESCE(SUM(CASE WHEN balance_cents < 2000  THEN balance_cents ELSE 0 END), 0)::float      AS non_withdrawable,
       COUNT(CASE WHEN balance_cents = 0                        THEN 1 END)::int                   AS range_zero,
       COUNT(CASE WHEN balance_cents > 0   AND balance_cents < 100   THEN 1 END)::int              AS range_0_1,
       COUNT(CASE WHEN balance_cents >= 100  AND balance_cents < 500  THEN 1 END)::int             AS range_1_5,
-      COUNT(CASE WHEN balance_cents >= 500  AND balance_cents < 1000 THEN 1 END)::int             AS range_5_10,
-      COUNT(CASE WHEN balance_cents >= 1000                          THEN 1 END)::int             AS range_10_plus
+      COUNT(CASE WHEN balance_cents >= 500  AND balance_cents < 2000 THEN 1 END)::int             AS range_5_20,
+      COUNT(CASE WHEN balance_cents >= 2000                          THEN 1 END)::int             AS range_20_plus
     FROM wallets
   `);
   const wbRows: any[] = Array.isArray(walletRow) ? walletRow : (walletRow as any).rows ?? [];
@@ -1480,8 +1480,8 @@ router.get("/admin/earnings-analytics", async (req, res): Promise<void> => {
     { name: "$0",        count: Number(wbRows[0]?.range_zero ?? 0) },
     { name: "$0–$1",     count: Number(wbRows[0]?.range_0_1  ?? 0) },
     { name: "$1–$5",     count: Number(wbRows[0]?.range_1_5  ?? 0) },
-    { name: "$5–$10",    count: Number(wbRows[0]?.range_5_10 ?? 0) },
-    { name: "$10+",      count: Number(wbRows[0]?.range_10_plus ?? 0) },
+    { name: "$5–$20",    count: Number(wbRows[0]?.range_5_20 ?? 0) },
+    { name: "$20+",      count: Number(wbRows[0]?.range_20_plus ?? 0) },
   ];
 
   // ── 6. Top earners (always all-time, no date filter) ────────────────────
@@ -1493,7 +1493,7 @@ router.get("/admin/earnings-analytics", async (req, res): Promise<void> => {
       w.balance_cents,
       w.total_earned_cents,
       w.total_withdrawn_cents,
-      w.balance_cents >= 1000 AS is_withdrawable,
+      w.balance_cents >= 2000 AS is_withdrawable,
       COALESCE(ans.total, 0)::float  AS answer_cents,
       COALESCE(cr.total, 0)::float   AS creator_cents,
       COALESCE(ref.total, 0)::float  AS referral_cents

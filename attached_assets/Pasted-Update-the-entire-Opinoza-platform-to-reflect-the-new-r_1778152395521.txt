@@ -1,0 +1,121 @@
+Update the entire Opinoza platform to reflect the new rewards, withdrawal, and alert-message policy consistently across backend logic, frontend UI, admin panels, API responses, validation messages, help pages, FAQ, Terms, “How It Works”, rewards guide, wallet pages, withdrawal pages, referral sections, dashboard, homepage, onboarding text, tooltips, notifications, and any static or dynamic content.
+
+NEW RULES TO IMPLEMENT:
+
+1. Minimum withdrawal amount
+- Change minimum withdrawal from $10 / 1000 cents to $20 / 2000 cents.
+- Update ALL backend validation logic.
+- Update ALL frontend validation messages.
+- Update withdrawal button disabled messages.
+- Update wallet page text.
+- Update withdrawal page text.
+- Update admin references if any.
+- Update Terms, Guidelines, Help, FAQ, “How It Works”, and Rewards guide pages.
+- Ensure no old "$10", "10 USD", "1000 cents", or "minimum withdrawal $10" references remain anywhere.
+
+2. Referral / invite reward
+- Change successful invite reward from $0.10 / 10 cents to $0.20 / 20 cents.
+- Update inviter reward logic.
+- Update wallet transaction amounts.
+- Update referral bonus calculations.
+- Update notifications.
+- Update dashboard referral text.
+- Update onboarding text.
+- Update earnings explanation text.
+- Update rewards guide page.
+- Update public marketing copy.
+- Update FAQ/help text.
+- Ensure ALL calculations use 20 cents consistently.
+- Ensure no old “10 cents”, “$0.10”, or “invite and earn 10 cents” references remain anywhere.
+
+3. Keep these existing values unchanged
+- Answer reward = $0.01
+- Reward per answer on your question = $0.005
+- Invited friend answers any question = $0.005
+- Question creation cost = $0.25
+- Short-answer removal penalty = $0.10
+- Rejected question refund = $0.20 with $0.05 penalty retained
+
+4. Replace public System Alert message
+
+Find and remove this old public-facing alert message completely:
+
+“⚠️ System Alert
+
+Multiple accounts from the same device are not allowed. Rewards for such accounts have been blocked. ID verification is now required for withdrawals.”
+
+Replace it with this positive rewards message:
+
+“⚠️ Rewards Alert
+
+Invite friends and earn more on Opinoza!
+You now earn $0.20 for every successful invite, plus you continue earning $0.005 (half a cent) every time your invited friends answer questions on the platform.”
+
+Requirements for this alert:
+- Replace the old warning text everywhere this public alert appears.
+- Remove fear-based or restrictive wording from this public alert section.
+- Keep the alert visually noticeable but friendly.
+- Preserve existing layout spacing and styling consistency.
+- Ensure mobile responsiveness.
+- Do NOT remove or weaken backend anti-fraud logic.
+- Do NOT remove admin-only fraud/security warnings if they are needed.
+- Only replace the public-facing dashboard/homepage alert text.
+
+5. Full codebase audit
+
+Search the FULL codebase for these terms and update affected locations carefully:
+
+- "$10"
+- "10 USD"
+- "1000"
+- "1000 cents"
+- "minimum withdrawal"
+- "withdrawal minimum"
+- "$0.10"
+- "0.10"
+- "10 cents"
+- "invite reward"
+- "referral reward"
+- "successful invite"
+- "System Alert"
+- "Multiple accounts from the same device"
+- "ID verification is now required"
+- "Rewards for such accounts have been blocked"
+
+6. Centralize constants if possible
+
+Where possible, avoid hardcoded reward/withdrawal values scattered across the app.
+
+Create or update shared constants/config such as:
+
+- MIN_WITHDRAWAL_CENTS = 2000
+- INVITE_REWARD_CENTS = 20
+- ANSWER_REWARD_CENTS = 1
+- QUESTION_CREATION_COST_CENTS = 25
+- SHORT_ANSWER_PENALTY_CENTS = 10
+- REJECTED_QUESTION_REFUND_CENTS = 20
+- REJECTED_QUESTION_PENALTY_CENTS = 5
+- INVITED_FRIEND_ANSWER_REWARD_CENTS = 0.5 if decimal cents are supported, otherwise preserve the existing half-cent handling logic exactly as currently implemented.
+
+Important:
+Do not break existing wallet balances, transaction history, referral tracking, withdrawals, fraud detection, ID verification, or admin tools.
+
+7. Verification after changes
+
+After implementing, verify:
+
+- Users cannot withdraw below $20.
+- Withdrawal validation correctly uses 2000 cents.
+- Frontend displays $20 minimum withdrawal everywhere.
+- Successful invite credits $0.20.
+- Wallet transaction history shows the correct invite reward.
+- Referral page explains $0.20 invite reward and $0.005 per invited friend answer.
+- Rewards guide shows all updated values correctly.
+- Old 10-cent invite text is gone.
+- Old $10 withdrawal minimum text is gone.
+- Old public System Alert text is gone.
+- No duplicate or conflicting reward values remain.
+- Build passes.
+- App runs without TypeScript or runtime errors.
+
+Please implement carefully and provide a summary of every file changed.

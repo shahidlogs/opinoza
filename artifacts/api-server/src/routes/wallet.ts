@@ -134,8 +134,8 @@ router.post("/wallet/withdraw", withdrawRateLimit, async (req, res): Promise<voi
     res.status(400).json({ error: "amountCents must be an integer" });
     return;
   }
-  if (amountCents < 1000) {
-    res.status(400).json({ error: "Minimum withdrawal amount is $10 (1000¢)" });
+  if (amountCents < 2000) {
+    res.status(400).json({ error: "Minimum withdrawal amount is $20 (2000¢)" });
     return;
   }
   if (amountCents > 100_000) {

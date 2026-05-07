@@ -8,7 +8,7 @@ import { notifCacheInvalidate } from "../lib/notifCache";
 const router: IRouter = Router();
 
 const APP_BASE_URL = process.env.APP_BASE_URL || "https://opinoza.com";
-const REFERRAL_SIGNUP_BONUS_CENTS = 10;           // 10¢ flat bonus when referred user signs up
+const REFERRAL_SIGNUP_BONUS_CENTS = 20;           // 20¢ flat bonus when referred user signs up
 const REFERRAL_ANSWER_BONUS_CENTS = 0.5;          // 0.5¢ per answer by referred user (unchanged)
 
 // ─── GET /api/referrals/me ────────────────────────────────────────────────────

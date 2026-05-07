@@ -553,7 +553,7 @@ export function paymentTransferredEmail(opts: {
                   <td style="padding:20px 24px;">
                     <p style="margin:0 0 10px;font-size:15px;font-weight:700;color:#92400e;">🎁 Earn More with Referrals!</p>
                     <p style="margin:0 0 10px;font-size:14px;color:#78350f;line-height:1.6;">Invite others and increase your earnings:</p>
-                    <p style="margin:0 0 6px;font-size:14px;color:#92400e;">💰 Earn <strong>$0.10</strong> for every new user who joins using your invitation link</p>
+                    <p style="margin:0 0 6px;font-size:14px;color:#92400e;">💰 Earn <strong>$0.20</strong> for every new user who joins using your invitation link</p>
                     <p style="margin:0 0 14px;font-size:14px;color:#92400e;">💸 Earn <strong>$0.005</strong> on every answer they submit</p>
                     <hr style="border:none;border-top:1px solid #fde68a;margin:0 0 14px;" />
                     <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;">📢 Share &amp; Earn</p>
@@ -619,7 +619,7 @@ We truly appreciate your activity and contribution on Opinoza.
 🎁 Earn More with Referrals!
 
 Invite others and increase your earnings:
-💰 Earn $0.10 for every new user who joins using your invitation link
+💰 Earn $0.20 for every new user who joins using your invitation link
 💸 Earn $0.005 on every answer they submit
 
 📢 Share & Earn
@@ -699,7 +699,7 @@ export function welcomeEmail(opts: { name?: string | null; email: string }): {
                       </tr>
                       <tr>
                         <td style="padding:6px 0;font-size:14px;color:#1e3a5f;">
-                          <span style="display:inline-block;width:20px;font-weight:700;color:#d97706;">$10</span>
+                          <span style="display:inline-block;width:20px;font-weight:700;color:#d97706;">$20</span>
                           minimum to withdraw via PayPal, bank transfer, or gift card
                         </td>
                       </tr>
@@ -759,7 +759,7 @@ Welcome to Opinoza — the platform where your opinions earn real money.
 How it works:
 • 1¢ earned for every question you answer
 • 0.5¢ creator reward per answer on your custom questions
-• $10 minimum to withdraw via PayPal, bank transfer, or gift card
+• $20 minimum to withdraw via PayPal, bank transfer, or gift card
 
 Start browsing: ${APP_BASE_URL}/questions
 

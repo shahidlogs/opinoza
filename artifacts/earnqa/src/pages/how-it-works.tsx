@@ -131,12 +131,12 @@ const STEPS = [
     color: "from-rose-500 to-pink-600",
     badge: "bg-rose-50 text-rose-700 border-rose-200",
     content: [
-      "Once your balance reaches $10 (1000¢), you can request a withdrawal.",
+      "Once your balance reaches $20 (2000¢), you can request a withdrawal.",
       "Funds are sent via PayPal, bank transfer, or gift card.",
     ],
     highlight: {
       icon: "💳",
-      text: "Minimum withdrawal: $10. Build your balance by answering and asking questions.",
+      text: "Minimum withdrawal: $20. Build your balance by answering and asking questions.",
     },
   },
 ];
@@ -317,7 +317,7 @@ export default function HowItWorks() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
           {[
             { icon: "🔗", title: "Your personal referral link", desc: "Every account gets a unique invite link you can share anywhere — WhatsApp, social media, email." },
-            { icon: "🎉", title: "Earn 10¢ when they sign up", desc: "You get 10¢ the moment your invited friend creates their account — no conditions, instant reward." },
+            { icon: "🎉", title: "Earn 20¢ when they sign up", desc: "You get 20¢ the moment your invited friend creates their account — no conditions, instant reward." },
             { icon: "⚡", title: "Earn 0.5¢ per answer — forever", desc: "Every time your referred user answers a question, you earn an extra 0.5¢. This keeps adding up as long as they are active." },
             { icon: "💚", title: "No cost to the invited user", desc: "The person you invite doesn't lose anything. They earn normally — your reward is paid by the platform." },
           ].map(item => (

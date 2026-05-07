@@ -2861,8 +2861,8 @@ export default function Admin() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
                     { label: "Total Wallet Balance",    value: `$${(earningsData.totalWalletBalanceCents / 100).toFixed(2)}`,    color: "text-foreground" },
-                    { label: "Withdrawable (≥$10)",     value: `$${(earningsData.withdrawableBalanceCents / 100).toFixed(2)}`,   color: "text-green-600" },
-                    { label: "Locked (below $10)",      value: `$${(earningsData.nonWithdrawableBalanceCents / 100).toFixed(2)}`,color: "text-orange-500" },
+                    { label: "Withdrawable (≥$20)",     value: `$${(earningsData.withdrawableBalanceCents / 100).toFixed(2)}`,   color: "text-green-600" },
+                    { label: "Locked (below $20)",      value: `$${(earningsData.nonWithdrawableBalanceCents / 100).toFixed(2)}`,color: "text-orange-500" },
                     { label: "Pending Withdrawals",     value: `$${(earningsData.pendingWithdrawalCents / 100).toFixed(2)} (${earningsData.pendingWithdrawalCount})`, color: "text-blue-500" },
                   ].map(({ label, value, color }) => (
                     <div key={label} className="bg-muted/40 rounded-xl p-4 text-center border border-border">

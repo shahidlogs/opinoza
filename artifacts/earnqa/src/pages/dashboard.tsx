@@ -113,7 +113,7 @@ export default function Dashboard() {
       </div>
 
       {/* Progress toward withdrawal */}
-      {balance > 0 && balance < 1000 && (
+      {balance > 0 && balance < 2000 && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -121,18 +121,18 @@ export default function Dashboard() {
           className="mb-8 bg-amber-50 border border-amber-200 rounded-2xl p-5"
         >
           <div className="flex items-center justify-between mb-2.5">
-            <p className="text-sm font-semibold text-amber-800">Progress toward $10 withdrawal</p>
-            <p className="text-sm font-bold text-amber-700 tabular-nums">{balance} / 1000¢</p>
+            <p className="text-sm font-semibold text-amber-800">Progress toward $20 withdrawal</p>
+            <p className="text-sm font-bold text-amber-700 tabular-nums">{balance} / 2000¢</p>
           </div>
           <div className="h-2.5 bg-amber-100 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${Math.min((balance / 1000) * 100, 100)}%` }}
+              animate={{ width: `${Math.min((balance / 2000) * 100, 100)}%` }}
               transition={{ duration: 1.2, ease: "easeOut", delay: 0.4 }}
               className="h-full rounded-full gold-gradient"
             />
           </div>
-          <p className="text-xs text-amber-600 mt-2">{1000 - balance}¢ more to go — that's {1000 - balance} more answers!</p>
+          <p className="text-xs text-amber-600 mt-2">{2000 - balance}¢ more to go — that's {2000 - balance} more answers!</p>
         </motion.div>
       )}
 
