@@ -1602,7 +1602,7 @@ router.get("/admin/earnings-analytics", async (req, res): Promise<void> => {
 // ── Identity Verification Admin Endpoints ────────────────────────────────────
 
 // GET /admin/verifications — list users who have submitted verification documents.
-// Supports ?page=1&limit=25&status=pending|approved|rejected|reupload_requested&q=text
+// Supports ?page=1&limit=25&status=pending|approved|rejected|reupload_requested&q=text&sort=newest|oldest
 router.get("/admin/verifications", async (req, res): Promise<void> => {
   if (!await checkAdmin(req, res)) return;
 
@@ -1611,6 +1611,7 @@ router.get("/admin/verifications", async (req, res): Promise<void> => {
   const offset = (page - 1) * limit;
   const statusParam  = ((req.query.status as string) || "").trim();
   const textSearch   = ((req.query.q      as string) || "").trim().toLowerCase();
+  const sortParam    = ((req.query.sort   as string) || "newest").trim();
 
   const fields = {
     clerkId: usersTable.clerkId,
@@ -1637,10 +1638,11 @@ router.get("/admin/verifications", async (req, res): Promise<void> => {
   if (textSearch) countWhereParts.push(drizzleSql`(LOWER(COALESCE(${usersTable.name}, '')) LIKE ${`%${textSearch}%`} OR LOWER(COALESCE(${usersTable.email}, '')) LIKE ${`%${textSearch}%`})`);
   const countWhere = countWhereParts.length === 1 ? countWhereParts[0] : and(...countWhereParts);
 
+  const orderFn = sortParam === "oldest" ? asc(usersTable.createdAt) : desc(usersTable.createdAt);
   let q = db.select(fields)
     .from(usersTable)
     .where(pagedWhere)
-    .orderBy(desc(usersTable.updatedAt))
+    .orderBy(orderFn)
     .$dynamic();
 
   // Global status counts (always full, not filtered by status — only by text search)

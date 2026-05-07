@@ -1086,6 +1086,7 @@ export default function Admin() {
   const [verifRejectReason, setVerifRejectReason] = useState("");
   const [verifSearch, setVerifSearch] = useState("");
   const [verifFilter, setVerifFilter] = useState<"all" | "pending" | "approved" | "rejected" | "reupload_requested">("all");
+  const [verifSort, setVerifSort] = useState<"newest" | "oldest">("newest");
   const [rejectModalId, setRejectModalId] = useState<number | null>(null);
   // ── Ban system state ──────────────────────────────────────────────────────
   const [banModalUser, setBanModalUser] = useState<any | null>(null);
@@ -1429,14 +1430,15 @@ export default function Admin() {
     if (tab === "flags" && !flagsLoaded) fetchFlags(1, flagFilter, flagSort);
   }, [tab, flagsLoaded, fetchFlags, flagFilter, flagSort]);
 
-  const fetchVerifications = useCallback(async (page = 1, status = "", q = "") => {
+  const fetchVerifications = useCallback(async (page = 1, status = "", q = "", sort = "newest") => {
     setVerificationsLoading(true);
     if (page === 1) setVerificationsError(null);
     try {
       const token = await getToken();
       const statusParam = status && status !== "all" ? `&status=${encodeURIComponent(status)}` : "";
       const qParam = q.trim() ? `&q=${encodeURIComponent(q.trim())}` : "";
-      const res = await fetch(`/api/admin/verifications?page=${page}&limit=50${statusParam}${qParam}`, {
+      const sortParam = `&sort=${encodeURIComponent(sort)}`;
+      const res = await fetch(`/api/admin/verifications?page=${page}&limit=50${statusParam}${qParam}${sortParam}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: AbortSignal.timeout(15000),
       });
@@ -1459,9 +1461,17 @@ export default function Admin() {
     }
   }, [getToken]);
 
+  // Initial load when tab opens
   useEffect(() => {
-    if (tab === "verifications" && !verificationsLoaded) fetchVerifications(1, verifFilter === "all" ? "" : verifFilter, verifSearch);
-  }, [tab, verificationsLoaded, fetchVerifications, verifFilter, verifSearch]);
+    if (tab === "verifications" && !verificationsLoaded) fetchVerifications(1, verifFilter === "all" ? "" : verifFilter, verifSearch, verifSort);
+  }, [tab, verificationsLoaded, fetchVerifications, verifFilter, verifSearch, verifSort]);
+
+  // Auto-load all batches: whenever a page finishes and more remain, immediately fetch the next
+  useEffect(() => {
+    if (tab !== "verifications") return;
+    if (!verificationsLoaded || verificationsLoading || !verificationsHasMore) return;
+    fetchVerifications(verificationsPage + 1, verifFilter === "all" ? "" : verifFilter, verifSearch, verifSort);
+  }, [tab, verificationsLoaded, verificationsLoading, verificationsHasMore, verificationsPage, verifFilter, verifSearch, verifSort, fetchVerifications]);
 
   // Patch a single user's status in the loaded list without re-fetching or losing scroll position.
   const patchVerifUserStatus = useCallback((userId: string, newStatus: string) => {
@@ -1914,10 +1924,8 @@ export default function Admin() {
     () => fetchReferralList(refListPage + 1, refSubTab === "flagged" ? "flagged" : "", debouncedRefSearch),
     refListHasMore, refListLoading,
   );
-  const verifSentinelRef = useInfiniteScroll(
-    () => fetchVerifications(verificationsPage + 1, verifFilter === "all" ? "" : verifFilter, verifSearch),
-    verificationsHasMore, verificationsLoading,
-  );
+  // verifSentinelRef unused — auto-load effect handles all batches without scroll
+  const verifSentinelRef = useRef<HTMLDivElement | null>(null);
   const flagsSentinelRef = useInfiniteScroll(
     () => fetchFlags(flagsPage + 1, flagFilter, flagSort),
     flagsHasMore, flagsLoading,
@@ -1943,13 +1951,19 @@ export default function Admin() {
   }, [flagFilter, flagSort]);
   const prevVerifFilterRef = useRef(verifFilter);
   const prevVerifSearchRef = useRef(verifSearch);
+  const prevVerifSortRef   = useRef(verifSort);
   useEffect(() => {
-    if (verifFilter !== prevVerifFilterRef.current || verifSearch !== prevVerifSearchRef.current) {
+    if (
+      verifFilter !== prevVerifFilterRef.current ||
+      verifSearch !== prevVerifSearchRef.current ||
+      verifSort   !== prevVerifSortRef.current
+    ) {
       prevVerifFilterRef.current = verifFilter;
       prevVerifSearchRef.current = verifSearch;
+      prevVerifSortRef.current   = verifSort;
       setVerificationsData(null); setVerificationsPage(1); setVerificationsLoaded(false);
     }
-  }, [verifFilter, verifSearch]);
+  }, [verifFilter, verifSearch, verifSort]);
   const prevRefSubTabRef = useRef(refSubTab);
   const prevRefSearchRef = useRef(debouncedRefSearch);
   useEffect(() => {
@@ -3531,10 +3545,6 @@ export default function Admin() {
       {/* ── Verifications Tab ─────────────────────────────────────── */}
       {effectiveTab === "verifications" && (
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-muted-foreground">{verificationsTotal > 0 ? `${verificationsData?.users.length ?? 0} / ${verificationsTotal} shown` : ""}</span>
-            <button onClick={() => { setVerificationsLoaded(false); setVerificationsError(null); }} disabled={verificationsLoading} className="text-xs text-amber-600 hover:underline disabled:opacity-40">Refresh</button>
-          </div>
           {verificationsLoading && !verificationsData ? (
             <div className="flex items-center justify-center py-20">
               <svg className="animate-spin w-8 h-8 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
@@ -3546,81 +3556,145 @@ export default function Admin() {
               <p className="text-sm text-muted-foreground mb-4">Could not load verifications.</p>
               <button onClick={() => { setVerificationsLoaded(false); setVerificationsError(null); }} className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors">Retry</button>
             </div>
-          ) : !verificationsData ? (
-            <p className="text-muted-foreground text-sm text-center py-20">No data available.</p>
           ) : (
             <>
-              {/* Stats strip — clickable to filter */}
-              <div className="grid grid-cols-4 gap-4 mb-4">
-                {[
-                  { label: "Pending", value: verificationsData.pending, color: "text-amber-600", filterKey: "pending" as const },
-                  { label: "Approved", value: verificationsData.approved, color: "text-green-600", filterKey: "approved" as const },
-                  { label: "Rejected", value: verificationsData.rejected, color: "text-red-600", filterKey: "rejected" as const },
-                  { label: "Re-upload", value: verificationsData.reupload, color: "text-blue-600", filterKey: "reupload_requested" as const },
-                ].map(s => (
-                  <button
-                    key={s.label}
-                    onClick={() => setVerifFilter(prev => prev === s.filterKey ? "all" : s.filterKey)}
-                    className={`bg-card border rounded-xl p-4 text-center shadow-sm transition-all ${verifFilter === s.filterKey ? "border-foreground/30 ring-1 ring-foreground/20" : "border-card-border hover:border-foreground/20"}`}
-                  >
-                    <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
-                    {verifFilter === s.filterKey && <p className="text-[10px] text-foreground/50 mt-0.5">● filtered</p>}
-                  </button>
-                ))}
-              </div>
+              {/* ── Summary counts (read-only) ── */}
+              {verificationsData && (
+                <div className="grid grid-cols-4 gap-3 mb-5">
+                  {[
+                    { label: "Pending",   value: verificationsData.pending,  color: "text-amber-600",  bg: "bg-amber-50"  },
+                    { label: "Approved",  value: verificationsData.approved, color: "text-green-600",  bg: "bg-green-50"  },
+                    { label: "Rejected",  value: verificationsData.rejected, color: "text-red-600",    bg: "bg-red-50"    },
+                    { label: "Re-upload", value: verificationsData.reupload, color: "text-blue-600",   bg: "bg-blue-50"   },
+                  ].map(s => (
+                    <div key={s.label} className={`${s.bg} border border-card-border rounded-xl p-3 text-center`}>
+                      <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              {/* Filter chips + search row */}
-              <div className="flex flex-wrap items-center gap-2 mb-5">
-                {verifFilter !== "all" && (
+              {/* ── Status filter + sort controls ── */}
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                {/* Status filters */}
+                <div className="flex items-center gap-1 bg-muted/50 rounded-xl p-1">
+                  {(["all", "pending", "approved", "rejected"] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setVerifFilter(f)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all capitalize ${
+                        verifFilter === f
+                          ? "bg-foreground text-background shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sort controls */}
+                <div className="flex items-center gap-1 bg-muted/50 rounded-xl p-1">
                   <button
-                    onClick={() => setVerifFilter("all")}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-foreground/10 text-xs font-medium text-foreground hover:bg-foreground/20 transition-colors"
+                    onClick={() => setVerifSort("newest")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                      verifSort === "newest"
+                        ? "bg-foreground text-background shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
                   >
-                    {verifFilter.replace("_", " ")} ×
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                    Newest first
                   </button>
-                )}
-                <div className="relative flex-1 min-w-48">
+                  <button
+                    onClick={() => setVerifSort("oldest")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                      verifSort === "oldest"
+                        ? "bg-foreground text-background shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                    Oldest first
+                  </button>
+                </div>
+
+                {/* Search */}
+                <div className="relative flex-1 min-w-44">
                   <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                   <input
                     type="text"
                     value={verifSearch}
                     onChange={e => setVerifSearch(e.target.value)}
                     placeholder="Search by name or email…"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    className="w-full pl-10 pr-8 py-2 rounded-xl border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-400"
                   />
                   {verifSearch && (
-                    <button
-                      onClick={() => setVerifSearch("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    <button onClick={() => setVerifSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
                     </button>
                   )}
                 </div>
+
+                {/* Record count + refresh */}
+                <div className="flex items-center gap-2 ml-auto shrink-0">
+                  {verificationsData && verificationsTotal > 0 && (
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {verificationsLoading
+                        ? `Loading… (${verificationsData.users.length} so far)`
+                        : `${verificationsData.users.length} of ${verificationsTotal}`}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => { setVerificationsLoaded(false); setVerificationsError(null); }}
+                    disabled={verificationsLoading}
+                    className="text-xs text-amber-600 hover:underline disabled:opacity-40 whitespace-nowrap"
+                  >
+                    Refresh
+                  </button>
+                </div>
               </div>
 
-              {verificationsData.users.length === 0 ? (
+              {/* ── Loading bar while auto-fetching batches ── */}
+              {verificationsLoading && verificationsData && (
+                <div className="mb-4">
+                  <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-400 rounded-full animate-pulse" style={{ width: `${Math.min(100, ((verificationsData.users.length / (verificationsTotal || 1)) * 100))}%` }} />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1.5 text-center">
+                    Loading records… {verificationsData.users.length} / {verificationsTotal}
+                  </p>
+                </div>
+              )}
+
+              {/* ── Records list ── */}
+              {!verificationsData || verificationsData.users.length === 0 ? (
+                !verificationsLoading && (
                   <div className="text-center py-16 text-muted-foreground text-sm">
                     {verifSearch || verifFilter !== "all" ? "No results for current filter / search." : "No verification submissions yet."}
                   </div>
-                ) : (
+                )
+              ) : (
                 <div className="space-y-4">
                   {verificationsData.users.map((user: any) => (
                     <div key={user.clerkId} className="bg-card border border-card-border rounded-2xl p-5 shadow-sm transition-all">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="font-semibold text-foreground text-sm">{user.username || user.fullName || user.email || user.clerkId}</span>
+                            <span className="font-semibold text-foreground text-sm">{user.name || user.email || user.clerkId}</span>
                             <span className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
-                              user.verificationStatus === "approved" ? "bg-green-100 text-green-700" :
-                              user.verificationStatus === "pending" ? "bg-amber-100 text-amber-700" :
-                              user.verificationStatus === "rejected" ? "bg-red-100 text-red-700" :
+                              user.verificationStatus === "approved"          ? "bg-green-100 text-green-700" :
+                              user.verificationStatus === "pending"           ? "bg-amber-100 text-amber-700" :
+                              user.verificationStatus === "rejected"          ? "bg-red-100 text-red-700" :
                               "bg-blue-100 text-blue-700"
                             }`}>
-                              {user.verificationStatus}
+                              {user.verificationStatus === "reupload_requested" ? "re-upload" : user.verificationStatus}
                             </span>
                           </div>
+                          <p className="text-xs text-muted-foreground mb-0.5">
+                            <span className="font-medium">Email:</span> {user.email || "—"}
+                          </p>
                           <p className="text-xs text-muted-foreground mb-0.5">
                             <span className="font-medium">Name on ID:</span> {user.verifiedName || "—"}
                           </p>
@@ -3717,22 +3791,10 @@ export default function Admin() {
                     </div>
                   ))}
 
-                  {/* Infinite scroll sentinel — sits just below the last card */}
-                  <div ref={verifSentinelRef} className="h-4" />
-
-                  {/* Bottom loading indicator shown while fetching the next batch */}
-                  {verificationsLoading && (verificationsData?.users.length ?? 0) > 0 && (
-                    <div className="flex items-center justify-center gap-2 py-5 text-sm text-muted-foreground">
-                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                      Loading more verifications…
-                    </div>
-                  )}
-
-                  {/* End-of-list message */}
-                  {!verificationsLoading && !verificationsHasMore && (verificationsData?.users.length ?? 0) > 0 && (
+                  {/* End-of-list confirmation */}
+                  {!verificationsLoading && !verificationsHasMore && (
                     <p className="text-center text-xs text-muted-foreground py-4">
-                      All {verificationsData.users.length} record{verificationsData.users.length !== 1 ? "s" : ""} loaded
-                      {verificationsTotal > verificationsData.users.length ? ` (${verificationsTotal} total matching filters)` : ""}
+                      ✓ All {verificationsData.users.length} record{verificationsData.users.length !== 1 ? "s" : ""} loaded
                     </p>
                   )}
                 </div>
