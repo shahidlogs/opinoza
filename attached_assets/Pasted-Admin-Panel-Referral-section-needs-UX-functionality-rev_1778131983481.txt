@@ -1,0 +1,54 @@
+Admin Panel → Referral section needs UX + functionality review/fix.
+
+Current problem:
+1. Referral page starts with “All Referrals”.
+2. “Referred By” section is far below after a long scroll.
+3. Admin has to scroll too much to see referral-by-user stats.
+4. There is no clear search field.
+5. Some users show a flag icon/status, but it is unclear what that flag means and what admin can do about it.
+
+Required changes:
+1. Add tabs/cards at the top:
+   - All Referrals
+   - Referred By / Referral Stats
+   - Flagged / Issues (if applicable)
+   Admin should click a tab and instantly see that section without scrolling.
+
+2. Add search fields:
+   - Search All Referrals by user name, email, referred email, referrer email.
+   - Search Referred By stats by user name/email.
+   Search should work server-side if data is paginated, not only on already loaded rows.
+
+3. Investigate the flag shown beside some users:
+   - Find exactly what condition creates this flag.
+   - Does it mean invited user did not create an account?
+   - Does it mean referral reward was not paid?
+   - Does it mean duplicate/suspicious referral?
+   - Does it mean missing linked user_id/clerk_id?
+   - Does it mean pending/unclaimed referral?
+
+4. Show clear explanation in admin UI:
+   Example:
+   “Flag reason: Invited email has not registered yet”
+   or
+   “Flag reason: Referral reward not credited”
+   or
+   “Flag reason: Duplicate/suspicious referral”
+
+5. If admin action is possible, show action buttons directly on the referral card/row:
+   - Mark as reviewed
+   - Credit missing referral reward
+   - Link referral to existing user
+   - Ignore / dismiss flag
+   Only show actions that are actually safe and supported by backend logic.
+
+6. Do not create fake buttons. First inspect backend referral tables, referral reward logic, and current admin referral API.
+
+7. Keep existing referral data and reward logic safe. Do not change wallet balances unless admin explicitly clicks a clear action.
+
+8. After fixing, explain:
+   - What the flag means
+   - Whether those users created accounts or not
+   - Whether referrer earnings were paid or not
+   - What admin actions are now available
+   - Which files were changed

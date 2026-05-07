@@ -1054,6 +1054,10 @@ export default function Admin() {
   const [byUserData, setByUserData] = useState<any[] | null>(null);
   const [byUserLoading, setByUserLoading] = useState(false);
   const [expandedReferrer, setExpandedReferrer] = useState<string | null>(null);
+  const [refSubTab, setRefSubTab] = useState<"all" | "flagged" | "by-referrer">("all");
+  const [refSearch, setRefSearch] = useState("");
+  const [debouncedRefSearch, setDebouncedRefSearch] = useState("");
+  const [byUserSearch, setByUserSearch] = useState("");
   const [editorToggling, setEditorToggling] = useState<string | null>(null);
   const [flagsData, setFlagsData] = useState<{ items: any[]; total: number; pending: number; resolved: number; removed: number } | null>(null);
   const [flagsLoading, setFlagsLoading] = useState(false);
@@ -1149,6 +1153,11 @@ export default function Admin() {
     const id = setTimeout(() => setDebouncedWithdrawalSearch(withdrawalSearch), 300);
     return () => clearTimeout(id);
   }, [withdrawalSearch]);
+  // Debounce referral search
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedRefSearch(refSearch), 300);
+    return () => clearTimeout(id);
+  }, [refSearch]);
 
   const isStatsTab = tab === "stats";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1269,12 +1278,14 @@ export default function Admin() {
     } finally { setWithdrawalsLoading(false); }
   }, [getToken]);
 
-  const fetchReferralList = useCallback(async (page = 1) => {
+  const fetchReferralList = useCallback(async (page = 1, status = "", search = "") => {
     setRefListLoading(true);
     if (page === 1) setRefListError(null);
     try {
       const token = await getToken();
-      const res = await fetch(`/api/referrals/admin/list?page=${page}&limit=50`, {
+      const statusParam = status ? `&status=${encodeURIComponent(status)}` : "";
+      const searchParam = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : "";
+      const res = await fetch(`/api/referrals/admin/list?page=${page}&limit=50${statusParam}${searchParam}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: AbortSignal.timeout(15000),
       });
@@ -1294,7 +1305,7 @@ export default function Admin() {
   useEffect(() => { if (tab === "all-questions" && !allQLoaded) fetchAllQuestions(1, debouncedSearch); }, [tab, allQLoaded, fetchAllQuestions, debouncedSearch]);
   useEffect(() => { if (tab === "users" && !usersLoaded) fetchUsers(1, debouncedSearch, userSort); }, [tab, usersLoaded, fetchUsers, debouncedSearch, userSort]);
   useEffect(() => { if (tab === "withdrawals" && !withdrawalsLoaded) fetchWithdrawals(1, withdrawalStatus, debouncedWithdrawalSearch); }, [tab, withdrawalsLoaded, fetchWithdrawals, withdrawalStatus, debouncedWithdrawalSearch]);
-  useEffect(() => { if (tab === "referrals" && !refListLoaded) fetchReferralList(1); }, [tab, refListLoaded, fetchReferralList]);
+  useEffect(() => { if (tab === "referrals" && refSubTab !== "by-referrer" && !refListLoaded) fetchReferralList(1, refSubTab === "flagged" ? "flagged" : "", debouncedRefSearch); }, [tab, refListLoaded, fetchReferralList, refSubTab, debouncedRefSearch]);
 
   // ── Pending Review: auto-drain ─────────────────────────────────────────────
   // Automatically loads the next page as soon as the previous one finishes,
@@ -1868,7 +1879,7 @@ export default function Admin() {
     usersHasMore, usersLoading,
   );
   const refListSentinelRef = useInfiniteScroll(
-    () => fetchReferralList(refListPage + 1),
+    () => fetchReferralList(refListPage + 1, refSubTab === "flagged" ? "flagged" : "", debouncedRefSearch),
     refListHasMore, refListLoading,
   );
   const verifSentinelRef = useInfiniteScroll(
@@ -1907,6 +1918,17 @@ export default function Admin() {
       setVerificationsData(null); setVerificationsPage(1); setVerificationsLoaded(false);
     }
   }, [verifFilter, verifSearch]);
+  const prevRefSubTabRef = useRef(refSubTab);
+  const prevRefSearchRef = useRef(debouncedRefSearch);
+  useEffect(() => {
+    const subTabChanged = refSubTab !== prevRefSubTabRef.current;
+    const searchChanged = debouncedRefSearch !== prevRefSearchRef.current;
+    if (subTabChanged || searchChanged) {
+      prevRefSubTabRef.current = refSubTab;
+      prevRefSearchRef.current = debouncedRefSearch;
+      setReferralList([]); setRefListPage(1); setRefListLoaded(false);
+    }
+  }, [refSubTab, debouncedRefSearch]);
   const prevWithdrawalStatusRef = useRef(withdrawalStatus);
   const prevWithdrawalSearchRef = useRef(debouncedWithdrawalSearch);
   useEffect(() => {
@@ -2898,278 +2920,303 @@ export default function Admin() {
       )}
 
       {/* Referrals */}
-      {effectiveTab === "referrals" && (
-        <div className="space-y-6">
+      {effectiveTab === "referrals" && (() => {
+        // Human-readable fraud flag labels
+        const FRAUD_FLAG_INFO: Record<string, { short: string; detail: string }> = {
+          ip_velocity: { short: "IP Velocity", detail: "3+ signups from the same IP in 24 hours — possible coordinated fake account farm" },
+          same_ip: { short: "Same IP as Referrer", detail: "Referred user signed up from the same device/IP as the referrer — possible self-referral" },
+        };
+        const refStatusBadge = (status: string) => {
+          if (status === "approved") return "bg-emerald-100 text-emerald-700";
+          if (status === "flagged")  return "bg-orange-100 text-orange-700";
+          if (status === "rejected") return "bg-red-100 text-red-700";
+          return "bg-amber-100 text-amber-700";
+        };
+        const filteredByUser = (byUserData ?? []).filter(r => {
+          if (!byUserSearch.trim()) return true;
+          const q = byUserSearch.toLowerCase();
+          return (r.referrerName || "").toLowerCase().includes(q) || (r.referrerEmail || "").toLowerCase().includes(q);
+        });
+        return (
+        <div className="space-y-5">
           {/* Stats row */}
           {refStatsData && (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
-                { label: "Total Referrals", value: refStatsData.totalReferrals },
+                { label: "Total", value: refStatsData.totalReferrals },
                 { label: "Approved", value: refStatsData.approvedCount },
-                { label: "Flagged", value: refStatsData.flaggedCount },
+                { label: "Flagged", value: refStatsData.flaggedCount, highlight: refStatsData.flaggedCount > 0 },
                 { label: "Rejected", value: refStatsData.rejectedCount },
                 { label: "Total Paid", value: formatCents(refStatsData.totalPaidCents) },
               ].map(s => (
-                <div key={s.label} className="bg-card border border-card-border rounded-xl p-4 text-center shadow-sm">
-                  <div className="text-2xl font-bold text-amber-600">{s.value}</div>
+                <div key={s.label} className={`bg-card border rounded-xl p-4 text-center shadow-sm ${(s as any).highlight ? "border-orange-300 bg-orange-50" : "border-card-border"}`}>
+                  <div className={`text-2xl font-bold ${(s as any).highlight ? "text-orange-600" : "text-amber-600"}`}>{s.value}</div>
                   <div className="text-xs text-muted-foreground mt-1 font-medium">{s.label}</div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Referral list */}
-          <div className="bg-card border border-card-border rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="font-semibold text-foreground">All Referrals</h2>
-              <button onClick={refetchReferrals} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Refresh</button>
-            </div>
-            {refListLoading && referralList.length === 0 ? (
-              <div className="space-y-3 p-6">{[...Array(3)].map((_, i) => <div key={i} className="h-14 bg-muted rounded-lg animate-pulse" />)}</div>
-            ) : refListError && referralList.length === 0 ? (
-              <div className="text-center py-12 px-6">
-                <p className="font-medium text-foreground mb-1">{refListError}</p>
-                <p className="text-sm text-muted-foreground mb-4">Could not load referrals.</p>
-                <button onClick={() => { setReferralList([]); setRefListPage(1); setRefListLoaded(false); setRefListError(null); }} className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors">Retry</button>
+          {/* Sub-tabs */}
+          <div className="flex items-center gap-1 bg-muted rounded-xl p-1 w-fit">
+            {([
+              { key: "all",          label: "All Referrals" },
+              { key: "flagged",      label: `Flagged${refStatsData?.flaggedCount ? ` (${refStatsData.flaggedCount})` : ""}` },
+              { key: "by-referrer",  label: "By Referrer" },
+            ] as const).map(t => (
+              <button
+                key={t.key}
+                onClick={() => { setRefSubTab(t.key); setRefSearch(""); }}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${refSubTab === t.key ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── All Referrals / Flagged tab ── */}
+          {(refSubTab === "all" || refSubTab === "flagged") && (
+            <div className="bg-card border border-card-border rounded-2xl shadow-sm overflow-hidden">
+              {/* Header: search + refresh */}
+              <div className="px-5 py-4 border-b border-border space-y-3">
+                {refSubTab === "flagged" && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm">
+                    <p className="font-semibold text-orange-800 mb-1">⚠ About flagged referrals</p>
+                    <p className="text-orange-700 text-xs leading-relaxed">
+                      Flagged referrals were <strong>automatically detected as suspicious</strong> by fraud rules, but the signup bonus <strong>was still credited</strong> to the referrer as usual.
+                      Admin can <strong>Approve</strong> (clear the flag, keep the bonus) or <strong>Reverse</strong> (reclaim all bonuses from the referrer's wallet).
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    value={refSearch}
+                    onChange={e => setRefSearch(e.target.value)}
+                    placeholder="Search by referrer or referred name / email…"
+                    className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                  />
+                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                    {refListTotal > 0 ? `${referralList.length} / ${refListTotal}` : ""}
+                  </span>
+                  <button onClick={refetchReferrals} className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">Refresh</button>
+                </div>
               </div>
-            ) : referralList.length === 0 ? (
-              <div className="text-center text-muted-foreground text-sm py-12">No referrals yet.</div>
-            ) : (
-              <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-muted/40 text-xs text-muted-foreground">
-                      <th className="text-left px-5 py-3 font-semibold">Referrer</th>
-                      <th className="text-left px-5 py-3 font-semibold">Referred</th>
-                      <th className="text-left px-5 py-3 font-semibold hidden sm:table-cell">Signup Bonus</th>
-                      <th className="text-left px-5 py-3 font-semibold hidden md:table-cell">Answer Bonus</th>
-                      <th className="text-left px-5 py-3 font-semibold">Status</th>
-                      <th className="text-left px-5 py-3 font-semibold hidden lg:table-cell">Flags</th>
-                      <th className="text-left px-5 py-3 font-semibold">Date</th>
-                      <th className="text-right px-5 py-3 font-semibold">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {referralList.map(r => (
-                      <tr key={r.id} className="border-t border-border hover:bg-muted/20 transition-colors">
-                        <td className="px-5 py-3.5">
-                          <div className="font-medium text-foreground">{r.referrerName || "—"}</div>
-                          <div className="text-xs text-muted-foreground">{r.referrerEmail}</div>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="font-medium text-foreground">{r.referredName || "—"}</div>
-                          <div className="text-xs text-muted-foreground">{r.referredEmail}</div>
-                        </td>
-                        <td className="px-5 py-3.5 hidden sm:table-cell text-muted-foreground">
-                          {r.signupBonusCents.toFixed(1)}¢
-                        </td>
-                        <td className="px-5 py-3.5 hidden md:table-cell text-muted-foreground">
-                          {r.answerBonusCentsTotal.toFixed(2)}¢
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            r.status === "approved" ? "bg-emerald-100 text-emerald-700"
-                            : r.status === "flagged" ? "bg-orange-100 text-orange-700"
-                            : r.status === "rejected" ? "bg-red-100 text-red-700"
-                            : "bg-amber-100 text-amber-700"
-                          }`}>
-                            {r.status}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 hidden lg:table-cell">
-                          {r.fraudFlags && r.fraudFlags.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {r.fraudFlags.map((f: string) => (
-                                <span key={f} className="px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-xs">{f}</span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5 text-muted-foreground text-xs">
-                          {new Date(r.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-1.5 justify-end flex-wrap">
-                            {r.status !== "approved" && (
-                              <button
-                                onClick={() => patchRefStatus.mutate({ id: r.id, data: { status: "approved" } }, { onSuccess: refetchReferrals })}
-                                className="px-2.5 py-1 rounded-lg text-xs bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors font-medium"
-                              >
-                                Approve
-                              </button>
-                            )}
-                            {r.status !== "flagged" && (
-                              <button
-                                onClick={() => patchRefStatus.mutate({ id: r.id, data: { status: "flagged" } }, { onSuccess: refetchReferrals })}
-                                className="px-2.5 py-1 rounded-lg text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors font-medium"
-                              >
-                                Flag
-                              </button>
-                            )}
-                            {r.status !== "rejected" && (
-                              <button
-                                onClick={() => {
-                                  if (confirm("Reverse this referral and reclaim all bonuses?")) {
-                                    reverseRef.mutate({ id: r.id }, { onSuccess: refetchReferrals });
-                                  }
-                                }}
-                                className="px-2.5 py-1 rounded-lg text-xs bg-red-100 text-red-700 hover:bg-red-200 transition-colors font-medium"
-                              >
-                                Reverse
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div ref={refListSentinelRef} className="h-1" />
-              {refListLoading && referralList.length > 0 && (
-                <div className="px-6 py-3 border-t border-border text-center text-sm text-muted-foreground animate-pulse">Loading more…</div>
+
+              {refListLoading && referralList.length === 0 ? (
+                <div className="space-y-3 p-6">{[...Array(3)].map((_, i) => <div key={i} className="h-14 bg-muted rounded-lg animate-pulse" />)}</div>
+              ) : refListError && referralList.length === 0 ? (
+                <div className="text-center py-12 px-6">
+                  <p className="font-medium text-foreground mb-1">{refListError}</p>
+                  <button onClick={() => { setReferralList([]); setRefListPage(1); setRefListLoaded(false); setRefListError(null); }} className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors">Retry</button>
+                </div>
+              ) : referralList.length === 0 ? (
+                <div className="text-center text-muted-foreground text-sm py-12">
+                  {refSubTab === "flagged" ? "No flagged referrals — all clean." : "No referrals yet."}
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/40 text-xs text-muted-foreground">
+                          <th className="text-left px-5 py-3 font-semibold">Referrer</th>
+                          <th className="text-left px-5 py-3 font-semibold">Referred (signed up)</th>
+                          <th className="text-left px-5 py-3 font-semibold hidden sm:table-cell">Bonuses</th>
+                          <th className="text-left px-5 py-3 font-semibold">Status / Flag reason</th>
+                          <th className="text-left px-5 py-3 font-semibold hidden md:table-cell">Date</th>
+                          <th className="text-right px-5 py-3 font-semibold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {referralList.map(r => (
+                          <tr key={r.id} className={`border-t border-border hover:bg-muted/20 transition-colors ${r.status === "flagged" ? "bg-orange-50/30" : ""}`}>
+                            <td className="px-5 py-3.5">
+                              <div className="font-medium text-foreground">{r.referrerName || "—"}</div>
+                              <div className="text-xs text-muted-foreground">{r.referrerEmail}</div>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <div className="font-medium text-foreground">{r.referredName || "—"}</div>
+                              <div className="text-xs text-muted-foreground">{r.referredEmail}</div>
+                              <div className="text-xs text-emerald-600 mt-0.5">✓ Account created</div>
+                            </td>
+                            <td className="px-5 py-3.5 hidden sm:table-cell">
+                              <div className="text-xs text-muted-foreground">Signup: <span className="font-medium text-foreground">{r.signupBonusCents.toFixed(1)}¢</span></div>
+                              <div className="text-xs text-muted-foreground">Answers: <span className="font-medium text-foreground">{r.answerBonusCentsTotal.toFixed(2)}¢</span></div>
+                            </td>
+                            <td className="px-5 py-3.5 max-w-xs">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${refStatusBadge(r.status)}`}>
+                                {r.status}
+                              </span>
+                              {r.fraudFlags && r.fraudFlags.length > 0 && (
+                                <div className="mt-1.5 space-y-1">
+                                  {r.fraudFlags.map((f: string) => {
+                                    const info = FRAUD_FLAG_INFO[f];
+                                    return (
+                                      <div key={f} className="text-xs">
+                                        <span className="font-semibold text-orange-700">{info?.short ?? f}: </span>
+                                        <span className="text-orange-600">{info?.detail ?? f}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-5 py-3.5 hidden md:table-cell text-muted-foreground text-xs">
+                              {new Date(r.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-1.5 justify-end flex-wrap">
+                                {r.status !== "approved" && (
+                                  <button
+                                    onClick={() => patchRefStatus.mutate({ id: r.id, data: { status: "approved" } }, { onSuccess: refetchReferrals })}
+                                    className="px-2.5 py-1 rounded-lg text-xs bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors font-medium"
+                                  >
+                                    Approve
+                                  </button>
+                                )}
+                                {r.status !== "flagged" && (
+                                  <button
+                                    onClick={() => patchRefStatus.mutate({ id: r.id, data: { status: "flagged" } }, { onSuccess: refetchReferrals })}
+                                    className="px-2.5 py-1 rounded-lg text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors font-medium"
+                                  >
+                                    Flag
+                                  </button>
+                                )}
+                                {r.status !== "rejected" && (
+                                  <button
+                                    onClick={() => {
+                                      if (confirm("Reverse this referral? This will reclaim all bonuses from the referrer's wallet.")) {
+                                        reverseRef.mutate({ id: r.id }, { onSuccess: refetchReferrals });
+                                      }
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg text-xs bg-red-100 text-red-700 hover:bg-red-200 transition-colors font-medium"
+                                  >
+                                    Reverse
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div ref={refListSentinelRef} className="h-1" />
+                  {refListLoading && referralList.length > 0 && (
+                    <div className="px-6 py-3 border-t border-border text-center text-sm text-muted-foreground animate-pulse">Loading more…</div>
+                  )}
+                </>
               )}
-              </>
-            )}
-          </div>
-
-        {/* Per-Referrer Analytics */}
-        <div className="bg-card border border-card-border rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-            <h2 className="font-semibold text-foreground">By Referrer</h2>
-            <button
-              onClick={fetchByUser}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Refresh
-            </button>
-          </div>
-          {byUserLoading ? (
-            <div className="space-y-3 p-6">
-              {[...Array(3)].map((_, i) => <div key={i} className="h-14 bg-muted rounded-lg animate-pulse" />)}
             </div>
-          ) : !byUserData || byUserData.length === 0 ? (
-            <div className="text-center text-muted-foreground text-sm py-12">
-              No referrers yet.
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {byUserData.map(referrer => (
-                <div key={referrer.referrerId}>
-                  {/* Referrer row */}
-                  <button
-                    className="w-full text-left px-5 py-4 hover:bg-muted/20 transition-colors flex items-center gap-4"
-                    onClick={() => setExpandedReferrer(
-                      expandedReferrer === referrer.referrerId ? null : referrer.referrerId
-                    )}
-                  >
-                    {/* Chevron */}
-                    <svg
-                      width="14" height="14" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2.5"
-                      className={`shrink-0 text-muted-foreground transition-transform ${
-                        expandedReferrer === referrer.referrerId ? "rotate-90" : ""
-                      }`}
-                    >
-                      <path d="m9 18 6-6-6-6"/>
-                    </svg>
+          )}
 
-                    {/* Name / email */}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-foreground text-sm truncate">
-                        {referrer.referrerName}
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {referrer.referrerEmail}
-                      </div>
-                    </div>
-
-                    {/* Stats pills */}
-                    <div className="flex items-center gap-3 shrink-0 text-xs">
-                      <span className="text-muted-foreground">
-                        <span className="font-semibold text-foreground">{referrer.totalReferred}</span> invited
-                        {referrer.totalReferred !== referrer.activeReferred && (
-                          <span className="text-red-400 ml-1">({referrer.totalReferred - referrer.activeReferred} reversed)</span>
-                        )}
-                      </span>
-                      <span className="text-muted-foreground hidden sm:block">
-                        Signup: <span className="font-semibold text-foreground">{referrer.totalSignupBonus.toFixed(1)}¢</span>
-                      </span>
-                      <span className="text-muted-foreground hidden md:block">
-                        Answers: <span className="font-semibold text-foreground">{referrer.totalAnswerBonus.toFixed(2)}¢</span>
-                      </span>
-                      <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 font-semibold">
-                        Total: {referrer.totalReferralIncome.toFixed(2)}¢
-                      </span>
-                    </div>
-                  </button>
-
-                  {/* Expanded referred users */}
-                  {expandedReferrer === referrer.referrerId && (
-                    <div className="bg-muted/30 border-t border-border">
-                      {referrer.referrals.length === 0 ? (
-                        <div className="px-10 py-4 text-xs text-muted-foreground">No referred users.</div>
-                      ) : (
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="text-muted-foreground border-b border-border">
-                              <th className="text-left px-10 py-2 font-semibold">Referred User</th>
-                              <th className="text-left px-4 py-2 font-semibold hidden sm:table-cell">Signup Bonus</th>
-                              <th className="text-left px-4 py-2 font-semibold hidden sm:table-cell">Answer Bonus</th>
-                              <th className="text-left px-4 py-2 font-semibold">Status</th>
-                              <th className="text-left px-4 py-2 font-semibold hidden md:table-cell">Date</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {referrer.referrals.map((r: any) => (
-                              <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
-                                <td className="px-10 py-2.5">
-                                  <div className="font-medium text-foreground">{r.referredName}</div>
-                                  <div className="text-muted-foreground">{r.referredEmail}</div>
-                                </td>
-                                <td className="px-4 py-2.5 hidden sm:table-cell text-muted-foreground">
-                                  {r.signupBonusCents.toFixed(1)}¢
-                                </td>
-                                <td className="px-4 py-2.5 hidden sm:table-cell text-muted-foreground">
-                                  {r.answerBonusCentsTotal.toFixed(2)}¢
-                                </td>
-                                <td className="px-4 py-2.5">
-                                  <span className={`px-2 py-0.5 rounded-full font-medium ${
-                                    r.status === "approved" ? "bg-emerald-100 text-emerald-700"
-                                    : r.status === "flagged" ? "bg-orange-100 text-orange-700"
-                                    : r.status === "rejected" ? "bg-red-100 text-red-700"
-                                    : "bg-amber-100 text-amber-700"
-                                  }`}>
-                                    {r.status}
-                                  </span>
-                                  {r.fraudFlags && r.fraudFlags.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {r.fraudFlags.map((f: string) => (
-                                        <span key={f} className="px-1 bg-red-50 text-red-500 rounded">{f}</span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="px-4 py-2.5 hidden md:table-cell text-muted-foreground">
-                                  {new Date(r.createdAt).toLocaleDateString()}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+          {/* ── By Referrer tab ── */}
+          {refSubTab === "by-referrer" && (
+            <div className="bg-card border border-card-border rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+                <input
+                  type="text"
+                  value={byUserSearch}
+                  onChange={e => setByUserSearch(e.target.value)}
+                  placeholder="Search referrers by name or email…"
+                  className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                />
+                <button onClick={fetchByUser} className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">Refresh</button>
+              </div>
+              {byUserLoading ? (
+                <div className="space-y-3 p-6">{[...Array(3)].map((_, i) => <div key={i} className="h-14 bg-muted rounded-lg animate-pulse" />)}</div>
+              ) : filteredByUser.length === 0 ? (
+                <div className="text-center text-muted-foreground text-sm py-12">
+                  {byUserSearch ? "No referrers match your search." : "No referrers yet."}
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {filteredByUser.map(referrer => (
+                    <div key={referrer.referrerId}>
+                      <button
+                        className="w-full text-left px-5 py-4 hover:bg-muted/20 transition-colors flex items-center gap-4"
+                        onClick={() => setExpandedReferrer(expandedReferrer === referrer.referrerId ? null : referrer.referrerId)}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                          className={`shrink-0 text-muted-foreground transition-transform ${expandedReferrer === referrer.referrerId ? "rotate-90" : ""}`}>
+                          <path d="m9 18 6-6-6-6"/>
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-foreground text-sm truncate">{referrer.referrerName}</div>
+                          <div className="text-xs text-muted-foreground truncate">{referrer.referrerEmail}</div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0 text-xs">
+                          <span className="text-muted-foreground">
+                            <span className="font-semibold text-foreground">{referrer.totalReferred}</span> invited
+                            {referrer.totalReferred !== referrer.activeReferred && (
+                              <span className="text-red-400 ml-1">({referrer.totalReferred - referrer.activeReferred} reversed)</span>
+                            )}
+                          </span>
+                          <span className="text-muted-foreground hidden sm:block">
+                            Signup: <span className="font-semibold text-foreground">{referrer.totalSignupBonus.toFixed(1)}¢</span>
+                          </span>
+                          <span className="text-muted-foreground hidden md:block">
+                            Answers: <span className="font-semibold text-foreground">{referrer.totalAnswerBonus.toFixed(2)}¢</span>
+                          </span>
+                          <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 font-semibold">
+                            {referrer.totalReferralIncome.toFixed(2)}¢ total
+                          </span>
+                        </div>
+                      </button>
+                      {expandedReferrer === referrer.referrerId && (
+                        <div className="bg-muted/30 border-t border-border">
+                          {referrer.referrals.length === 0 ? (
+                            <div className="px-10 py-4 text-xs text-muted-foreground">No referred users.</div>
+                          ) : (
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-muted-foreground border-b border-border">
+                                  <th className="text-left px-10 py-2 font-semibold">Referred User</th>
+                                  <th className="text-left px-4 py-2 font-semibold hidden sm:table-cell">Signup Bonus</th>
+                                  <th className="text-left px-4 py-2 font-semibold hidden sm:table-cell">Answer Bonus</th>
+                                  <th className="text-left px-4 py-2 font-semibold">Status</th>
+                                  <th className="text-left px-4 py-2 font-semibold hidden md:table-cell">Date</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {referrer.referrals.map((r: any) => (
+                                  <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
+                                    <td className="px-10 py-2.5">
+                                      <div className="font-medium text-foreground">{r.referredName}</div>
+                                      <div className="text-muted-foreground">{r.referredEmail}</div>
+                                    </td>
+                                    <td className="px-4 py-2.5 hidden sm:table-cell text-muted-foreground">{r.signupBonusCents.toFixed(1)}¢</td>
+                                    <td className="px-4 py-2.5 hidden sm:table-cell text-muted-foreground">{r.answerBonusCentsTotal.toFixed(2)}¢</td>
+                                    <td className="px-4 py-2.5">
+                                      <span className={`px-2 py-0.5 rounded-full font-medium ${refStatusBadge(r.status)}`}>{r.status}</span>
+                                      {r.fraudFlags && r.fraudFlags.length > 0 && (
+                                        <div className="mt-1 space-y-0.5">
+                                          {r.fraudFlags.map((f: string) => {
+                                            const info = FRAUD_FLAG_INFO[f];
+                                            return <div key={f} className="text-orange-600 text-xs">{info?.short ?? f}</div>;
+                                          })}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-2.5 hidden md:table-cell text-muted-foreground">{new Date(r.createdAt).toLocaleDateString()}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
-      </div>
-      )}
+        );
+      })()}
+      
 
       {/* ── Flags Tab ─────────────────────────────────────────────────────────── */}
       {effectiveTab === "flags" && (

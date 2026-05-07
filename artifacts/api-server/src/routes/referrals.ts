@@ -343,21 +343,53 @@ router.get("/referrals/admin/stats", async (req, res): Promise<void> => {
 });
 
 // GET /api/referrals/admin/list
-// Supports ?page=1&limit=25
+// Supports ?page=1&limit=25&status=approved|flagged|rejected&search=term
 router.get("/referrals/admin/list", async (req, res): Promise<void> => {
   if (!await requireAdmin(req, res)) return;
 
   const page  = Math.max(1, parseInt((req.query.page  as string) || "1",  10));
   const limit = Math.min(200, Math.max(0, parseInt((req.query.limit as string) || "0", 10)));
   const offset = (page - 1) * limit;
+  const statusParam = ((req.query.status as string) || "").trim();
+  const searchParam = ((req.query.search as string) || "").trim();
 
-  let q = db.select().from(referralsTable).orderBy(desc(referralsTable.createdAt)).$dynamic();
+  const whereConditions: any[] = [];
+  if (statusParam) whereConditions.push(eq(referralsTable.status, statusParam));
+
+  // Search: resolve matching user IDs first, then filter referrals
+  if (searchParam) {
+    const term = `%${searchParam.toLowerCase()}%`;
+    const matchingUsers = await db
+      .select({ clerkId: usersTable.clerkId })
+      .from(usersTable)
+      .where(sql`lower(coalesce(${usersTable.name},'')) like ${term} or lower(coalesce(${usersTable.email},'')) like ${term}`);
+    const matchingIds = matchingUsers.map(u => u.clerkId);
+    if (matchingIds.length === 0) {
+      res.json({ referrals: [], total: 0, hasMore: false });
+      return;
+    }
+    whereConditions.push(or(
+      inArray(referralsTable.referrerUserId, matchingIds),
+      inArray(referralsTable.referredUserId, matchingIds),
+    ));
+  }
+
+  const whereClause = whereConditions.length === 0
+    ? undefined
+    : whereConditions.length === 1 ? whereConditions[0] : and(...whereConditions);
+
+  let q = db.select().from(referralsTable)
+    .orderBy(desc(referralsTable.createdAt))
+    .$dynamic();
+  if (whereClause) q = q.where(whereClause);
 
   let total = 0;
   let hasMore = false;
 
   if (limit > 0) {
-    const [{ cnt }] = await db.select({ cnt: count() }).from(referralsTable);
+    let countQ = db.select({ cnt: count() }).from(referralsTable).$dynamic();
+    if (whereClause) countQ = countQ.where(whereClause);
+    const [{ cnt }] = await countQ;
     total = Number(cnt);
     hasMore = offset + limit < total;
     q = q.limit(limit).offset(offset);
