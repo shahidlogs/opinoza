@@ -1463,6 +1463,27 @@ export default function Admin() {
     if (tab === "verifications" && !verificationsLoaded) fetchVerifications(1, verifFilter === "all" ? "" : verifFilter, verifSearch);
   }, [tab, verificationsLoaded, fetchVerifications, verifFilter, verifSearch]);
 
+  // Patch a single user's status in the loaded list without re-fetching or losing scroll position.
+  const patchVerifUserStatus = useCallback((userId: string, newStatus: string) => {
+    setVerificationsData(prev => {
+      if (!prev) return prev;
+      const user = prev.users.find(u => u.clerkId === userId);
+      if (!user) return prev;
+      const old = user.verificationStatus as string;
+      const dec = (s: string) => ({ pending: s === "pending" ? -1 : 0, approved: s === "approved" ? -1 : 0, rejected: s === "rejected" ? -1 : 0, reupload: s === "reupload_requested" ? -1 : 0 });
+      const inc = (s: string) => ({ pending: s === "pending" ? 1 : 0, approved: s === "approved" ? 1 : 0, rejected: s === "rejected" ? 1 : 0, reupload: s === "reupload_requested" ? 1 : 0 });
+      const d = dec(old), i = inc(newStatus);
+      return {
+        ...prev,
+        pending:  prev.pending  + d.pending  + i.pending,
+        approved: prev.approved + d.approved + i.approved,
+        rejected: prev.rejected + d.rejected + i.rejected,
+        reupload: prev.reupload + d.reupload + i.reupload,
+        users: prev.users.map(u => u.clerkId === userId ? { ...u, verificationStatus: newStatus } : u),
+      };
+    });
+  }, []);
+
   const handleVerifApprove = async (userId: string) => {
     setVerifActionId(userId);
     try {
@@ -1471,7 +1492,10 @@ export default function Admin() {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (res.ok) await fetchVerifications();
+      if (res.ok) {
+        const json = await res.json();
+        patchVerifUserStatus(userId, json.verificationStatus ?? "approved");
+      }
     } finally {
       setVerifActionId(null);
     }
@@ -1486,7 +1510,12 @@ export default function Admin() {
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ reason }),
       });
-      if (res.ok) { setVerifRejectId(null); setVerifRejectReason(""); await fetchVerifications(); }
+      if (res.ok) {
+        const json = await res.json();
+        setVerifRejectId(null);
+        setVerifRejectReason("");
+        patchVerifUserStatus(userId, json.verificationStatus ?? "rejected");
+      }
     } finally {
       setVerifActionId(null);
     }
@@ -1501,7 +1530,10 @@ export default function Admin() {
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ reason: reason || "Please upload a clearer, valid identity document." }),
       });
-      if (res.ok) await fetchVerifications();
+      if (res.ok) {
+        const json = await res.json();
+        patchVerifUserStatus(userId, json.verificationStatus ?? "reupload_requested");
+      }
     } finally {
       setVerifActionId(null);
     }
@@ -3574,16 +3606,13 @@ export default function Admin() {
                   </div>
                 ) : (
                 <div className="space-y-4">
-                  {verificationsLoading && verificationsData && (
-                    <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-20 bg-muted rounded-xl animate-pulse" />)}</div>
-                  )}
                   {verificationsData.users.map((user: any) => (
-                    <div key={user.clerkId} className="bg-card border border-card-border rounded-2xl p-5 shadow-sm">
+                    <div key={user.clerkId} className="bg-card border border-card-border rounded-2xl p-5 shadow-sm transition-all">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <span className="font-semibold text-foreground text-sm">{user.username || user.fullName || user.email || user.clerkId}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
                               user.verificationStatus === "approved" ? "bg-green-100 text-green-700" :
                               user.verificationStatus === "pending" ? "bg-amber-100 text-amber-700" :
                               user.verificationStatus === "rejected" ? "bg-red-100 text-red-700" :
@@ -3624,7 +3653,12 @@ export default function Admin() {
                               disabled={verifActionId === user.clerkId}
                               className="px-4 py-2 rounded-xl text-xs font-bold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
                             >
-                              {verifActionId === user.clerkId ? "..." : "Approve"}
+                              {verifActionId === user.clerkId ? (
+                                <span className="flex items-center gap-1.5">
+                                  <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                  Saving…
+                                </span>
+                              ) : "Approve"}
                             </button>
                             <button
                               onClick={() => { setVerifRejectId(user.clerkId); setVerifRejectReason(""); }}
@@ -3667,7 +3701,12 @@ export default function Admin() {
                               disabled={!verifRejectReason.trim() || verifActionId === user.clerkId}
                               className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
                             >
-                              Confirm Rejection
+                              {verifActionId === user.clerkId ? (
+                                <span className="flex items-center gap-1.5">
+                                  <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                  Saving…
+                                </span>
+                              ) : "Confirm Rejection"}
                             </button>
                             <button onClick={() => setVerifRejectId(null)} className="px-4 py-2 rounded-xl text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">
                               Cancel
@@ -3677,9 +3716,24 @@ export default function Admin() {
                       )}
                     </div>
                   ))}
-                  <div ref={verifSentinelRef} className="h-1" />
+
+                  {/* Infinite scroll sentinel — sits just below the last card */}
+                  <div ref={verifSentinelRef} className="h-4" />
+
+                  {/* Bottom loading indicator shown while fetching the next batch */}
                   {verificationsLoading && (verificationsData?.users.length ?? 0) > 0 && (
-                    <div className="py-4 text-center text-sm text-muted-foreground animate-pulse">Loading more…</div>
+                    <div className="flex items-center justify-center gap-2 py-5 text-sm text-muted-foreground">
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                      Loading more verifications…
+                    </div>
+                  )}
+
+                  {/* End-of-list message */}
+                  {!verificationsLoading && !verificationsHasMore && (verificationsData?.users.length ?? 0) > 0 && (
+                    <p className="text-center text-xs text-muted-foreground py-4">
+                      All {verificationsData.users.length} record{verificationsData.users.length !== 1 ? "s" : ""} loaded
+                      {verificationsTotal > verificationsData.users.length ? ` (${verificationsTotal} total matching filters)` : ""}
+                    </p>
                   )}
                 </div>
               )}
