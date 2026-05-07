@@ -453,7 +453,7 @@ export default function Wallet() {
             </div>
             <div>
               <p className="text-sm font-bold text-green-800">Identity Verified</p>
-              <p className="text-xs text-green-700 mt-0.5">Your identity has been verified. You may request a withdrawal when your balance reaches $5.</p>
+              <p className="text-xs text-green-700 mt-0.5">Your identity has been verified. You may request a withdrawal when your balance reaches $20 (2000¢).</p>
             </div>
           </div>
         ) : verificationStatus === "pending" ? (
