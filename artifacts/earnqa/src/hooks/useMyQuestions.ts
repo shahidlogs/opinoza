@@ -11,6 +11,7 @@ export interface MyQuestion {
   isCustom: boolean;
   totalAnswers: number;
   createdAt: string;
+  rejectionReason: string | null;
 }
 
 export function useMyQuestions() {

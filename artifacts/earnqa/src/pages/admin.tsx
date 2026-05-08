@@ -26,7 +26,7 @@ type AdminTab = "questions" | "all-questions" | "users" | "withdrawals" | "stats
 
 const REJECTION_REASONS = [
   "Not an opinion, preference, habit, or behavior-based question",
-  "Not a short-answer question",
+  "Not answerable in 1–2 words",
   "Unclear or confusing meaning",
   "Grammar or spelling mistakes",
   "Missing or weak description",

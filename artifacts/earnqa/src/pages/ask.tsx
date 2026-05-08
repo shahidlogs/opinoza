@@ -393,7 +393,14 @@ export default function Ask() {
                       <p className="text-xs text-amber-600 mt-1">{q.totalAnswers} answers · {q.totalAnswers} × 0.5¢ earned so far</p>
                     )}
                     {q.status === "rejected" && (
-                      <p className="text-xs text-muted-foreground mt-1">20¢ refunded · 5¢ penalty retained</p>
+                      <div className="mt-1 space-y-0.5">
+                        <p className="text-xs text-muted-foreground">20¢ refunded · 5¢ penalty retained</p>
+                        {(q as any).rejectionReason && (
+                          <p className="text-xs text-red-600">
+                            <span className="font-semibold">Reason:</span> {(q as any).rejectionReason}
+                          </p>
+                        )}
+                      </div>
                     )}
                     {q.status === "pending" && (
                       <p className="text-xs text-muted-foreground mt-1">Submitted {new Date(q.createdAt).toLocaleDateString()}</p>
