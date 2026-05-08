@@ -1,0 +1,49 @@
+The rejection rule for “Not answerable in 1–2 words” is likely not properly handling already-approved or queued moderation states, or the backend validation is not actually forcing rejection when that specific reason is selected.
+
+This question:
+
+“What role does circular debt play in Pakistan’s energy crisis?”
+
+is clearly not answerable in 1–2 words and should always be rejected as a Short Answer question.
+
+Possible issue:
+
+* The moderation UI saves the rejection reason but does not finalize the rejection action.
+* OR the backend only stores the reason without changing status.
+* OR the question type validator is missing/failing for Short Answer moderation.
+* OR frontend state updates visually but backend request fails silently.
+
+Prompt for agent:
+
+There is a moderation bug in the question approval system.
+
+Problem:
+Some questions are being rejected multiple times with the rejection reason:
+“Not answerable in 1–2 words”
+but the question is not actually getting rejected or removed from the moderation queue.
+
+Example question:
+“What role does circular debt play in Pakistan’s energy crisis?”
+
+This is clearly not a valid short-answer question and should always be rejected immediately.
+
+Please investigate and fix the moderation flow.
+
+Things to check:
+
+1. Ensure selecting a rejection reason and pressing reject always updates the question status in the database.
+2. Ensure the moderation queue refreshes correctly after rejection.
+3. Check whether frontend state updates without backend persistence.
+4. Check for failed API requests or silent exceptions.
+5. Verify that Short Answer moderation rules are enforced correctly.
+6. Ensure rejected questions cannot remain in pending/live state due to race conditions or stale cache.
+7. Add proper logging for moderation actions and failed status updates.
+
+Expected behavior:
+When admin rejects a question, it should immediately:
+
+* change status to rejected,
+* disappear from moderation queue,
+* refund/penalty logic should execute,
+* rejection reason should save correctly,
+* user should see the rejection reason in their submitted questions section.

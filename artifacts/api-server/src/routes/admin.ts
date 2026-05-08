@@ -138,7 +138,7 @@ router.post("/admin/questions/:id/approve", async (req, res): Promise<void> => {
 // Reject question (with optional refund) — accessible by Admin OR Editor
 const REJECTION_REASONS = [
   "Not an opinion, preference, habit, or behavior-based question",
-  "Not a short-answer question",
+  "Not answerable in 1–2 words",
   "Unclear or confusing meaning",
   "Grammar or spelling mistakes",
   "Missing or weak description",
