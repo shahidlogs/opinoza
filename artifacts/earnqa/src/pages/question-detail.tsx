@@ -943,9 +943,9 @@ function AnswersFeed({
 
 // ── Share Buttons ────────────────────────────────────────────────────────────
 
-function ShareButtons({ questionTitle, questionUrl, isCreator }: { questionTitle: string; questionUrl: string; isCreator: boolean }) {
+function ShareButtons({ questionTitle, questionUrl, shareUrl, isCreator }: { questionTitle: string; questionUrl: string; shareUrl: string; isCreator: boolean }) {
   const [copied, setCopied] = useState(false);
-  const shareText = encodeURIComponent(`I found this interesting question 👇 Give your opinion!\n${questionUrl}`);
+  const shareText = encodeURIComponent(`I found this interesting question 👇 Give your opinion!\n${shareUrl}`);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(questionUrl).then(() => {
@@ -977,7 +977,7 @@ function ShareButtons({ questionTitle, questionUrl, isCreator }: { questionTitle
           </a>
           {/* Facebook */}
           <a
-            href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(questionUrl)}`}
+            href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors"
@@ -1160,31 +1160,48 @@ export default function QuestionDetail() {
 
   useEffect(() => {
     if (question?.title) {
-      document.title = `${question.title} – Opinoza`;
+      const pageTitle = `${question.title} – Opinoza`;
       const desc = question.description
         ? question.description.substring(0, 200)
         : `Share your opinion on "${question.title}" and earn 1¢ on Opinoza.`;
+      const canonicalHref = `https://opinoza.com/questions/${questionId}`;
+
+      document.title = pageTitle;
+
       let metaDesc = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-      if (!metaDesc) {
-        metaDesc = document.createElement("meta");
-        metaDesc.name = "description";
-        document.head.appendChild(metaDesc);
-      }
+      if (!metaDesc) { metaDesc = document.createElement("meta"); metaDesc.name = "description"; document.head.appendChild(metaDesc); }
       metaDesc.content = desc;
+
       let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-      if (!canonical) {
-        canonical = document.createElement("link");
-        canonical.rel = "canonical";
-        document.head.appendChild(canonical);
-      }
-      canonical.href = `https://opinoza.com/question/${questionId}`;
+      if (!canonical) { canonical = document.createElement("link"); canonical.rel = "canonical"; document.head.appendChild(canonical); }
+      canonical.href = canonicalHref;
+
+      const setMeta = (selector: string, value: string) => {
+        const el = document.querySelector<HTMLMetaElement>(selector);
+        if (el) el.content = value;
+      };
+      setMeta('meta[property="og:title"]', pageTitle);
+      setMeta('meta[property="og:description"]', desc);
+      setMeta('meta[property="og:url"]', canonicalHref);
+      setMeta('meta[name="twitter:title"]', pageTitle);
+      setMeta('meta[name="twitter:description"]', desc);
     }
     return () => {
       document.title = "Opinoza";
+      const defaultDesc = "Share your opinions and earn real money on Opinoza. Answer polls, ratings, and questions to earn 1¢ per answer. Join thousands of users today.";
       const metaDesc = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-      if (metaDesc) metaDesc.content = "Share your opinions and earn real money on Opinoza. Answer polls, ratings, and questions to earn 1¢ per answer. Join thousands of users today.";
+      if (metaDesc) metaDesc.content = defaultDesc;
       const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
       if (canonical) canonical.href = "https://opinoza.com";
+      const setMeta = (selector: string, value: string) => {
+        const el = document.querySelector<HTMLMetaElement>(selector);
+        if (el) el.content = value;
+      };
+      setMeta('meta[property="og:title"]', "Opinoza – Answer Questions &amp; Earn Money");
+      setMeta('meta[property="og:description"]', defaultDesc);
+      setMeta('meta[property="og:url"]', "https://opinoza.com");
+      setMeta('meta[name="twitter:title"]', "Opinoza – Answer Questions &amp; Earn Money");
+      setMeta('meta[name="twitter:description"]', defaultDesc);
     };
   }, [question?.title, question?.description, questionId]);
 
@@ -1669,12 +1686,14 @@ export default function QuestionDetail() {
       {/* Share buttons — visible to all users */}
       {(() => {
         const questionUrl = `https://opinoza.com/questions/${questionId}`;
+        const shareUrl = `https://opinoza.com/api/og/q/${questionId}`;
         const isCreator = !!user && question.creatorId === user.id;
         return (
           <>
             <ShareButtons
               questionTitle={question.title}
               questionUrl={questionUrl}
+              shareUrl={shareUrl}
               isCreator={isCreator}
             />
             {isCreator && (
@@ -1753,10 +1772,10 @@ export default function QuestionDetail() {
                 Answer this question to earn <strong className="text-amber-600">1 cent</strong> credited to your wallet
               </p>
               <div className="flex gap-3 justify-center">
-                <Link href="/sign-in">
+                <Link href={`/sign-in?redirect_url=/questions/${questionId}`}>
                   <button className="px-6 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-muted transition-colors">Sign in</button>
                 </Link>
-                <Link href="/sign-up">
+                <Link href={`/sign-up?redirect_url=/questions/${questionId}`}>
                   <button className="px-6 py-2.5 rounded-xl gold-gradient text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm">
                     Create Free Account
                   </button>

@@ -96,7 +96,7 @@ function MaintenancePage() {
 
 import { lazy, Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
-import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, useLocation, useSearch, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -327,11 +327,20 @@ function SignInPage() {
   // To update login providers, app branding, or OAuth settings use the Auth
   // pane in the workspace toolbar. More information can be found in the Replit docs.
   const { loading, containerRef } = useOAuthLoading();
+  const search = useSearch();
+  const redirectUrl = new URLSearchParams(search).get("redirect_url") ?? undefined;
+  const signUpUrl = `${basePath}/sign-up${redirectUrl ? `?redirect_url=${encodeURIComponent(redirectUrl)}` : ""}`;
   return (
     <div className="flex justify-center py-16 px-4">
       <div ref={containerRef} className="relative w-full max-w-md">
         {loading && <OAuthLoadingOverlay />}
-        <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+        <SignIn
+          routing="path"
+          path={`${basePath}/sign-in`}
+          signUpUrl={signUpUrl}
+          forceRedirectUrl={redirectUrl}
+          fallbackRedirectUrl={redirectUrl}
+        />
       </div>
     </div>
   );
@@ -341,11 +350,20 @@ function SignUpPage() {
   // To update login providers, app branding, or OAuth settings use the Auth
   // pane in the workspace toolbar. More information can be found in the Replit docs.
   const { loading, containerRef } = useOAuthLoading();
+  const search = useSearch();
+  const redirectUrl = new URLSearchParams(search).get("redirect_url") ?? undefined;
+  const signInUrl = `${basePath}/sign-in${redirectUrl ? `?redirect_url=${encodeURIComponent(redirectUrl)}` : ""}`;
   return (
     <div className="flex justify-center py-16 px-4">
       <div ref={containerRef} className="relative w-full max-w-md">
         {loading && <OAuthLoadingOverlay />}
-        <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+        <SignUp
+          routing="path"
+          path={`${basePath}/sign-up`}
+          signInUrl={signInUrl}
+          forceRedirectUrl={redirectUrl}
+          fallbackRedirectUrl={redirectUrl}
+        />
       </div>
     </div>
   );

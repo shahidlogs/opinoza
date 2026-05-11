@@ -9,6 +9,7 @@ import analyticsRouter from "./analytics";
 import seedRouter from "./seed";
 import notificationsRouter from "./notifications";
 import referralsRouter from "./referrals";
+import ogRouter from "./og";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(analyticsRouter);
 router.use(seedRouter);
 router.use(notificationsRouter);
 router.use(referralsRouter);
+router.use(ogRouter);
 
 export default router;
