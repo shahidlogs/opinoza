@@ -1459,6 +1459,21 @@ router.get("/admin/earnings-analytics", async (req, res): Promise<void> => {
   const pendingWithdrawalCount   = Number(wRows[0]?.pending_count ?? 0);
   const avgWithdrawalCents       = Number(wRows[0]?.avg_withdrawal_cents ?? 0);
 
+  // ── 4b. Penalty deductions (date-filtered, actual deducted amounts only) ──
+  // Only count rows where amount_cents < 0 (real deductions; 0¢ rows are excluded).
+  const penaltyRow = await db.execute(drizzleSql`
+    SELECT
+      COALESCE(SUM(ABS(amount_cents)), 0)::float AS total_penalty,
+      COUNT(*)::int                              AS cnt
+    FROM transactions
+    WHERE type = 'answer_removed_penalty'
+      AND amount_cents < 0
+      AND created_at >= ${cutoff}
+  `);
+  const pRows: any[] = Array.isArray(penaltyRow) ? penaltyRow : (penaltyRow as any).rows ?? [];
+  const totalPenaltyCents = Number(pRows[0]?.total_penalty ?? 0);
+  const penaltyCount      = Number(pRows[0]?.cnt ?? 0);
+
   // ── 5. Wallet balances (always current, no date filter) ─────────────────
   const walletRow = await db.execute(drizzleSql`
     SELECT
@@ -1540,6 +1555,11 @@ router.get("/admin/earnings-analytics", async (req, res): Promise<void> => {
   const avgReferralEarningsPerEarner = referralEarnerCount > 0
     ? (referralSignupCents + referralAnswerCents) / referralEarnerCount : 0;
 
+  // Net platform liability = what is currently sitting in user wallets + committed
+  // but not yet paid out (pending withdrawals). Penalties already reduce wallet
+  // balances in real-time, so they are implicitly reflected here.
+  const netPlatformLiabilityCents = totalWalletBalanceCents + pendingWithdrawalCents;
+
   // ── 8. Chart data ────────────────────────────────────────────────────────
   const earningsSourceBreakdown = [
     { name: "Answers",          value: Math.round(answerEarningsCents * 100) / 100 },
@@ -1567,6 +1587,9 @@ router.get("/admin/earnings-analytics", async (req, res): Promise<void> => {
     referralAnswerCents,
     questionPurchaseSpendingCents,
     questionPurchaseCount,
+    // Penalties
+    totalPenaltyCents,
+    penaltyCount,
     // Answer analytics
     totalAnswerCount,
     answerEarnerCount,
@@ -1590,6 +1613,7 @@ router.get("/admin/earnings-analytics", async (req, res): Promise<void> => {
     totalWalletBalanceCents,
     withdrawableBalanceCents,
     nonWithdrawableBalanceCents,
+    netPlatformLiabilityCents,
     // Chart data
     earningsSourceBreakdown,
     walletRangeDistribution,

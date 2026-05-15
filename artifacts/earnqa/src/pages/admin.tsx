@@ -2774,7 +2774,7 @@ export default function Admin() {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-center">
                       <div className="text-xl font-bold text-amber-600">${(earningsData.totalDistributedCents / 100).toFixed(2)}</div>
                       <div className="text-xs text-muted-foreground mt-1 font-medium">Total Distributed</div>
@@ -2783,9 +2783,24 @@ export default function Admin() {
                       <div className="text-xl font-bold text-red-500">${(earningsData.questionPurchaseSpendingCents / 100).toFixed(2)}</div>
                       <div className="text-xs text-muted-foreground mt-1 font-medium">Question Purchase Spend ({earningsData.questionPurchaseCount})</div>
                     </div>
-                    <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4 text-center col-span-2 sm:col-span-1">
+                    <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4 text-center">
                       <div className="text-xl font-bold text-green-600">${(earningsData.totalWithdrawnCents / 100).toFixed(2)}</div>
                       <div className="text-xs text-muted-foreground mt-1 font-medium">Total Withdrawn ({earningsData.completedWithdrawalCount} txns)</div>
+                    </div>
+                    <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4 text-center">
+                      <div className="text-xl font-bold text-orange-600">-${((earningsData.totalPenaltyCents ?? 0) / 100).toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground mt-1 font-medium">Penalty Deductions ({earningsData.penaltyCount ?? 0})</div>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <div className="bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-700 rounded-xl p-4 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Net Platform Liability</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Current wallet balances + committed pending withdrawals</div>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-700 dark:text-slate-200">
+                        ${((earningsData.netPlatformLiabilityCents ?? 0) / 100).toFixed(2)}
+                      </div>
                     </div>
                   </div>
                 </div>
