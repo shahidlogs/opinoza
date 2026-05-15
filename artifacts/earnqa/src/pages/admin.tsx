@@ -2790,6 +2790,16 @@ export default function Admin() {
                     <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4 text-center">
                       <div className="text-xl font-bold text-orange-600">-${((earningsData.totalPenaltyCents ?? 0) / 100).toFixed(2)}</div>
                       <div className="text-xs text-muted-foreground mt-1 font-medium">Penalty Deductions ({earningsData.penaltyCount ?? 0})</div>
+                      <div className="mt-2 pt-2 border-t border-orange-200 dark:border-orange-800 text-left space-y-0.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Answer removals ({earningsData.answerPenaltyCount ?? 0})</span>
+                          <span className="font-medium text-orange-700 dark:text-orange-400">-${((earningsData.answerPenaltyCents ?? 0) / 100).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Question rejections ({earningsData.questionRejectionCount ?? 0})</span>
+                          <span className="font-medium text-orange-700 dark:text-orange-400">-${((earningsData.questionRejectionPenaltyCents ?? 0) / 100).toFixed(2)}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div className="mt-3">

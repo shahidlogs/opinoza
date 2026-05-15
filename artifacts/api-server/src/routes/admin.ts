@@ -1459,20 +1459,46 @@ router.get("/admin/earnings-analytics", async (req, res): Promise<void> => {
   const pendingWithdrawalCount   = Number(wRows[0]?.pending_count ?? 0);
   const avgWithdrawalCents       = Number(wRows[0]?.avg_withdrawal_cents ?? 0);
 
-  // ── 4b. Penalty deductions (date-filtered, actual deducted amounts only) ──
-  // Only count rows where amount_cents < 0 (real deductions; 0¢ rows are excluded).
-  const penaltyRow = await db.execute(drizzleSql`
-    SELECT
-      COALESCE(SUM(ABS(amount_cents)), 0)::float AS total_penalty,
-      COUNT(*)::int                              AS cnt
-    FROM transactions
-    WHERE type = 'answer_removed_penalty'
-      AND amount_cents < 0
-      AND created_at >= ${cutoff}
-  `);
-  const pRows: any[] = Array.isArray(penaltyRow) ? penaltyRow : (penaltyRow as any).rows ?? [];
-  const totalPenaltyCents = Number(pRows[0]?.total_penalty ?? 0);
-  const penaltyCount      = Number(pRows[0]?.cnt ?? 0);
+  // ── 4b. Penalty deductions (date-filtered) ──────────────────────────────
+  // (a) Answer removal penalties — only rows where amount_cents < 0 (real
+  //     deductions; 0¢ audit-only rows when the wallet was already empty are excluded).
+  const [answerPenaltyAgg, questionRejectionAgg] = await Promise.all([
+    db.execute(drizzleSql`
+      SELECT
+        COALESCE(SUM(ABS(amount_cents)), 0)::float AS total,
+        COUNT(*)::int                              AS cnt
+      FROM transactions
+      WHERE type = 'answer_removed_penalty'
+        AND amount_cents < 0
+        AND created_at >= ${cutoff}
+    `),
+    // (b) Question rejection retained penalty — the platform charges 25¢ per question,
+    //     refunds 20¢ on rejection, and keeps 5¢ as a processing fee.
+    //     There is no separate penalty transaction; we derive it from refund records:
+    //       retained = original_cost (25¢) × rejection_count − total_refunded
+    //     This does NOT double-count Question Purchase Spend — that metric shows gross
+    //     spend (25¢ each); this penalty metric shows the non-refunded portion (5¢ each).
+    db.execute(drizzleSql`
+      SELECT
+        COUNT(*)::int                              AS cnt,
+        COALESCE(SUM(amount_cents), 0)::float      AS total_refunded
+      FROM transactions
+      WHERE type = 'question_rejection_refund'
+        AND created_at >= ${cutoff}
+    `),
+  ]);
+
+  const apRows: any[] = Array.isArray(answerPenaltyAgg)    ? answerPenaltyAgg    : (answerPenaltyAgg    as any).rows ?? [];
+  const qrRows: any[] = Array.isArray(questionRejectionAgg) ? questionRejectionAgg : (questionRejectionAgg as any).rows ?? [];
+
+  const QUESTION_COST_CENTS = 25;
+  const answerPenaltyCents            = Number(apRows[0]?.total ?? 0);
+  const answerPenaltyCount            = Number(apRows[0]?.cnt ?? 0);
+  const questionRejectionCount        = Number(qrRows[0]?.cnt ?? 0);
+  const questionRejectionRefundCents  = Number(qrRows[0]?.total_refunded ?? 0);
+  const questionRejectionPenaltyCents = Math.max(0, questionRejectionCount * QUESTION_COST_CENTS - questionRejectionRefundCents);
+  const totalPenaltyCents             = answerPenaltyCents + questionRejectionPenaltyCents;
+  const penaltyCount                  = answerPenaltyCount + questionRejectionCount;
 
   // ── 5. Wallet balances (always current, no date filter) ─────────────────
   const walletRow = await db.execute(drizzleSql`
@@ -1590,6 +1616,10 @@ router.get("/admin/earnings-analytics", async (req, res): Promise<void> => {
     // Penalties
     totalPenaltyCents,
     penaltyCount,
+    answerPenaltyCents,
+    answerPenaltyCount,
+    questionRejectionPenaltyCents,
+    questionRejectionCount,
     // Answer analytics
     totalAnswerCount,
     answerEarnerCount,
