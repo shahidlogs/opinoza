@@ -376,7 +376,7 @@ router.delete("/admin/questions/:id", async (req, res): Promise<void> => {
 });
 
 // List users with per-user stats. Supports ?page=1&limit=50&search=&sort=
-// sort values: newest|oldest|earnings-desc|earnings-asc|answers-desc|answers-asc|questions-desc|questions-asc|balance-desc|banned|verified
+// sort values: newest|oldest|earnings-desc|earnings-asc|answers-desc|answers-asc|questions-desc|questions-asc|balance-desc|banned|verified|deleted
 router.get("/admin/users", async (req, res): Promise<void> => {
   if (!await checkAdmin(req, res)) return;
 
@@ -400,6 +400,7 @@ router.get("/admin/users", async (req, res): Promise<void> => {
     "balance-desc":   "balance_cents DESC NULLS LAST, created_at DESC",
     "banned":         "created_at DESC",
     "verified":       "created_at DESC",
+    "deleted":        "deleted_at DESC NULLS LAST, created_at DESC",
   };
   const orderClause = ORDER_CLAUSES[sort] ?? "created_at DESC";
 
@@ -409,6 +410,7 @@ router.get("/admin/users", async (req, res): Promise<void> => {
     : drizzleSql``;
   const bannedCond  = sort === "banned"   ? drizzleSql`AND u.is_banned = true`                    : drizzleSql``;
   const verifCond   = sort === "verified" ? drizzleSql`AND u.verification_status = 'approved'`     : drizzleSql``;
+  const deletedCond = sort === "deleted"  ? drizzleSql`AND u.is_deleted = true`                    : drizzleSql``;
 
   // Single CTE: compute aggregates for ALL matching users, sort, then paginate.
   // u.* is safe here; computed cols have distinct names so no collisions.
@@ -434,7 +436,7 @@ router.get("/admin/users", async (req, res): Promise<void> => {
         GROUP BY user_id
       ) e ON e.user_id = u.clerk_id
       LEFT JOIN wallets w ON w.user_id = u.clerk_id
-      WHERE 1=1 ${searchCond} ${bannedCond} ${verifCond}
+      WHERE 1=1 ${searchCond} ${bannedCond} ${verifCond} ${deletedCond}
     ),
     total_cte AS (SELECT COUNT(*)::int AS cnt FROM agg)
     SELECT agg.*, total_cte.cnt AS __total__
@@ -472,6 +474,10 @@ router.get("/admin/users", async (req, res): Promise<void> => {
     signupIp:                    r.signup_ip,
     lastIp:                      r.last_ip,
     nameLocked:                  r.name_locked,
+    isDeleted:                   r.is_deleted,
+    deletedAt:                   r.deleted_at,
+    deletedByAdminId:            r.deleted_by_admin_id,
+    deletionReason:              r.deletion_reason,
     questionCount:  Number(r.question_count ?? 0),
     answerCount:    Number(r.answer_count   ?? 0),
     earningsCents:  Number(r.earnings_cents ?? 0),
@@ -2202,6 +2208,58 @@ router.post("/admin/internal/cleanup-rejected-answers", async (req, res): Promis
     console.error("[cleanup-rejected-answers] Fatal error:", err);
     res.status(500).json({ error: "Cleanup failed", detail: String(err) });
   }
+});
+
+// ── Soft-delete (deactivate) user account ─────────────────────────────────────
+
+router.post("/admin/users/:id/delete-account", async (req, res): Promise<void> => {
+  const adminId = await checkAdmin(req, res);
+  if (!adminId) return;
+
+  const targetClerkId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const { reason } = req.body as { reason?: string };
+
+  if (targetClerkId === adminId) {
+    res.status(400).json({ error: "You cannot delete your own account." });
+    return;
+  }
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.clerkId, targetClerkId));
+  if (!target) { res.status(404).json({ error: "User not found" }); return; }
+  if (target.isAdmin) { res.status(400).json({ error: "Admin accounts cannot be deleted." }); return; }
+  if (target.isDeleted) { res.status(409).json({ error: "Account is already deleted." }); return; }
+
+  const now = new Date();
+  const [updated] = await db
+    .update(usersTable)
+    .set({ isDeleted: true, deletedAt: now, deletedByAdminId: adminId, deletionReason: reason || null })
+    .where(eq(usersTable.clerkId, targetClerkId))
+    .returning();
+
+  // Audit log in transactions table (amountCents: 0 = no financial impact)
+  await db.insert(transactionsTable).values({
+    userId: targetClerkId,
+    type: "account_deletion",
+    amountCents: 0,
+    description: "Account permanently deactivated by admin",
+    status: "completed",
+    meta: {
+      targetUserId: targetClerkId,
+      email: target.email,
+      oldName: target.name,
+      deletedByAdminId: adminId,
+      deletionReason: reason || null,
+      deletedAt: now.toISOString(),
+    },
+  });
+
+  // Anonymize this user's creator name on all their questions (public UI shows "Anonymous")
+  await db.update(questionsTable)
+    .set({ creatorName: null })
+    .where(eq(questionsTable.creatorId, targetClerkId));
+
+  req.log.info({ adminId, targetClerkId, reason }, "[account-delete] Admin permanently deactivated user account");
+  res.json(updated);
 });
 
 // ── Ban / Unban user ──────────────────────────────────────────────────────────

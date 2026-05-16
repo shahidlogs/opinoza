@@ -69,6 +69,13 @@ router.post("/answers", async (req, res): Promise<void> => {
     return;
   }
 
+  // Block deleted accounts
+  const [answerUser] = await db.select({ isDeleted: usersTable.isDeleted }).from(usersTable).where(eq(usersTable.clerkId, auth.userId));
+  if (answerUser?.isDeleted) {
+    res.status(403).json({ error: "This account has been deleted and cannot be used again.", code: "account_deleted" });
+    return;
+  }
+
   const { questionId, answerText, pollOption, rating, notFamiliar, reason } = req.body;
   if (!questionId || typeof questionId !== "number") {
     res.status(400).json({ error: "questionId is required and must be a number" });

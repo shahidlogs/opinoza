@@ -381,6 +381,83 @@ function AdminEditNameModal({ user, getToken, onSave, onClose }: {
   );
 }
 
+function AdminDeleteAccountModal({ user, getToken, onConfirm, onClose }: {
+  user: any;
+  getToken: () => Promise<string | null>;
+  onConfirm: (clerkId: string, reason: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleConfirm = async () => {
+    if (!reason.trim()) { setError("Please provide a reason for deletion."); return; }
+    setDeleting(true);
+    setError(null);
+    try {
+      await onConfirm(user.clerkId, reason.trim());
+      onClose();
+    } catch (err: any) {
+      setError(err.message || "Request failed. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-card border border-card-border rounded-2xl shadow-xl p-6 w-full max-w-md"
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-950/50 flex items-center justify-center text-red-600 dark:text-red-400 text-lg">⚠</div>
+          <h2 className="text-base font-bold text-foreground">Delete Account</h2>
+        </div>
+
+        <div className="rounded-xl border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30 px-4 py-3 mb-4 text-xs text-red-800 dark:text-red-300 leading-relaxed">
+          <strong>Warning:</strong> This will permanently deactivate the account. The user cannot log in or create a new account with the same email. Existing questions and answers will remain but the public name will show as <strong>Anonymous</strong>.
+        </div>
+
+        <div className="text-sm text-muted-foreground mb-4">
+          Account: <span className="font-semibold text-foreground">{user.email}</span>
+          {user.name && <span className="ml-1 text-muted-foreground">({user.name})</span>}
+        </div>
+
+        <div className="space-y-3">
+          <label className="text-xs font-semibold text-foreground block">Reason for deletion <span className="text-red-500">*</span></label>
+          <textarea
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            rows={3}
+            className="w-full px-3 py-2 rounded-xl border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+            placeholder="Enter reason (required)…"
+            autoFocus
+          />
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleConfirm}
+              disabled={deleting || !reason.trim()}
+              className="flex-1 px-4 py-2 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {deleting ? "Deleting…" : "Yes, Delete Account"}
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-sm font-medium bg-muted text-muted-foreground hover:bg-muted/70 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 function UserProfileModal({ user, getToken, onClose }: { user: any; getToken: () => Promise<string | null>; onClose: () => void }) {
   const [earnings, setEarnings] = useState<any | null>(null);
   const [earningsLoading, setEarningsLoading] = useState(true);
@@ -1147,6 +1224,7 @@ export default function Admin() {
   const [byUserSearch, setByUserSearch] = useState("");
   const [editorToggling, setEditorToggling] = useState<string | null>(null);
   const [editNameUser, setEditNameUser] = useState<any | null>(null);
+  const [deleteAccountUser, setDeleteAccountUser] = useState<any | null>(null);
   const [flagsData, setFlagsData] = useState<{ items: any[]; total: number; pending: number; resolved: number; removed: number } | null>(null);
   const [flagsLoading, setFlagsLoading] = useState(false);
   const [flagsLoaded, setFlagsLoaded] = useState(false);
@@ -1461,6 +1539,20 @@ export default function Admin() {
   const handleAdminNameSave = useCallback((clerkId: string, newName: string) => {
     setUsers(prev => prev.map(u => u.clerkId === clerkId ? { ...u, name: newName } : u));
   }, []);
+
+  const handleDeleteAccount = useCallback(async (clerkId: string, reason: string) => {
+    const token = await getToken();
+    const res = await fetch(`/api/admin/users/${clerkId}/delete-account`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ reason }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to delete account.");
+    setUsers(prev => prev.map(u => u.clerkId === clerkId
+      ? { ...u, isDeleted: true, deletedAt: json.deletedAt, deletionReason: reason }
+      : u));
+  }, [getToken]);
 
   // Fetch per-referrer analytics whenever the referrals tab is active
   const fetchByUser = useCallback(async () => {
@@ -2139,6 +2231,14 @@ export default function Admin() {
             onClose={() => setEditNameUser(null)}
           />
         )}
+        {deleteAccountUser && (
+          <AdminDeleteAccountModal
+            user={deleteAccountUser}
+            getToken={getToken}
+            onConfirm={handleDeleteAccount}
+            onClose={() => setDeleteAccountUser(null)}
+          />
+        )}
       </AnimatePresence>
 
       <div className="flex items-center gap-3 mb-8">
@@ -2524,6 +2624,7 @@ export default function Admin() {
               <option value="questions-asc">Least Questions Created</option>
               <option value="banned">Banned Only</option>
               <option value="verified">Verified Only</option>
+              <option value="deleted">Deleted Accounts</option>
             </select>
           </div>
 
@@ -2563,17 +2664,20 @@ export default function Admin() {
                   </tr>
                 ) : null}
                 {users.map((u: any, i: number) => (
-                  <tr key={u.id} className={`${i % 2 === 0 ? "bg-card" : "bg-muted/30"} ${u.isBanned ? "opacity-60" : ""}`}>
+                  <tr key={u.id} className={`${i % 2 === 0 ? "bg-card" : "bg-muted/30"} ${u.isBanned || u.isDeleted ? "opacity-60" : ""}`}>
                     <td className="px-5 py-3.5">
                       <button
                         onClick={() => setSelectedUser(u)}
-                        className="font-medium text-foreground hover:text-amber-600 transition-colors text-left"
+                        className={`font-medium hover:text-amber-600 transition-colors text-left ${u.isDeleted ? "line-through text-muted-foreground" : "text-foreground"}`}
                       >
-                        {u.name || "—"}
+                        {u.isDeleted ? "Anonymous" : (u.name || "—")}
                       </button>
                       <div className="text-xs text-muted-foreground">{u.email}</div>
                       {u.isBanned && (
                         <div className="text-[10px] text-red-500 font-medium mt-0.5">Banned{u.bannedReason ? `: ${u.bannedReason}` : ""}</div>
+                      )}
+                      {u.isDeleted && (
+                        <div className="text-[10px] text-rose-600 dark:text-rose-400 font-medium mt-0.5">Deleted{u.deletionReason ? `: ${u.deletionReason}` : ""}</div>
                       )}
                     </td>
                     <td className="px-5 py-3.5 hidden sm:table-cell">
@@ -2604,13 +2708,15 @@ export default function Admin() {
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex flex-col items-start gap-1">
-                        {u.isAdmin
-                          ? <span className="text-xs font-bold px-2 py-0.5 rounded-full gold-gradient text-white">Admin</span>
-                          : u.isBanned
-                            ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Banned</span>
-                            : u.isEditor
-                              ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">Editor</span>
-                              : <span className="text-xs text-muted-foreground">User</span>
+                        {u.isDeleted
+                          ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-700">Deleted</span>
+                          : u.isAdmin
+                            ? <span className="text-xs font-bold px-2 py-0.5 rounded-full gold-gradient text-white">Admin</span>
+                            : u.isBanned
+                              ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Banned</span>
+                              : u.isEditor
+                                ? <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">Editor</span>
+                                : <span className="text-xs text-muted-foreground">User</span>
                         }
                         {!u.isAdmin && (
                           <>
@@ -2644,6 +2750,14 @@ export default function Admin() {
                             >
                               Edit Name{u.nameLocked ? " 🔒" : ""}
                             </button>
+                            {!u.isDeleted && (
+                              <button
+                                onClick={() => setDeleteAccountUser(u)}
+                                className="text-[10px] text-rose-600 hover:text-rose-800 underline underline-offset-2 transition-colors font-semibold"
+                              >
+                                Delete Account
+                              </button>
+                            )}
                           </>
                         )}
                       </div>

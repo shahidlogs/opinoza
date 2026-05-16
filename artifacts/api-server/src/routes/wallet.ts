@@ -110,6 +110,13 @@ router.post("/wallet/withdraw", withdrawRateLimit, async (req, res): Promise<voi
     return;
   }
 
+  // Block deleted accounts
+  const [wUser] = await db.select({ isDeleted: usersTable.isDeleted }).from(usersTable).where(eq(usersTable.clerkId, auth.userId));
+  if (wUser?.isDeleted) {
+    res.status(403).json({ error: "This account has been deleted and cannot be used again.", code: "account_deleted" });
+    return;
+  }
+
   // Update lastIp on every withdrawal attempt (best-effort)
   db.update(usersTable).set({ lastIp: clientIp }).where(eq(usersTable.clerkId, auth.userId))
     .catch(err => console.error("[wallet] Failed to update lastIp:", err));

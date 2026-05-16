@@ -632,6 +632,13 @@ router.post("/questions", async (req, res): Promise<void> => {
     return;
   }
 
+  // Block deleted accounts
+  const [qUser] = await db.select({ isDeleted: usersTable.isDeleted }).from(usersTable).where(eq(usersTable.clerkId, auth.userId));
+  if (qUser?.isDeleted) {
+    res.status(403).json({ error: "This account has been deleted and cannot be used again.", code: "account_deleted" });
+    return;
+  }
+
   const { title, description, type, pollOptions } = req.body;
   // Accept either `categories` (new, array) or legacy `category` (single string).
   const rawCategories: string[] = Array.isArray(req.body.categories)

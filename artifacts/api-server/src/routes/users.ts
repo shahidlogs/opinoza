@@ -118,6 +118,27 @@ router.get("/users/me", async (req, res): Promise<void> => {
   const signupUa = req.headers["user-agent"] || null;
   const { user, isNew } = await getOrCreateUser(auth.userId, emailFromClaims || "", nameFromClaims, signupIp, signupUa);
 
+  // Block deleted accounts from logging in
+  if (user.isDeleted) {
+    res.status(403).json({ error: "This account has been deleted and cannot be used again.", code: "account_deleted" });
+    return;
+  }
+
+  // Block new signups that reuse the same email as a deleted account
+  if (isNew && user.email) {
+    const [deletedWithSameEmail] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(and(eq(usersTable.email, user.email), eq(usersTable.isDeleted, true), ne(usersTable.clerkId, auth.userId)));
+    if (deletedWithSameEmail) {
+      await db.update(usersTable)
+        .set({ isDeleted: true, deletedAt: new Date(), deletionReason: "email_reuse_blocked" })
+        .where(eq(usersTable.clerkId, auth.userId));
+      res.status(403).json({ error: "This account has been deleted and cannot be used again.", code: "account_deleted" });
+      return;
+    }
+  }
+
   // Update lastIp on every login (best-effort; helps admin identify IPs)
   if (clientIp) {
     db.update(usersTable).set({ lastIp: clientIp }).where(eq(usersTable.clerkId, auth.userId))
