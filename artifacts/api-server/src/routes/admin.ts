@@ -606,6 +606,58 @@ router.patch("/admin/users/:id/toggle-editor", async (req, res): Promise<void> =
   res.json(updated);
 });
 
+// PATCH /admin/users/:id/name — admin override for any user's display name.
+// Bypasses the nameLocked flag that prevents regular users from editing their own name.
+// Writes a 0¢ audit transaction for traceability.
+router.patch("/admin/users/:id/name", async (req, res): Promise<void> => {
+  const adminId = await checkAdmin(req, res);
+  if (!adminId) return;
+
+  const targetId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const { name } = req.body as { name?: string };
+
+  if (!name || !name.trim()) {
+    res.status(400).json({ error: "Name is required" });
+    return;
+  }
+
+  const newName = name.trim();
+
+  const [targetUser] = await db.select().from(usersTable).where(eq(usersTable.clerkId, targetId));
+  if (!targetUser) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const oldName = targetUser.name ?? null;
+
+  const [updated] = await db.update(usersTable)
+    .set({ name: newName })
+    .where(eq(usersTable.clerkId, targetId))
+    .returning({ clerkId: usersTable.clerkId, name: usersTable.name, nameLocked: usersTable.nameLocked });
+
+  // Audit record — 0¢ transaction so it appears in the user's transaction history
+  // with full context: who changed it, from what, to what.
+  await db.insert(transactionsTable).values({
+    userId: targetId,
+    type: "admin_name_override",
+    amountCents: 0,
+    description: `Admin name override: "${oldName ?? "(none)"}" → "${newName}"`,
+    status: "completed",
+    meta: {
+      oldName,
+      newName,
+      editedByAdminId: adminId,
+      targetUserId: targetId,
+      editedAt: new Date().toISOString(),
+    },
+  });
+
+  req.log.info({ targetId, oldName, newName, adminId }, "[admin] Name override applied");
+
+  res.json({ success: true, clerkId: updated.clerkId, name: updated.name, nameLocked: updated.nameLocked });
+});
+
 // Growth over time (time-series data for charts)
 router.get("/admin/growth", async (req, res): Promise<void> => {
   if (!await checkAdmin(req, res)) return;

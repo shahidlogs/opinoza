@@ -294,6 +294,93 @@ function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+function AdminEditNameModal({ user, getToken, onSave, onClose }: {
+  user: any;
+  getToken: () => Promise<string | null>;
+  onSave: (clerkId: string, newName: string) => void;
+  onClose: () => void;
+}) {
+  const [nameValue, setNameValue] = useState(user.name ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!nameValue.trim()) { setError("Name cannot be empty."); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/admin/users/${user.clerkId}/name`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ name: nameValue.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error || "Failed to update name."); return; }
+      onSave(user.clerkId, json.name);
+      onClose();
+    } catch {
+      setError("Request failed. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-card border border-card-border rounded-2xl shadow-xl p-6 w-full max-w-sm"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-bold text-foreground">Edit Display Name</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-xl leading-none">&times;</button>
+        </div>
+
+        <div className="text-sm text-muted-foreground mb-1">
+          User: <span className="font-medium text-foreground">{user.email}</span>
+        </div>
+
+        {user.nameLocked && (
+          <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-4 py-3 text-xs text-amber-800 dark:text-amber-300">
+            <span className="font-semibold">⚠ This name is locked for regular users.</span> Admin override will change it anyway.
+          </div>
+        )}
+
+        <div className="mt-4 space-y-3">
+          <label className="text-xs font-semibold text-foreground block">New display name</label>
+          <input
+            type="text"
+            value={nameValue}
+            onChange={e => setNameValue(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") onClose(); }}
+            className="w-full px-3 py-2 rounded-xl border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-amber-400"
+            placeholder="Enter display name"
+            autoFocus
+          />
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleSave}
+              disabled={saving || !nameValue.trim()}
+              className="flex-1 px-4 py-2 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+            >
+              {saving ? "Saving…" : "Save Name"}
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-sm font-medium bg-muted text-muted-foreground hover:bg-muted/70 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 function UserProfileModal({ user, getToken, onClose }: { user: any; getToken: () => Promise<string | null>; onClose: () => void }) {
   const [earnings, setEarnings] = useState<any | null>(null);
   const [earningsLoading, setEarningsLoading] = useState(true);
@@ -1059,6 +1146,7 @@ export default function Admin() {
   const [debouncedRefSearch, setDebouncedRefSearch] = useState("");
   const [byUserSearch, setByUserSearch] = useState("");
   const [editorToggling, setEditorToggling] = useState<string | null>(null);
+  const [editNameUser, setEditNameUser] = useState<any | null>(null);
   const [flagsData, setFlagsData] = useState<{ items: any[]; total: number; pending: number; resolved: number; removed: number } | null>(null);
   const [flagsLoading, setFlagsLoading] = useState(false);
   const [flagsLoaded, setFlagsLoaded] = useState(false);
@@ -1369,6 +1457,10 @@ export default function Admin() {
       setEditorToggling(null);
     }
   }, [getToken]);
+
+  const handleAdminNameSave = useCallback((clerkId: string, newName: string) => {
+    setUsers(prev => prev.map(u => u.clerkId === clerkId ? { ...u, name: newName } : u));
+  }, []);
 
   // Fetch per-referrer analytics whenever the referrals tab is active
   const fetchByUser = useCallback(async () => {
@@ -2039,6 +2131,14 @@ export default function Admin() {
       {/* User Profile Modal — global so any tab can open it */}
       <AnimatePresence>
         {selectedUser && <UserProfileModal user={selectedUser} getToken={getToken} onClose={() => setSelectedUser(null)} />}
+        {editNameUser && (
+          <AdminEditNameModal
+            user={editNameUser}
+            getToken={getToken}
+            onSave={handleAdminNameSave}
+            onClose={() => setEditNameUser(null)}
+          />
+        )}
       </AnimatePresence>
 
       <div className="flex items-center gap-3 mb-8">
@@ -2538,6 +2638,12 @@ export default function Admin() {
                                 {banToggling === u.clerkId ? "…" : "Ban"}
                               </button>
                             )}
+                            <button
+                              onClick={() => setEditNameUser(u)}
+                              className="text-[10px] text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors"
+                            >
+                              Edit Name{u.nameLocked ? " 🔒" : ""}
+                            </button>
                           </>
                         )}
                       </div>
