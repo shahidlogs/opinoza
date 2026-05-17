@@ -191,7 +191,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               whileHover={{ scale: 1.02 }}
               className="flex items-center gap-1 cursor-pointer shrink-0"
             >
-              <svg width="32" height="32" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 drop-shadow-sm">
+              <svg width="32" height="32" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 drop-shadow-sm" aria-hidden="true">
                 <defs>
                   <radialGradient id="nav-coin-g" cx="38%" cy="30%" r="75%" fx="38%" fy="30%">
                     <stop offset="0%"   stopColor="#fef3c7"/>
@@ -211,7 +211,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <path d="M 18 20 A 17 17 0 0 1 34 14" stroke="white" strokeWidth="3.5" fill="none" opacity="0.45" strokeLinecap="round"/>
               </svg>
               <span className="font-extrabold text-xl tracking-tight text-[#1e3a5f]">
-                pinoza
+                Opinoza
               </span>
             </motion.div>
           </Link>
@@ -392,7 +392,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <circle cx="32" cy="32" r="18" fill="none" stroke="#1e3a5f" strokeWidth="7"/>
                 <path d="M 18 20 A 17 17 0 0 1 34 14" stroke="white" strokeWidth="3.5" fill="none" opacity="0.4" strokeLinecap="round"/>
               </svg>
-              <span className="font-bold tracking-tight text-[#1e3a5f]">pinoza</span>
+              <span className="font-bold tracking-tight text-[#1e3a5f]">Opinoza</span>
               <span className="text-border">·</span>
               <span className="text-sm text-muted-foreground">Answer questions, earn rewards</span>
             </div>

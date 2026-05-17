@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>Opinoza</title>
+    <title>Opinoza – Share Opinions &amp; Earn Money</title>
     <meta name="description" content="Share your opinions and earn real money on Opinoza. Answer polls, ratings, and questions to earn 1¢ per answer. Join thousands of users today." />
     <link rel="canonical" href="https://opinoza.com" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -21,22 +21,58 @@
     <meta name="apple-mobile-web-app-title" content="Opinoza" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 
-    <!-- Default Open Graph tags (overridden server-side for question pages) -->
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Opinoza" />
-    <meta property="og:title" content="Opinoza – Answer Questions &amp; Earn Money" />
+    <meta property="og:title" content="Opinoza – Share Opinions &amp; Earn Money" />
     <meta property="og:description" content="Share your opinions on any topic and earn 1¢ per answer. Join thousands of users on Opinoza." />
     <meta property="og:image" content="https://opinoza.com/opengraph.jpg" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="720" />
     <meta property="og:url" content="https://opinoza.com" />
+
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Opinoza – Answer Questions &amp; Earn Money" />
+    <meta name="twitter:site" content="@opinoza" />
+    <meta name="twitter:title" content="Opinoza – Share Opinions &amp; Earn Money" />
     <meta name="twitter:description" content="Share your opinions on any topic and earn 1¢ per answer. Join thousands of users on Opinoza." />
     <meta name="twitter:image" content="https://opinoza.com/opengraph.jpg" />
+
+    <!-- Structured data: WebSite (helps Google learn the brand name) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Opinoza",
+      "url": "https://opinoza.com",
+      "description": "Share your opinions and earn real money. Answer polls, ratings, and questions to earn 1¢ per answer.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://opinoza.com/questions?search={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- Structured data: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Opinoza",
+      "url": "https://opinoza.com",
+      "logo": "https://opinoza.com/icons/icon-512.png",
+      "sameAs": []
+    }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-60R69DNFQB"></script>
     <script>
