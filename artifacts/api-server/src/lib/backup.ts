@@ -2,7 +2,7 @@
  * Database backup module — read-only, never modifies data.
  *
  * Runs pg_dump with --no-password and pipes output through gzip.
- * Backups are stored at BACKUP_DIR (default: /home/runner/workspace/.backups/db/).
+ * Backups are stored at BACKUP_DIR (/tmp/.backups/db/ — writable in both dev and production containers).
  *
  * Two trigger mechanisms:
  *  1. checkAndRunStartupBackup() — called at server startup; runs immediately if
@@ -25,7 +25,7 @@ import cron from "node-cron";
 import { logger } from "./logger.js";
 import { uploadBackupToDrive } from "./drive-upload.js";
 
-const BACKUP_DIR = join(process.cwd(), "../../.backups/db");
+const BACKUP_DIR = join("/tmp", ".backups", "db");
 const MAX_LOCAL_BACKUPS = 5;
 const STARTUP_BACKUP_MIN_AGE_HOURS = 12;
 
@@ -184,7 +184,7 @@ export async function checkAndRunStartupBackup(): Promise<void> {
 
   if (ageHours >= STARTUP_BACKUP_MIN_AGE_HOURS) {
     logger.info(
-      { ageHours: Math.round(ageHours) },
+      { ageHours: isFinite(ageHours) ? Math.round(ageHours) : "none (no local backups)" },
       "[backup] Startup check: last backup is old — running backup now",
     );
     await runBackup();
