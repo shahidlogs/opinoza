@@ -2561,7 +2561,7 @@ router.post("/admin/test-email", async (req, res): Promise<void> => {
 // Auth: Clerk admin session OR X-Backup-Secret header matching BACKUP_TRIGGER_SECRET env var.
 // Response is immediate (202 Accepted); backup runs in background so the request never times out.
 // Final result (filename, size, driveFileId) is written to server logs.
-router.post("/backup/run", async (req, res) => {
+router.post("/admin/backup/run", async (req, res) => {
   const secret = process.env["BACKUP_TRIGGER_SECRET"];
   const headerSecret = req.headers["x-backup-secret"];
   const isSecretAuth = secret && headerSecret === secret;
