@@ -96,6 +96,7 @@ function MaintenancePage() {
 
 import { lazy, Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { publishableKeyFromHost } from "@clerk/react/internal";
 import { Switch, Route, useLocation, useSearch, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -189,7 +190,17 @@ const queryClient = new QueryClient({
     },
   },
 });
-const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+// REQUIRED — copy verbatim. Resolves the key from window.location.hostname so the
+// same build serves multiple Clerk custom domains. Do not inline the env var, leave
+// publishableKey undefined, or replace publishableKeyFromHost with anything else.
+const clerkPubKey = publishableKeyFromHost(
+  window.location.hostname,
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+);
+
+// REQUIRED — copy verbatim. Empty in dev (Clerk hits dev FAPI directly), auto-set
+// in prod. Do NOT gate on import.meta.env.PROD / NODE_ENV — the empty dev value
+// is intentional, and any branching breaks the prod proxy.
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -222,11 +233,12 @@ const clerkAppearance = {
   variables: {
     colorPrimary: "hsl(43, 96%, 56%)",
     colorBackground: "hsl(36, 33%, 97%)",
-    colorInputBackground: "#ffffff",
-    colorText: "hsl(224, 25%, 12%)",
-    colorTextSecondary: "hsl(224, 15%, 45%)",
-    colorInputText: "hsl(224, 25%, 12%)",
+    colorInput: "#ffffff",
+    colorForeground: "hsl(224, 25%, 12%)",
+    colorMutedForeground: "hsl(224, 15%, 45%)",
+    colorInputForeground: "hsl(224, 25%, 12%)",
     colorNeutral: "hsl(224, 25%, 12%)",
+    colorDanger: "hsl(0, 84%, 60%)",
     borderRadius: "0.75rem",
     fontFamily: "inherit",
   },

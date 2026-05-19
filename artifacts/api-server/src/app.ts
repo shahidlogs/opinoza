@@ -2,7 +2,8 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
-import { CLERK_PROXY_PATH, clerkProxyMiddleware, clerkSignupsGate } from "./middlewares/clerkProxyMiddleware";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
+import { CLERK_PROXY_PATH, clerkProxyMiddleware, clerkSignupsGate, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
 import { clerkAuthRateLimit } from "./middlewares/authRateLimit";
 import { maintenanceMode } from "./middlewares/maintenanceMode";
 import router from "./routes";
@@ -47,7 +48,14 @@ app.use(cors({ credentials: true, origin: true }));
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
-app.use(clerkMiddleware({ authorizedParties: ["https://opinoza.com"] }));
+app.use(
+  clerkMiddleware((req) => ({
+    publishableKey: publishableKeyFromHost(
+      getClerkProxyHost(req) ?? "",
+      process.env.CLERK_PUBLISHABLE_KEY,
+    ),
+  })),
+);
 
 // Maintenance mode: block all write methods (POST/PUT/PATCH/DELETE) with 503.
 // Reads (GET/HEAD/OPTIONS) and health checks always pass through.

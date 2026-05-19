@@ -14,10 +14,29 @@
 
 import { createProxyMiddleware } from "http-proxy-middleware";
 import type { Request, Response, NextFunction, RequestHandler } from "express";
+import type { IncomingHttpHeaders } from "http";
 import { logger } from "../lib/logger";
 
 const CLERK_FAPI = "https://frontend-api.clerk.dev";
 export const CLERK_PROXY_PATH = "/api/__clerk";
+
+/**
+ * Returns the first effective public hostname for the given request,
+ * preferring x-forwarded-host over the Host header so callers behind a
+ * proxy see the original client-facing host.
+ *
+ * Exported so that app.ts (clerkMiddleware callback) and this proxy
+ * middleware agree on which hostname is canonical — otherwise
+ * multi-domain/custom-domain flows break.
+ */
+export function getClerkProxyHost(req: {
+  headers: IncomingHttpHeaders;
+}): string | undefined {
+  const forwarded = req.headers["x-forwarded-host"];
+  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  const firstHop = raw?.split(",")[0]?.trim();
+  return firstHop || req.headers.host?.trim() || undefined;
+}
 
 /**
  * Global auth rate-limit gate for sign_ups and sign_ins.
