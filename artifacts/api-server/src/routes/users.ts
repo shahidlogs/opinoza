@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
-import { db, usersTable, walletsTable, answersTable, questionsTable, transactionsTable, referralsTable } from "@workspace/db";
+import { db, usersTable, walletsTable, answersTable, questionsTable, transactionsTable, referralsTable, referralClicksTable, notificationsTable, pushNotificationLogsTable } from "@workspace/db";
 import { eq, count, sum, and, gte, desc, ne, or, isNull, sql, inArray } from "drizzle-orm";
 import { sendEmail, welcomeEmail } from "../lib/email.js";
 import { randomBytes } from "crypto";
@@ -25,10 +25,11 @@ function generateReferralCode(): string {
 async function getOrCreateUser(clerkId: string, emailFromClaims: string, nameFromClaims?: string | null, signupIp?: string | null, signupUa?: string | null): Promise<{ user: typeof usersTable.$inferSelect; isNew: boolean }> {
   let [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
   let isNew = false;
+
   if (!user) {
-    isNew = true;
     // JWT claims may not include email (depends on Clerk config).
     // Always fetch authoritative user data directly from the Clerk API.
+    // Done here (before the re-link check) so both paths share the same fetch.
     let resolvedEmail = emailFromClaims;
     let resolvedName = nameFromClaims;
     try {
@@ -44,35 +45,93 @@ async function getOrCreateUser(clerkId: string, emailFromClaims: string, nameFro
       console.warn("[users] Could not fetch user from Clerk API:", err);
     }
 
-    // Generate a unique referral code with retry on collision
-    let referralCode = generateReferralCode();
-    let attempts = 0;
-    while (attempts < 5) {
-      const [existing] = await db.select({ id: usersTable.id })
-        .from(usersTable).where(eq(usersTable.referralCode, referralCode));
-      if (!existing) break;
-      referralCode = generateReferralCode();
-      attempts++;
-    }
-
-    const [newUser] = await db.insert(usersTable).values({
-      clerkId,
-      email: resolvedEmail || "",
-      name: resolvedName || null,
-      isAdmin: false,
-      referralCode,
-      signupIp: signupIp || null,
-      userAgent: signupUa || null,
-    }).returning();
-    user = newUser;
-
-    // Send welcome email — fire-and-forget, never blocks the response
+    // ── Clerk tenant migration re-link ────────────────────────────────────────
+    // When switching Clerk tenants (e.g. external → Replit-managed), the same
+    // email address gets a brand-new clerkId. Without this block every existing
+    // user's row — along with their wallet, answers, questions, transactions,
+    // and referrals — would be orphaned while a blank new row was created.
+    //
+    // Strategy: if an existing, non-deleted user already has this email, we
+    // atomically rewrite the old clerkId to the new one across every table that
+    // stores it, then return that row as an existing (isNew=false) user so no
+    // welcome email is sent and no data is lost.
     if (resolvedEmail) {
-      const mail = welcomeEmail({ name: resolvedName, email: resolvedEmail });
-      sendEmail({ to: resolvedEmail, subject: mail.subject, html: mail.html, text: mail.text })
-        .catch(err => console.error("[email] Welcome email error:", err));
-    } else {
-      console.warn(`[email] Skipping welcome email for ${clerkId} — no email address resolved`);
+      const [existingByEmail] = await db
+        .select()
+        .from(usersTable)
+        .where(and(eq(usersTable.email, resolvedEmail), eq(usersTable.isDeleted, false)));
+
+      if (existingByEmail) {
+        const oldClerkId = existingByEmail.clerkId;
+        // Atomically rewrite every clerkId reference. Child tables are updated
+        // before users so no unique-constraint violation can occur mid-transaction.
+        const [relinked] = await db.transaction(async (tx) => {
+          await tx.update(walletsTable)
+            .set({ userId: clerkId }).where(eq(walletsTable.userId, oldClerkId));
+          await tx.update(answersTable)
+            .set({ userId: clerkId }).where(eq(answersTable.userId, oldClerkId));
+          await tx.update(transactionsTable)
+            .set({ userId: clerkId }).where(eq(transactionsTable.userId, oldClerkId));
+          await tx.update(questionsTable)
+            .set({ creatorId: clerkId }).where(eq(questionsTable.creatorId, oldClerkId));
+          await tx.update(referralsTable)
+            .set({ referrerUserId: clerkId }).where(eq(referralsTable.referrerUserId, oldClerkId));
+          await tx.update(referralsTable)
+            .set({ referredUserId: clerkId }).where(eq(referralsTable.referredUserId, oldClerkId));
+          await tx.update(referralClicksTable)
+            .set({ referrerUserId: clerkId }).where(eq(referralClicksTable.referrerUserId, oldClerkId));
+          await tx.update(notificationsTable)
+            .set({ userId: clerkId }).where(eq(notificationsTable.userId, oldClerkId));
+          await tx.update(pushNotificationLogsTable)
+            .set({ userId: clerkId }).where(eq(pushNotificationLogsTable.userId, oldClerkId));
+          // users.clerk_id updated last — other tables reference it conceptually
+          return tx
+            .update(usersTable)
+            .set({ clerkId })
+            .where(eq(usersTable.clerkId, oldClerkId))
+            .returning();
+        });
+        console.info(`[users] Re-linked clerkId for ${resolvedEmail}: ${oldClerkId} → ${clerkId}`);
+        user = relinked;
+        // isNew stays false — fall through to referralCode backfill + wallet ensure
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Only create a fresh account when the email re-link found no match
+    if (!user) {
+      isNew = true;
+
+      // Generate a unique referral code with retry on collision
+      let referralCode = generateReferralCode();
+      let attempts = 0;
+      while (attempts < 5) {
+        const [existing] = await db.select({ id: usersTable.id })
+          .from(usersTable).where(eq(usersTable.referralCode, referralCode));
+        if (!existing) break;
+        referralCode = generateReferralCode();
+        attempts++;
+      }
+
+      const [newUser] = await db.insert(usersTable).values({
+        clerkId,
+        email: resolvedEmail || "",
+        name: resolvedName || null,
+        isAdmin: false,
+        referralCode,
+        signupIp: signupIp || null,
+        userAgent: signupUa || null,
+      }).returning();
+      user = newUser;
+
+      // Send welcome email — fire-and-forget, never blocks the response
+      if (resolvedEmail) {
+        const mail = welcomeEmail({ name: resolvedName, email: resolvedEmail });
+        sendEmail({ to: resolvedEmail, subject: mail.subject, html: mail.html, text: mail.text })
+          .catch(err => console.error("[email] Welcome email error:", err));
+      } else {
+        console.warn(`[email] Skipping welcome email for ${clerkId} — no email address resolved`);
+      }
     }
   }
 
