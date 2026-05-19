@@ -17,6 +17,7 @@ import { ReplitConnectors } from "@replit/connectors-sdk";
 import { logger } from "./logger.js";
 
 const DRIVE_FOLDER_NAME = "opinoza-backups";
+const DRIVE_MAX_BACKUPS = 5;
 
 async function findOrCreateFolder(connectors: ReplitConnectors): Promise<string> {
   // Search for an existing folder with this name (not trashed)
@@ -141,8 +142,59 @@ export async function uploadIdDocumentToDrive(
   };
 }
 
-export async function uploadBackupToDrive(localFilePath: string): Promise<void> {
-  const filename = basename(localFilePath);
+/**
+ * Lists all backup files in the Drive folder, sorted newest-first,
+ * and permanently deletes any beyond DRIVE_MAX_BACKUPS.
+ */
+async function pruneOldDriveBackups(connectors: ReplitConnectors, folderId: string): Promise<void> {
+  const listParams = new URLSearchParams({
+    q: `'${folderId}' in parents and trashed=false and name contains 'opinoza_'`,
+    fields: "files(id,name,createdTime)",
+    orderBy: "createdTime desc",
+    pageSize: "50",
+  });
+
+  const listRes = await connectors.proxy(
+    "google-drive",
+    `/drive/v3/files?${listParams.toString()}`,
+    { method: "GET" },
+  );
+
+  if (!listRes.ok) {
+    const body = await listRes.text();
+    logger.warn(`[drive-upload] Could not list Drive backups for pruning (${listRes.status}): ${body}`);
+    return;
+  }
+
+  const data = await listRes.json() as { files: Array<{ id: string; name: string; createdTime: string }> };
+  const files = (data.files || []).filter(f => f.name.endsWith(".sql.gz"));
+
+  logger.info(`[drive-upload] Drive backup count: ${files.length} (keeping newest ${DRIVE_MAX_BACKUPS})`);
+
+  if (files.length <= DRIVE_MAX_BACKUPS) return;
+
+  const toDelete = files.slice(DRIVE_MAX_BACKUPS);
+  for (const file of toDelete) {
+    try {
+      const delRes = await connectors.proxy(
+        "google-drive",
+        `/drive/v3/files/${file.id}`,
+        { method: "DELETE" },
+      );
+      if (delRes.ok || delRes.status === 204) {
+        logger.info(`[drive-upload] Deleted old Drive backup: ${file.name}`);
+      } else {
+        const body = await delRes.text();
+        logger.warn(`[drive-upload] Could not delete Drive backup ${file.name} (${delRes.status}): ${body}`);
+      }
+    } catch (err) {
+      logger.warn({ err }, `[drive-upload] Exception deleting Drive backup: ${file.name}`);
+    }
+  }
+}
+
+export async function uploadBackupToDrive(localFilePath: string, filenameOverride?: string): Promise<void> {
+  const filename = filenameOverride ?? basename(localFilePath);
   logger.info(`[drive-upload] Starting Google Drive upload: ${filename}`);
 
   // Always create a fresh connectors instance — tokens expire
@@ -211,4 +263,12 @@ export async function uploadBackupToDrive(localFilePath: string): Promise<void> 
   logger.info(
     `[drive-upload] Upload complete: ${result.name} → Drive folder "${DRIVE_FOLDER_NAME}" (fileId: ${result.id}, ${sizeKB} KB)`,
   );
+
+  // Prune old Drive backups — keep only the newest DRIVE_MAX_BACKUPS files.
+  // Errors here are non-fatal (the upload already succeeded).
+  try {
+    await pruneOldDriveBackups(connectors, folderId);
+  } catch (err) {
+    logger.warn({ err }, "[drive-upload] Drive backup pruning failed — ignoring");
+  }
 }

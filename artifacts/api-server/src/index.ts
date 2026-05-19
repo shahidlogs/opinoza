@@ -5,7 +5,7 @@ import { seedStarterQuestions } from "./lib/seed";
 import { backfillApproveReferrals } from "./lib/backfill";
 import { backfillLang } from "./lib/backfillLang";
 import { ensureIndexes } from "./lib/ensureIndexes";
-import { scheduleBackup } from "./lib/backup.js";
+import { scheduleBackup, checkAndRunStartupBackup } from "./lib/backup.js";
 import { scheduleEngagementPush } from "./lib/daily-engagement.js";
 
 const rawPort = process.env["PORT"];
@@ -43,5 +43,13 @@ migrateCategories()
 
       scheduleBackup();
       scheduleEngagementPush();
+
+      // Run a startup backup if the most recent local backup is stale.
+      // This is the primary backup trigger — production containers are frequently
+      // redeployed before the 02:00 UTC cron window is reached, so an in-process
+      // cron alone is not reliable. Fire-and-forget; errors are fully logged inside.
+      checkAndRunStartupBackup().catch(err =>
+        logger.error({ err }, "[backup] Startup backup check failed"),
+      );
     });
   });
