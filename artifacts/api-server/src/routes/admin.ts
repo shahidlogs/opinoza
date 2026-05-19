@@ -7,6 +7,7 @@ import { cleanupRejectedAnswers } from "../lib/cleanup-rejected-answers.js";
 import { eq, count, sum, and, gte, desc, asc, inArray, sql as drizzleSql } from "drizzle-orm";
 import { notifCacheInvalidate } from "../lib/notifCache";
 import { invalidateFlagStatusCache } from "./answers.js";
+import { runBackup } from "../lib/backup.js";
 
 const router: IRouter = Router();
 
@@ -2554,6 +2555,32 @@ router.post("/admin/test-email", async (req, res): Promise<void> => {
     console.error(`[test-email] ❌ Failed to ${to}: ${error}`);
     res.json({ ok: false, sent: false, smtpUser, error });
   }
+});
+
+// POST /admin/backup/run — trigger an immediate database backup.
+// Auth: Clerk admin session OR X-Backup-Secret header matching BACKUP_TRIGGER_SECRET env var.
+// Response is immediate (202 Accepted); backup runs in background so the request never times out.
+// Final result (filename, size, driveFileId) is written to server logs.
+router.post("/backup/run", async (req, res) => {
+  const secret = process.env["BACKUP_TRIGGER_SECRET"];
+  const headerSecret = req.headers["x-backup-secret"];
+  const isSecretAuth = secret && headerSecret === secret;
+
+  if (!isSecretAuth) {
+    const adminId = await checkAdmin(req, res);
+    if (!adminId) return;
+  }
+
+  const startedAt = new Date().toISOString();
+  req.log.info({ via: isSecretAuth ? "secret-header" : "clerk-admin" }, "[backup] Manual backup triggered via admin endpoint");
+
+  // Fire-and-forget so large backups don't time out the HTTP connection.
+  // Result (filename, size, driveFileId) is fully logged by runBackup() itself.
+  res.status(202).json({ ok: true, triggeredAt: startedAt, message: "Backup started in background — check server logs for result." });
+
+  runBackup()
+    .then(result => req.log.info({ filename: result.filename, sizeKB: result.sizeKB, driveFileId: result.driveFileId }, "[backup] Manual backup completed"))
+    .catch(err => req.log.error({ err }, "[backup] Manual backup failed"));
 });
 
 export default router;

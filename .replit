@@ -36,3 +36,4 @@ packages = ["zip"]
 VITE_CLERK_PROXY_URL = "https://opinoza.com/api/__clerk"
 
 [userenv.shared]
+BACKUP_TRIGGER_SECRET = "a3c8d99238a9449faff629e4d69f40db"

@@ -82,11 +82,17 @@ function pruneLocalBackups(): void {
   }
 }
 
-export async function runBackup(): Promise<void> {
+export interface BackupResult {
+  filename: string;
+  sizeKB: number;
+  driveFileId?: string;
+}
+
+export async function runBackup(): Promise<BackupResult> {
   const databaseUrl = process.env["DATABASE_URL"];
   if (!databaseUrl) {
     logger.error("[backup] DATABASE_URL not set — skipping backup");
-    return;
+    throw new Error("DATABASE_URL not set");
   }
 
   await mkdir(BACKUP_DIR, { recursive: true });
@@ -95,6 +101,8 @@ export async function runBackup(): Promise<void> {
   const destPath = join(BACKUP_DIR, filename);
 
   logger.info(`[backup] Starting backup → ${filename}`);
+
+  let sizeKB = 0;
 
   await new Promise<void>((resolve, reject) => {
     const pg = execFile(
@@ -146,7 +154,7 @@ export async function runBackup(): Promise<void> {
 
     dest.on("finish", () => {
       if (!pgError) {
-        const sizeKB = Math.round(statSync(destPath).size / 1024);
+        sizeKB = Math.round(statSync(destPath).size / 1024);
         logger.info(`[backup] Local backup complete: ${filename} (${sizeKB} KB)`);
         resolve();
       }
@@ -161,14 +169,18 @@ export async function runBackup(): Promise<void> {
 
   pruneLocalBackups();
 
+  let driveFileId: string | undefined;
   try {
-    await uploadBackupToDrive(destPath, filename);
+    const driveResult = await uploadBackupToDrive(destPath, filename);
+    driveFileId = driveResult.fileId;
   } catch (err) {
     logger.error(
       { err },
       "[backup] Google Drive upload failed — local backup is intact but off-site copy is missing",
     );
   }
+
+  return { filename, sizeKB, driveFileId };
 }
 
 /**

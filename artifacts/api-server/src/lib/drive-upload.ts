@@ -193,7 +193,7 @@ async function pruneOldDriveBackups(connectors: ReplitConnectors, folderId: stri
   }
 }
 
-export async function uploadBackupToDrive(localFilePath: string, filenameOverride?: string): Promise<void> {
+export async function uploadBackupToDrive(localFilePath: string, filenameOverride?: string): Promise<{ fileId: string }> {
   const filename = filenameOverride ?? basename(localFilePath);
   logger.info(`[drive-upload] Starting Google Drive upload: ${filename}`);
 
@@ -271,4 +271,6 @@ export async function uploadBackupToDrive(localFilePath: string, filenameOverrid
   } catch (err) {
     logger.warn({ err }, "[drive-upload] Drive backup pruning failed — ignoring");
   }
+
+  return { fileId: result.id };
 }
