@@ -4,6 +4,7 @@ import { VALID_CATEGORIES } from "@workspace/api-zod";
 import { logger } from "./logger";
 
 const CATEGORY_MAP: Record<string, string> = {
+  "Technology":     "Science & Technology",
   "Fun":            "Entertainment",
   "Preferences":    "Personal Profile",
   "Personal":       "Personal Profile",

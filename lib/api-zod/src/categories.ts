@@ -1,5 +1,5 @@
 export const VALID_CATEGORIES = [
-  "Technology",
+  "Science & Technology",
   "Food & Dining",
   "Health & Wellness",
   "Transport & Travel",
@@ -21,7 +21,7 @@ export const VALID_CATEGORIES = [
 export type Category = (typeof VALID_CATEGORIES)[number];
 
 export const HOME_DISPLAY_CATEGORIES: Category[] = [
-  "Technology",
+  "Science & Technology",
   "Food & Dining",
   "Health & Wellness",
   "Transport & Travel",
@@ -37,7 +37,7 @@ export const HOME_DISPLAY_CATEGORIES: Category[] = [
 ];
 
 export const CATEGORY_ICONS: Record<Category, string> = {
-  Technology: "💻",
+  "Science & Technology": "💻",
   "Food & Dining": "🍔",
   "Health & Wellness": "💪",
   "Transport & Travel": "✈️",
@@ -57,6 +57,7 @@ export const CATEGORY_ICONS: Record<Category, string> = {
 };
 
 export const CATEGORY_MIGRATION_MAP: Record<string, Category> = {
+  Technology: "Science & Technology",
   Fun: "Entertainment",
   Preferences: "Personal Profile",
   Personal: "Lifestyle",

@@ -98,7 +98,7 @@ const SEED_QUESTIONS = [
     title: "Android or iPhone — which team are you on?",
     description: "When it comes to smartphones, there are two camps. Which is yours?",
     type: "poll",
-    category: "Technology",
+    category: "Science & Technology",
     pollOptions: ["Android 🤖", "iPhone 🍎", "I switch between both", "Neither / Other"],
   },
   {
@@ -133,7 +133,7 @@ const SEED_QUESTIONS = [
     title: "iPhone or Android for your next phone?",
     description: "When your current phone dies tomorrow, which OS would you pick?",
     type: "poll",
-    category: "Technology",
+    category: "Science & Technology",
     pollOptions: ["iPhone (iOS)", "Android", "I haven't decided yet"],
   },
 
@@ -160,7 +160,7 @@ const SEED_QUESTIONS = [
     title: "Rate your current mobile network provider",
     description: "Consider call quality, data speed, coverage, and customer service.",
     type: "rating",
-    category: "Technology",
+    category: "Science & Technology",
   },
   {
     title: "How would you rate Netflix as a streaming platform?",
@@ -178,7 +178,7 @@ const SEED_QUESTIONS = [
     title: "How satisfied are you with your home internet provider?",
     description: "Speed, reliability, customer support, and pricing.",
     type: "rating",
-    category: "Technology",
+    category: "Science & Technology",
   },
   {
     title: "Rate Amazon's shopping experience",

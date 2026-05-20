@@ -69,7 +69,7 @@ export default function BlogHowItWorks() {
 
           <H3>Step 2 — Browse and Answer Questions</H3>
           <P>
-            The main feed shows you a rotating list of active questions. These are organized by category — Technology, Health, Lifestyle, Sports, Entertainment, and more. You can filter by category to find questions you actually care about, or simply scroll through and answer whatever catches your eye.
+            The main feed shows you a rotating list of active questions. These are organized by category — Science & Technology, Health, Lifestyle, Sports, Entertainment, and more. You can filter by category to find questions you actually care about, or simply scroll through and answer whatever catches your eye.
           </P>
           <P>
             Questions come in three formats: polls (multiple choice), star ratings (1–5 stars), and short answers (a sentence or two). Each takes a few seconds. You can answer as many as you like, and your 1¢ reward is credited to your wallet the moment you submit.
