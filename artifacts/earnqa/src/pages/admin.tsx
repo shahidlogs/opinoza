@@ -31,7 +31,7 @@ const REJECTION_REASONS = [
   "Grammar or spelling mistakes",
   "Missing or weak description",
   "Duplicate or very similar question",
-  "Not suitable for our platform",
+  "Not suitable or weak question",
 ] as const;
 
 function RejectQuestionModal({ reason, onReasonChange, onConfirm, onClose, isPending }: {

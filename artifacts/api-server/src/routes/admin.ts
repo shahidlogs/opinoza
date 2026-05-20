@@ -144,7 +144,7 @@ const REJECTION_REASONS = [
   "Grammar or spelling mistakes",
   "Missing or weak description",
   "Duplicate or very similar question",
-  "Not suitable for our platform",
+  "Not suitable or weak question",
 ] as const;
 
 router.post("/admin/questions/:id/reject", async (req, res): Promise<void> => {
