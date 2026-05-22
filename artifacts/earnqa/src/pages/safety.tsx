@@ -88,7 +88,7 @@ export default function Safety() {
             </p>
             <ul className="list-disc pl-5 space-y-1 mt-2">
               <li>Use the report button available on any question or answer in the app</li>
-              <li>Email us directly at <strong className="text-foreground">support.opinoza@gmail.com</strong> with a description of the content and any relevant details</li>
+              <li>Email us directly at <strong className="text-foreground">support@opinoza.com</strong> with a description of the content and any relevant details</li>
             </ul>
             <p>
               Reports involving child safety are treated as the highest priority and reviewed
@@ -115,14 +115,14 @@ export default function Safety() {
             </p>
             <div className="mt-3 p-4 bg-muted/40 rounded-xl space-y-1">
               <p><strong className="text-foreground">Email:</strong>{" "}
-                <a href="mailto:support.opinoza@gmail.com" className="text-blue-600 hover:underline">
-                  support.opinoza@gmail.com
+                <a href="mailto:support@opinoza.com" className="text-blue-600 hover:underline">
+                  support@opinoza.com
                 </a>
               </p>
               <p><strong className="text-foreground">Platform:</strong> Opinoza — <a href="https://opinoza.com" className="text-blue-600 hover:underline">https://opinoza.com</a></p>
             </div>
             <p className="mt-3">
-              We are committed to responding to all child safety reports within 24 hours.
+              We are committed to reviewing all child safety reports as soon as possible. Reports are treated as the highest priority.
             </p>
           </Section>
 

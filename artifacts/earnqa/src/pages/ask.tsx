@@ -357,7 +357,7 @@ export default function Ask() {
               <p className="text-xs text-muted-foreground mt-3 text-center">
                 {isAdmin
                   ? `25¢ is deducted from your wallet. As admin, questions are published instantly.`
-                  : `Reviewed within 24–48 hours. If rejected, 20¢ is refunded (5¢ penalty retained). You earn 0.5¢ per answer once live.`}
+                  : `Your question is in the review queue. If rejected, 20¢ is refunded (5¢ penalty retained). You earn 0.5¢ per answer once live.`}
               </p>
               {createQuestion.isError && (
                 <p className="text-sm text-destructive text-center mt-2">
@@ -428,7 +428,7 @@ export default function Ask() {
           </div>
           <div className="flex gap-3">
             <span className="font-bold text-amber-600">2.</span>
-            <span>Admins review within 24–48h — spam and duplicates are rejected</span>
+            <span>Admins review questions in the queue — spam and duplicates are rejected</span>
           </div>
           <div className="flex gap-3">
             <span className="font-bold text-amber-600">3.</span>

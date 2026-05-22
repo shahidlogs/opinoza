@@ -643,6 +643,15 @@ router.patch("/admin/users/:id/name", async (req, res): Promise<void> => {
     .where(eq(usersTable.clerkId, targetId))
     .returning({ clerkId: usersTable.clerkId, name: usersTable.name, nameLocked: usersTable.nameLocked });
 
+  // Sync creatorName on all questions created by this user so "Posted by" displays
+  // the current name everywhere (question detail, feed, admin panel).
+  const updatedQuestions = await db.update(questionsTable)
+    .set({ creatorName: newName })
+    .where(eq(questionsTable.creatorId, targetId))
+    .returning({ id: questionsTable.id });
+
+  req.log.info({ targetId, updatedQuestions: updatedQuestions.length }, "[admin] Synced creatorName on questions");
+
   // Audit record — 0¢ transaction so it appears in the user's transaction history
   // with full context: who changed it, from what, to what.
   await db.insert(transactionsTable).values({
@@ -882,7 +891,7 @@ router.post("/admin/withdrawals/:id/approve", async (req, res): Promise<void> =>
     userId: transaction.userId,
     type: "withdrawal_approved",
     title: "Withdrawal approved",
-    message: "Your withdrawal request has been approved. Payment will be transferred within 7 working days.",
+    message: "Your withdrawal request has been approved. Payment will be transferred to your account as soon as possible.",
     relatedId: transaction.id,
   }).then(() => notifCacheInvalidate(transaction.userId))
     .catch(err => console.error("[withdrawal] Failed to insert notification:", err));
@@ -890,7 +899,7 @@ router.post("/admin/withdrawals/:id/approve", async (req, res): Promise<void> =>
   // Push — fire-and-forget (no email)
   pushBonusReceived(
     transaction.userId,
-    "Your withdrawal request has been approved. Payment will be transferred within 7 working days.",
+    "Your withdrawal request has been approved. Payment will be transferred to your account as soon as possible.",
     `withdrawal_approved_${transaction.id}`,
   ).catch(err => console.error("[push] withdrawal approved error:", err));
 

@@ -43,7 +43,7 @@ export default function Terms() {
           </Section>
 
           <Section title="6. Withdrawals">
-            <p>The minimum withdrawal amount is $20.00 (2000¢). Withdrawal requests are reviewed within 2–3 business days. We reserve the right to withhold withdrawals pending investigation of suspected fraud or abuse.</p>
+            <p>The minimum withdrawal amount is $20.00 (2000¢). Withdrawal requests are reviewed in the order they are received. We reserve the right to withhold withdrawals pending investigation of suspected fraud or abuse.</p>
           </Section>
 
           <Section title="7. Answer Quality & Penalties">

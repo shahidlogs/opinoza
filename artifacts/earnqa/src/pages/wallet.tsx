@@ -171,9 +171,9 @@ const TX_CONFIG: Record<string, { icon: React.ReactNode; label: string }> = {
 };
 
 const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
-  pending:      { cls: "bg-amber-50 text-amber-700 border-amber-100",   label: "Under Review (up to 3 working days)" },
-  approved:     { cls: "bg-blue-50 text-blue-700 border-blue-100",      label: "Approved – Payment Processing (up to 7 working days)" },
-  completed:    { cls: "bg-blue-50 text-blue-700 border-blue-100",      label: "Approved – Payment Processing (up to 7 working days)" },
+  pending:      { cls: "bg-amber-50 text-amber-700 border-amber-100",   label: "Under Review – In Queue" },
+  approved:     { cls: "bg-blue-50 text-blue-700 border-blue-100",      label: "Approved – Payment Processing" },
+  completed:    { cls: "bg-blue-50 text-blue-700 border-blue-100",      label: "Approved – Payment Processing" },
   transferred:  { cls: "bg-green-50 text-green-700 border-green-100",   label: "Paid" },
   rejected:     { cls: "bg-red-50 text-red-700 border-red-100",         label: "Rejected" },
 };
@@ -367,7 +367,7 @@ export default function Wallet() {
         setBankName("");
         setUsdtAddress("");
         setUsdtOwnerName("");
-        setSuccessMsg("Your withdrawal request has been submitted and will be reviewed within 3 working days.");
+        setSuccessMsg("Your withdrawal request has been submitted and is in the queue. We will review it as soon as possible.");
         setTimeout(() => setSuccessMsg(""), 5000);
         queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetTransactionsQueryKey() });
@@ -853,7 +853,7 @@ export default function Wallet() {
               </div>
 
               <p className="text-xs text-muted-foreground text-center">
-                Withdrawals are reviewed within 3 working days. Your balance is held immediately.
+                Your withdrawal is in the queue and will be reviewed as soon as possible. Your balance is held immediately.
               </p>
             </div>
           </motion.div>

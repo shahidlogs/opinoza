@@ -322,7 +322,7 @@ router.post("/wallet/withdraw", withdrawRateLimit, async (req, res): Promise<voi
     userId: auth.userId,
     type: "withdrawal_submitted",
     title: "Withdrawal request submitted",
-    message: "Your withdrawal request has been submitted and will be reviewed within 3 working days.",
+    message: "Your withdrawal request has been submitted and is in the queue. We will review it as soon as possible.",
     relatedId: transaction.id,
   }).then(() => notifCacheInvalidate(auth.userId!))
     .catch(err => console.error("[withdrawal] Failed to insert submission notification:", err));

@@ -71,7 +71,7 @@ export default function Contact() {
             }
             title="Report Abuse"
             body={
-              <p>To report inappropriate content or suspected fraud, please email us with the subject line <span className="font-medium text-foreground">"Abuse Report"</span>. We take all reports seriously and respond within 24 hours.</p>
+              <p>To report inappropriate content or suspected fraud, please email us with the subject line <span className="font-medium text-foreground">"Abuse Report"</span>. We take all reports seriously and respond as soon as possible.</p>
             }
           />
 
@@ -103,7 +103,7 @@ export default function Contact() {
           className="mt-8 bg-amber-50 border border-amber-100 rounded-2xl p-5 text-center"
         >
           <p className="text-sm text-amber-800">
-            <span className="font-semibold">Typical response time:</span> within 1–2 business days.
+            <span className="font-semibold">Typical response time:</span> we aim to respond as soon as possible.
           </p>
         </motion.div>
       </motion.div>

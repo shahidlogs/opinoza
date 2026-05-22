@@ -322,7 +322,7 @@ export function withdrawalApprovedEmail(opts: {
                 <tr>
                   <td style="padding:16px 20px;">
                     <p style="margin:0;font-size:14px;color:#92400e;line-height:1.6;">
-                      The payment will be transferred to your account within <strong>7 days</strong>. Please ensure your payment details are correct in your profile.
+                      Your payment is being processed and will be transferred to your account as soon as possible. Please ensure your payment details are correct in your profile.
                     </p>
                   </td>
                 </tr>
@@ -371,7 +371,7 @@ Your withdrawal request has been approved.
 
 Approved amount: $${dollars}
 
-The payment will be transferred to your account within 7 days. Please ensure your payment details are correct in your profile.
+Your payment is being processed and will be transferred to your account as soon as possible. Please ensure your payment details are correct in your profile.
 
 View your wallet: ${APP_BASE_URL}/wallet
 
