@@ -5,6 +5,7 @@ import { seedStarterQuestions } from "./lib/seed";
 import { backfillApproveReferrals } from "./lib/backfill";
 import { backfillLang } from "./lib/backfillLang";
 import { ensureIndexes } from "./lib/ensureIndexes";
+import { syncCreatorNames } from "./lib/syncCreatorNames";
 import { scheduleBackup, checkAndRunStartupBackup } from "./lib/backup.js";
 import { scheduleEngagementPush } from "./lib/daily-engagement.js";
 
@@ -32,6 +33,8 @@ migrateCategories()
   .catch(err => logger.error({ err }, "Lang backfill failed"))
   .then(() => ensureIndexes())
   .catch(err => logger.error({ err }, "Index setup failed"))
+  .then(() => syncCreatorNames())
+  .catch(err => logger.error({ err }, "Creator name sync failed"))
   .finally(() => {
     app.listen(port, (err) => {
       if (err) {
