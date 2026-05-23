@@ -202,7 +202,7 @@ export default function Ask() {
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">Description (optional)</label>
+              <label className="block text-sm font-semibold text-foreground mb-2">Description</label>
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
