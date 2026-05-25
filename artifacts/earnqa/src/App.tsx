@@ -1,7 +1,6 @@
 // ─── MAINTENANCE MODE ────────────────────────────────────────────────────────
-// Set VITE_MAINTENANCE_MODE=true in the environment to show the maintenance
-// screen to all visitors. Remove or set to "false" to restore normal operation.
-const MAINTENANCE_MODE = import.meta.env.VITE_MAINTENANCE_MODE === "true";
+// Toggle with MAINTENANCE_MODE=true on the API server (no frontend rebuild needed).
+// Admins and editors bypass maintenance automatically via /api/maintenance-status.
 
 function MaintenancePage() {
   return (
@@ -63,9 +62,7 @@ function MaintenancePage() {
           margin: "0 0 32px",
         }}
       >
-        Opinoza is temporarily under maintenance while we upgrade our system.
-        <br />
-        Please check back soon.
+        Opinoza is under maintenance. We are upgrading the system and will be back soon.
       </p>
 
       <div
@@ -88,6 +85,18 @@ function MaintenancePage() {
         </svg>
         We'll be back shortly
       </div>
+
+      <a
+        href="/sign-in"
+        style={{
+          marginTop: 32,
+          fontSize: 12,
+          color: "#a8a29e",
+          textDecoration: "none",
+        }}
+      >
+        Admin? Sign in to continue →
+      </a>
     </div>
   );
 }
@@ -426,6 +435,46 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   );
 }
 
+/**
+ * Fetches /api/maintenance-status (always exempt from maintenance middleware).
+ * Waits for Clerk to load so the auth token is included — this prevents
+ * a flash of the maintenance screen for admin/editor users.
+ * Sign-in and sign-up routes always render regardless, so admins can log in.
+ */
+function MaintenanceGate({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const { isLoaded } = useUser();
+  const { session } = useClerk();
+  const [active, setActive] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = session ? await session.getToken() : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const r = await fetch(`${basePath}/api/maintenance-status`, { headers });
+        if (!cancelled) setActive((await r.json()).active === true);
+      } catch {
+        if (!cancelled) setActive(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  // Re-check when auth state changes (admin logs in → gets access immediately)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, session?.id]);
+
+  // Always render sign-in/sign-up so admins can authenticate during maintenance
+  const isAuthRoute = location.startsWith("/sign-in") || location.startsWith("/sign-up");
+  if (isAuthRoute) return <>{children}</>;
+
+  if (active === null) return <PageFallback />;
+  if (active) return <MaintenancePage />;
+  return <>{children}</>;
+}
+
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
 
@@ -444,6 +493,7 @@ function ClerkProviderWithRoutes() {
         <ClerkAuthTokenSetter />
         <ReferralCapture />
         <ReferralClaimHandler />
+        <MaintenanceGate>
         <Layout>
           <Suspense fallback={<PageFallback />}>
             <Switch>
@@ -490,16 +540,13 @@ function ClerkProviderWithRoutes() {
             </Switch>
           </Suspense>
         </Layout>
+        </MaintenanceGate>
       </QueryClientProvider>
     </ClerkProvider>
   );
 }
 
 function App() {
-  if (MAINTENANCE_MODE) {
-    return <MaintenancePage />;
-  }
-
   return (
     <TooltipProvider>
       <WouterRouter base={basePath}>
