@@ -3,6 +3,7 @@ import { getAuth } from "@clerk/express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { HealthCheckResponse } from "@workspace/api-zod";
+import { getMaintenanceActive, isEnvVarOverride } from "../lib/maintenanceSettings";
 
 const router: IRouter = Router();
 
@@ -14,17 +15,19 @@ router.get("/healthz", (_req, res) => {
 /**
  * GET /maintenance-status
  * Always exempt from the maintenance-mode middleware.
- * Returns { active: true } when the site is in maintenance AND the caller is
- * not an admin/editor; { active: false } otherwise.
- * The frontend polls this to decide whether to show the maintenance page.
+ * Returns { active: boolean } — true means the caller should see the
+ * maintenance page; false means they can proceed normally.
+ * Admins and editors always receive { active: false }.
  */
 router.get("/maintenance-status", async (req, res): Promise<void> => {
-  if (process.env.MAINTENANCE_MODE !== "true") {
+  const active = await getMaintenanceActive();
+
+  if (!active) {
     res.json({ active: false });
     return;
   }
 
-  // Check if the caller is a privileged user
+  // Maintenance is on — check if the caller is privileged
   try {
     const { userId } = getAuth(req);
     if (userId) {
@@ -38,10 +41,10 @@ router.get("/maintenance-status", async (req, res): Promise<void> => {
       }
     }
   } catch {
-    // On error, default to showing maintenance to be safe
+    // On error, default to showing maintenance (safe)
   }
 
-  res.json({ active: true });
+  res.json({ active: true, envOverride: isEnvVarOverride() });
 });
 
 export default router;

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { db, questionsTable, usersTable, transactionsTable, answersTable, walletsTable, notificationsTable, answerFlagsTable, pushNotificationLogsTable, bannedIpsTable } from "@workspace/db";
+import { db, questionsTable, usersTable, transactionsTable, answersTable, walletsTable, notificationsTable, answerFlagsTable, pushNotificationLogsTable, bannedIpsTable, systemSettingsTable } from "@workspace/db";
+import { getMaintenanceActive, setMaintenanceActive, isEnvVarOverride } from "../lib/maintenanceSettings";
 import { sendEmail, sendEmailDirect, withdrawalApprovedEmail, withdrawalRejectedEmail, questionRejectedEmail, paymentTransferredEmail } from "../lib/email.js";
 import { pushQuestionApproved, pushBonusReceived, PUSH_CONFIG } from "../lib/push.js";
 import { cleanupRejectedAnswers } from "../lib/cleanup-rejected-answers.js";
@@ -2570,6 +2571,52 @@ router.post("/admin/test-email", async (req, res): Promise<void> => {
 // Auth: Clerk admin session OR X-Backup-Secret header matching BACKUP_TRIGGER_SECRET env var.
 // Response is immediate (202 Accepted); backup runs in background so the request never times out.
 // Final result (filename, size, driveFileId) is written to server logs.
+// ── System Settings ──────────────────────────────────────────────────────────
+
+/**
+ * GET /admin/settings/maintenance
+ * Returns current maintenance-mode state and its source (env-var override vs DB).
+ * Accessible by all admins (editors cannot change settings but can read).
+ */
+router.get("/admin/settings/maintenance", async (req, res): Promise<void> => {
+  const adminId = await checkAdmin(req, res);
+  if (!adminId) return;
+
+  const active = await getMaintenanceActive();
+  const envOverride = isEnvVarOverride();
+  res.json({ active, envOverride });
+});
+
+/**
+ * POST /admin/settings/maintenance
+ * Body: { active: boolean }
+ * Toggles maintenance mode in the DB. Only full admins (not editors) may do this.
+ */
+router.post("/admin/settings/maintenance", async (req, res): Promise<void> => {
+  const adminId = await checkAdmin(req, res);
+  if (!adminId) return;
+
+  // Verify caller is a full admin (isAdmin=true), not just an editor
+  const [caller] = await db
+    .select({ isAdmin: usersTable.isAdmin })
+    .from(usersTable)
+    .where(eq(usersTable.clerkId, adminId));
+  if (!caller?.isAdmin) {
+    res.status(403).json({ error: "forbidden", message: "Only full admins can change maintenance mode." });
+    return;
+  }
+
+  const { active } = req.body as { active?: boolean };
+  if (typeof active !== "boolean") {
+    res.status(400).json({ error: "bad_request", message: "Body must include { active: boolean }." });
+    return;
+  }
+
+  await setMaintenanceActive(active, adminId);
+  req.log.info({ active, by: adminId }, "[settings] Maintenance mode updated");
+  res.json({ ok: true, active, envOverride: isEnvVarOverride() });
+});
+
 router.post("/admin/backup/run", async (req, res) => {
   const secret = process.env["BACKUP_TRIGGER_SECRET"];
   const headerSecret = req.headers["x-backup-secret"];

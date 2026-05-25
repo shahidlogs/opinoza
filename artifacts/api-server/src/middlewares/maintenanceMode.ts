@@ -2,6 +2,7 @@ import { type Request, type Response, type NextFunction } from "express";
 import { getAuth } from "@clerk/express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { getMaintenanceActive } from "../lib/maintenanceSettings";
 
 const HEALTH_PATHS = new Set(["/healthz", "/api/healthz"]);
 
@@ -20,39 +21,26 @@ async function isPrivilegedUser(req: Request): Promise<boolean> {
 }
 
 export function maintenanceMode(req: Request, res: Response, next: NextFunction): void {
-  if (process.env.MAINTENANCE_MODE !== "true") {
-    next();
-    return;
-  }
-
   const path = req.path || req.originalUrl.split("?")[0];
 
-  // Always pass: health checks
-  if (HEALTH_PATHS.has(path)) {
+  // Always pass: health checks and the status endpoint
+  if (HEALTH_PATHS.has(path) || path === "/maintenance-status" || path === "/api/maintenance-status") {
     next();
     return;
   }
 
-  // Always pass: the status endpoint the frontend polls
-  if (path === "/maintenance-status" || path === "/api/maintenance-status") {
-    next();
-    return;
-  }
+  getMaintenanceActive()
+    .then((active) => {
+      if (!active) { next(); return; }
 
-  // Allow admin/editor users through (async — wrap to keep Express sync signature)
-  isPrivilegedUser(req).then((privileged) => {
-    if (privileged) {
-      next();
-      return;
-    }
-    res.status(503).json({
-      error: "maintenance_mode",
-      message: "Opinoza is under maintenance. We are upgrading the system and will be back soon.",
-    });
-  }).catch(() => {
-    res.status(503).json({
-      error: "maintenance_mode",
-      message: "Opinoza is under maintenance. We are upgrading the system and will be back soon.",
-    });
-  });
+      // Maintenance is active — allow privileged users through
+      return isPrivilegedUser(req).then((privileged) => {
+        if (privileged) { next(); return; }
+        res.status(503).json({
+          error: "maintenance_mode",
+          message: "Opinoza is under maintenance. We are upgrading the system and will be back soon.",
+        });
+      });
+    })
+    .catch(() => next()); // on unexpected error don't block the request
 }

@@ -22,7 +22,7 @@ import {
   VALID_CATEGORIES,
 } from "@workspace/api-client-react";
 
-type AdminTab = "questions" | "all-questions" | "users" | "withdrawals" | "stats" | "referrals" | "flags" | "verifications";
+type AdminTab = "questions" | "all-questions" | "users" | "withdrawals" | "stats" | "referrals" | "flags" | "verifications" | "settings";
 
 const REJECTION_REASONS = [
   "Not an opinion, preference, habit, or behavior-based question",
@@ -1260,6 +1260,12 @@ export default function Admin() {
   const [banIp, setBanIp] = useState(false);
   const [banToggling, setBanToggling] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<string>("");
+  // ── Maintenance mode settings ──────────────────────────────────────────────
+  const [maintenanceActive, setMaintenanceActive] = useState<boolean | null>(null);
+  const [maintenanceEnvOverride, setMaintenanceEnvOverride] = useState(false);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [maintenanceUpdating, setMaintenanceUpdating] = useState(false);
+  const [maintenanceMsg, setMaintenanceMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   // ── Per-tab paginated data (lazy-loaded, not React Query) ─────────────────
   const [adminCounts, setAdminCounts] = useState<{ pendingQuestions: number; pendingWithdrawals: number; pendingVerifications: number; pendingFlags: number } | null>(null);
   // Pending questions (paginated)
@@ -1445,6 +1451,47 @@ export default function Admin() {
     } finally { setWithdrawalsLoading(false); }
   }, [getToken]);
 
+  const fetchMaintenanceSettings = useCallback(async () => {
+    setMaintenanceLoading(true);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/settings/maintenance", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: AbortSignal.timeout(8000),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setMaintenanceActive(json.active ?? false);
+        setMaintenanceEnvOverride(json.envOverride ?? false);
+      }
+    } catch { /* ignore */ }
+    finally { setMaintenanceLoading(false); }
+  }, [getToken]);
+
+  const toggleMaintenance = useCallback(async (active: boolean) => {
+    setMaintenanceUpdating(true);
+    setMaintenanceMsg(null);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/settings/maintenance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ active }),
+        signal: AbortSignal.timeout(8000),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setMaintenanceActive(json.active);
+        setMaintenanceEnvOverride(json.envOverride ?? false);
+        setMaintenanceMsg({ type: "success", text: active ? "Maintenance mode enabled — normal users will see the maintenance page." : "Maintenance mode disabled — site is live for all users." });
+      } else {
+        setMaintenanceMsg({ type: "error", text: json.message ?? "Failed to update maintenance mode." });
+      }
+    } catch (err: any) {
+      setMaintenanceMsg({ type: "error", text: "Request failed. Please try again." });
+    } finally { setMaintenanceUpdating(false); }
+  }, [getToken]);
+
   const fetchReferralList = useCallback(async (page = 1, status = "", search = "") => {
     setRefListLoading(true);
     if (page === 1) setRefListError(null);
@@ -1473,6 +1520,7 @@ export default function Admin() {
   useEffect(() => { if (tab === "users" && !usersLoaded) fetchUsers(1, debouncedSearch, userSort); }, [tab, usersLoaded, fetchUsers, debouncedSearch, userSort]);
   useEffect(() => { if (tab === "withdrawals" && !withdrawalsLoaded) fetchWithdrawals(1, withdrawalStatus, debouncedWithdrawalSearch); }, [tab, withdrawalsLoaded, fetchWithdrawals, withdrawalStatus, debouncedWithdrawalSearch]);
   useEffect(() => { if (tab === "referrals" && refSubTab !== "by-referrer" && !refListLoaded) fetchReferralList(1, refSubTab === "flagged" ? "flagged" : "", debouncedRefSearch); }, [tab, refListLoaded, fetchReferralList, refSubTab, debouncedRefSearch]);
+  useEffect(() => { if (tab === "settings" && maintenanceActive === null) fetchMaintenanceSettings(); }, [tab, maintenanceActive, fetchMaintenanceSettings]);
 
   // ── Pending Review: auto-drain ─────────────────────────────────────────────
   // Automatically loads the next page as soon as the previous one finishes,
@@ -2180,6 +2228,7 @@ export default function Admin() {
     { key: "referrals", label: "Referrals", badge: refStatsData?.flaggedCount ?? 0 },
     { key: "flags", label: "Flags", badge: adminCounts?.pendingFlags ?? undefined },
     { key: "verifications", label: "Verifications", badge: adminCounts?.pendingVerifications ?? undefined },
+    { key: "settings", label: "Settings" },
   ];
   const editorAllowedTabs: AdminTab[] = ["questions", "all-questions"];
   const tabs = isEditorOnly
@@ -4049,6 +4098,64 @@ export default function Admin() {
         </div>
       )}
 
+      {/* Settings */}
+      {effectiveTab === "settings" && (
+        <div className="space-y-6 max-w-2xl">
+          <div className="bg-card border border-card-border rounded-2xl p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-foreground mb-1">System Settings</h2>
+            <p className="text-sm text-muted-foreground mb-6">Control site-wide behaviour. Changes take effect within seconds — no restart or rebuild needed.</p>
+
+            {/* Maintenance Mode card */}
+            <div className={`rounded-xl border p-5 transition-colors ${maintenanceActive ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20" : "border-card-border bg-background"}`}>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-base font-semibold text-foreground">Maintenance Mode</span>
+                    {maintenanceActive !== null && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${maintenanceActive ? "bg-amber-500 text-white" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"}`}>
+                        {maintenanceActive ? "ON" : "OFF"}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    When ON, normal users see the maintenance page. Admins and editors can still access the full site.
+                  </p>
+                  {maintenanceEnvOverride && (
+                    <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-3 py-1.5 rounded-lg">
+                      ⚠ <strong>MAINTENANCE_MODE=true</strong> is set as an environment variable — the site is in maintenance regardless of this toggle. Remove the env var to give the toggle full control.
+                    </p>
+                  )}
+                </div>
+
+                {/* Toggle switch */}
+                <button
+                  onClick={() => { if (!maintenanceUpdating && maintenanceActive !== null) toggleMaintenance(!maintenanceActive); }}
+                  disabled={maintenanceUpdating || maintenanceActive === null || maintenanceLoading}
+                  aria-pressed={maintenanceActive ?? false}
+                  className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full border-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+                    maintenanceActive ? "bg-amber-500 border-amber-500" : "bg-muted border-muted"
+                  }`}
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition-transform duration-200 ${maintenanceActive ? "translate-x-7" : "translate-x-1"}`} />
+                </button>
+              </div>
+
+              {maintenanceMsg && (
+                <motion.p
+                  initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                  className={`mt-3 text-sm px-3 py-2 rounded-lg ${maintenanceMsg.type === "success" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"}`}
+                >
+                  {maintenanceMsg.text}
+                </motion.p>
+              )}
+
+              {maintenanceLoading && maintenanceActive === null && (
+                <p className="mt-3 text-sm text-muted-foreground animate-pulse">Loading current state…</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
