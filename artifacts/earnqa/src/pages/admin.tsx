@@ -20,6 +20,7 @@ import {
   usePatchAdminReferralStatus,
   useReverseAdminReferral,
   VALID_CATEGORIES,
+  normalizeCategory,
 } from "@workspace/api-client-react";
 
 type AdminTab = "questions" | "all-questions" | "users" | "withdrawals" | "stats" | "referrals" | "flags" | "verifications" | "settings";
@@ -98,7 +99,11 @@ function EditQuestionModal({ question, onClose, onSaved }: {
   const [title, setTitle] = useState(question.title);
   const [description, setDescription] = useState(question.description || "");
   const [type, setType] = useState(question.type);
-  const [editCategories, setEditCategories] = useState<string[]>(question.categories ?? [question.category]);
+  // Normalise on init so old DB values ("Technology") map to their current name
+  // ("Science & Technology") before the dropdown even renders.
+  const [editCategories, setEditCategories] = useState<string[]>(
+    (question.categories ?? [question.category]).map((c: string) => normalizeCategory(c))
+  );
   const [status, setStatus] = useState(question.status);
   const [pollOptions, setPollOptions] = useState<string[]>(question.pollOptions || [""]);
   const [isProfileQuestion, setIsProfileQuestion] = useState<boolean>(!!question.isProfileQuestion);

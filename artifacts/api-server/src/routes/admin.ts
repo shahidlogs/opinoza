@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { db, questionsTable, usersTable, transactionsTable, answersTable, walletsTable, notificationsTable, answerFlagsTable, pushNotificationLogsTable, bannedIpsTable, systemSettingsTable } from "@workspace/db";
 import { getMaintenanceActive, setMaintenanceActive, isEnvVarOverride } from "../lib/maintenanceSettings";
+import { normalizeCategory } from "@workspace/api-zod";
 import { sendEmail, sendEmailDirect, withdrawalApprovedEmail, withdrawalRejectedEmail, questionRejectedEmail, paymentTransferredEmail } from "../lib/email.js";
 import { pushQuestionApproved, pushBonusReceived, PUSH_CONFIG } from "../lib/push.js";
 import { cleanupRejectedAnswers } from "../lib/cleanup-rejected-answers.js";
@@ -249,12 +250,16 @@ router.patch("/admin/questions/:id", async (req, res): Promise<void> => {
   if (type !== undefined) updates.type = type;
 
   // Support updating via the new `categories` array OR legacy single `category` string.
+  // normalizeCategory maps old slugs ("Technology" → "Science & Technology") so no
+  // stale values can ever be written back to the DB via the edit modal.
   if (rawCats !== undefined && Array.isArray(rawCats) && rawCats.length > 0) {
-    updates.categories = rawCats.slice(0, 3);
-    updates.category = rawCats[0];
+    const normalized = (rawCats as string[]).slice(0, 3).map(c => normalizeCategory(c));
+    updates.categories = normalized;
+    updates.category = normalized[0];
   } else if (category !== undefined) {
-    updates.category = category;
-    updates.categories = [category];
+    const normalized = normalizeCategory(category as string);
+    updates.category = normalized;
+    updates.categories = [normalized];
   }
 
   if (status !== undefined) updates.status = status;

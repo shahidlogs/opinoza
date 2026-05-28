@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { db, questionsTable, answersTable, walletsTable, transactionsTable, usersTable, questionMilestonesTable } from "@workspace/db";
 import { eq, count, desc, asc, and, sql, inArray, notInArray, gte, lt, ilike, ne, or, isNull } from "drizzle-orm";
-import { VALID_CATEGORIES } from "@workspace/api-zod";
+import { VALID_CATEGORIES, normalizeCategory } from "@workspace/api-zod";
 import { detectLang } from "../lib/langDetect.js";
 import { translateQuestion } from "../lib/translate.js";
 import { checkUserBan, checkIpBan, BAN_MESSAGE, IP_BAN_MESSAGE } from "../lib/banCheck.js";
@@ -655,12 +655,15 @@ router.post("/questions", async (req, res): Promise<void> => {
     res.status(400).json({ error: "A question can belong to at most 3 categories" });
     return;
   }
-  const invalidCat = rawCategories.find(c => !(VALID_CATEGORIES as readonly string[]).includes(c));
+  // Normalise legacy names (e.g. "Technology" → "Science & Technology") before
+  // validating so old clients / cached dropdowns don't get a hard 400 error.
+  const normalizedCategories = rawCategories.map(c => normalizeCategory(c));
+  const invalidCat = normalizedCategories.find(c => !(VALID_CATEGORIES as readonly string[]).includes(c));
   if (invalidCat) {
     res.status(400).json({ error: `Invalid category: "${invalidCat}"` });
     return;
   }
-  const primaryCategory = rawCategories[0];
+  const primaryCategory = normalizedCategories[0];
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, auth.userId));
   const isAdmin = !!user?.isAdmin;
@@ -775,7 +778,7 @@ router.post("/questions", async (req, res): Promise<void> => {
     description: description || null,
     type,
     category: primaryCategory,
-    categories: rawCategories,
+    categories: normalizedCategories,
     // Admins get questions auto-approved; Editors questions go to pending
     // (Editors can approve their own questions via the moderation panel).
     status: isAdmin ? "active" : "pending",
