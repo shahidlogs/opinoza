@@ -647,6 +647,16 @@ export default function Wallet() {
               </button>
             </div>
 
+            {/* Processing notice */}
+            <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 dark:bg-blue-950/20 dark:border-blue-800/40">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="hsl(217 91% 60%)" strokeWidth="2.5" className="mt-0.5 shrink-0">
+                <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+              </svg>
+              <p className="text-xs text-blue-700 leading-relaxed dark:text-blue-300">
+                Due to increased platform activity and ongoing system improvements, reward requests may take longer than usual. All approved earnings remain securely recorded and will be processed in queue. Thank you for your patience.
+              </p>
+            </div>
+
             <div className="space-y-4">
               {/* Amount */}
               <div>

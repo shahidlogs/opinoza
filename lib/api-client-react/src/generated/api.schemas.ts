@@ -350,6 +350,13 @@ export interface AdminEarningsAnalytics {
   totalWalletBalanceCents: number;
   withdrawableBalanceCents: number;
   nonWithdrawableBalanceCents: number;
+  totalPenaltyCents?: number;
+  penaltyCount?: number;
+  answerPenaltyCents?: number;
+  answerPenaltyCount?: number;
+  questionRejectionPenaltyCents?: number;
+  questionRejectionCount?: number;
+  netPlatformLiabilityCents?: number;
   earningsSourceBreakdown: AdminEarningsAnalyticsEarningsSourceBreakdownItem[];
   walletRangeDistribution: AdminEarningsAnalyticsWalletRangeDistributionItem[];
   earnerCategoryDistribution: AdminEarningsAnalyticsEarnerCategoryDistributionItem[];

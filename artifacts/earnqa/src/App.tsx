@@ -344,6 +344,20 @@ function OAuthLoadingOverlay() {
   );
 }
 
+function AuthLegalDisclosure() {
+  return (
+    <p className="mt-4 text-center text-xs text-muted-foreground leading-relaxed max-w-sm mx-auto">
+      By continuing, you agree to Opinoza's{" "}
+      <a href="/terms" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms of Service</a>
+      ,{" "}
+      <a href="/privacy" className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</a>
+      , and{" "}
+      <a href="/safety" className="underline underline-offset-2 hover:text-foreground transition-colors">Community Guidelines</a>
+      .
+    </p>
+  );
+}
+
 function SignInPage() {
   // To update login providers, app branding, or OAuth settings use the Auth
   // pane in the workspace toolbar. More information can be found in the Replit docs.
@@ -362,6 +376,7 @@ function SignInPage() {
           forceRedirectUrl={redirectUrl}
           fallbackRedirectUrl={redirectUrl}
         />
+        <AuthLegalDisclosure />
       </div>
     </div>
   );
@@ -385,6 +400,7 @@ function SignUpPage() {
           forceRedirectUrl={redirectUrl}
           fallbackRedirectUrl={redirectUrl}
         />
+        <AuthLegalDisclosure />
       </div>
     </div>
   );

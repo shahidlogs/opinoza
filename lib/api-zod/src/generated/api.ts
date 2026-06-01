@@ -561,6 +561,13 @@ export const GetAdminEarningsAnalyticsResponse = zod.object({
   totalWalletBalanceCents: zod.number(),
   withdrawableBalanceCents: zod.number(),
   nonWithdrawableBalanceCents: zod.number(),
+  totalPenaltyCents: zod.number().optional(),
+  penaltyCount: zod.number().optional(),
+  answerPenaltyCents: zod.number().optional(),
+  answerPenaltyCount: zod.number().optional(),
+  questionRejectionPenaltyCents: zod.number().optional(),
+  questionRejectionCount: zod.number().optional(),
+  netPlatformLiabilityCents: zod.number().optional(),
   earningsSourceBreakdown: zod.array(
     zod.object({
       name: zod.string(),

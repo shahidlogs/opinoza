@@ -1268,6 +1268,20 @@ components:
           type: number
         nonWithdrawableBalanceCents:
           type: number
+        totalPenaltyCents:
+          type: number
+        penaltyCount:
+          type: integer
+        answerPenaltyCents:
+          type: number
+        answerPenaltyCount:
+          type: integer
+        questionRejectionPenaltyCents:
+          type: number
+        questionRejectionCount:
+          type: integer
+        netPlatformLiabilityCents:
+          type: number
         earningsSourceBreakdown:
           type: array
           items:

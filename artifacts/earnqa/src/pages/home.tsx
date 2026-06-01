@@ -123,38 +123,22 @@ export default function Home() {
               Earn real money — 1¢ per answer
             </div>
 
-            {/* ── Rewards alert banner ── */}
+            {/* ── Notice banner ── */}
             <div className="w-full max-w-2xl mx-auto mb-7">
               <div className="relative rounded-2xl overflow-hidden shadow-lg border border-amber-400/40"
                 style={{ background: "linear-gradient(135deg, #1e2a4a 0%, #2d3f6b 50%, #1e3a5f 100%)" }}>
-                {/* Shimmering gold accent bar */}
                 <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: "linear-gradient(90deg, transparent, #f59e0b, #fbbf24, #f59e0b, transparent)" }} />
                 <div className="px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                  {/* Icon */}
                   <div className="shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-xl"
                     style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)", boxShadow: "0 2px 12px rgba(245,158,11,0.45)" }}>
-                    🎁
+                    📋
                   </div>
-                  {/* Text */}
                   <div className="flex-1 text-left">
-                    <p className="font-extrabold text-amber-300 text-sm tracking-wide uppercase mb-1 flex items-center gap-1.5">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="text-amber-400"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                      Rewards Alert
-                    </p>
-                    <p className="text-white text-sm sm:text-base font-semibold leading-snug mb-0.5">
-                      Invite friends and earn more on Opinoza!
-                    </p>
-                    <p className="text-blue-200/80 text-xs sm:text-sm leading-relaxed">
-                      Earn <span className="text-amber-300 font-bold">$0.20</span> for every successful invite, plus <span className="text-amber-300 font-bold">$0.005</span> every time your invited friends answer questions.
+                    <p className="text-blue-100/90 text-xs sm:text-sm leading-relaxed">
+                      Due to increased platform activity and ongoing system improvements, reward requests may take longer than usual. All approved earnings remain securely recorded and will be processed in queue. Thank you for your patience.
                     </p>
                   </div>
-                  {/* CTA chip */}
-                  <a href="/invite" className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all hover:scale-105 active:scale-95"
-                    style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#fff", boxShadow: "0 2px 8px rgba(245,158,11,0.35)" }}>
-                    Invite Now →
-                  </a>
                 </div>
-                {/* Subtle bottom accent */}
                 <div className="absolute inset-x-0 bottom-0 h-0.5 opacity-30" style={{ background: "linear-gradient(90deg, transparent, #f59e0b, transparent)" }} />
               </div>
             </div>

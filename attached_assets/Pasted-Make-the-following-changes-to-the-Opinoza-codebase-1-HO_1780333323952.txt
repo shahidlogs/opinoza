@@ -1,0 +1,79 @@
+Make the following changes to the Opinoza codebase.
+
+1. HOMEPAGE NOTICE
+
+Replace the current homepage Rewards Alert banner content with only this message:
+
+Due to increased platform activity and ongoing system improvements, reward requests may take longer than usual. All approved earnings remain securely recorded and will be processed in queue. Thank you for your patience.
+
+Important:
+- Do not show any title.
+- Do not show “Rewards Processing Update”.
+- Remove the “Learn More” / “Invite Now” button from this banner.
+- Keep the existing banner design/styling as much as possible.
+- Only show the message clearly and professionally.
+
+2. WALLET PAGE NOTICE
+
+Add the same message near the withdrawal/payment request section:
+
+Due to increased platform activity and ongoing system improvements, reward requests may take longer than usual. All approved earnings remain securely recorded and will be processed in queue. Thank you for your patience.
+
+Important:
+- Do not add a title.
+- Do not add a button.
+- Use a simple professional info notice, not a warning/error style.
+
+3. TERMS OF SERVICE UPDATE
+
+Update Terms of Service and add these clauses in professional legal-style wording:
+
+Payment Processing:
+Opinoza may process rewards, withdrawals, earnings, and other payments according to its internal review, security, compliance, fraud prevention, operational, and financial procedures.
+
+Processing times are estimates only and are not guaranteed.
+
+Opinoza reserves the right to delay, review, hold, suspend, or refuse any payment request when necessary for security, verification, fraud prevention, compliance, operational, technical, legal, or business reasons.
+
+Users acknowledge that payment processing may take longer than expected and agree that delays alone do not create liability for Opinoza.
+
+Account Restrictions and Bans:
+Opinoza reserves the right to suspend, restrict, limit, or permanently ban any account at its sole discretion.
+
+The platform’s decision regarding account restrictions, suspensions, content removals, reward eligibility, and account termination shall be final.
+
+Opinoza is not obligated to publicly disclose internal moderation, fraud detection, security, or enforcement procedures.
+
+Acceptance of Terms:
+By creating an account, signing in, accessing, or using Opinoza, users acknowledge that they have read, understood, and agreed to be bound by the Terms of Service, Privacy Policy, Community Guidelines, and all platform rules.
+
+Continued use of the platform constitutes ongoing acceptance of these terms.
+
+4. LOGIN / SIGNUP DISCLOSURE
+
+On login and signup pages, add this small text below the authentication form:
+
+By continuing, you agree to Opinoza’s Terms of Service, Privacy Policy, and Community Guidelines.
+
+Link Terms of Service, Privacy Policy, and Community Guidelines to their correct pages.
+
+5. REMOVE GUARANTEED TIME REFERENCES
+
+Search the full codebase and remove or update any wording that suggests guaranteed payment timelines, including:
+- 24–48 hours
+- 3 working days
+- guaranteed payout time
+- fixed payout time
+
+Replace such wording with neutral queue-based wording.
+
+6. FINAL CHECKS
+
+After implementation:
+- Show exact files modified.
+- Show git diff summary.
+- Run build.
+- Fix any build errors.
+- Commit changes with this message:
+
+Add payment queue notice and update terms
