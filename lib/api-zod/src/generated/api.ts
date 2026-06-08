@@ -821,6 +821,7 @@ export const GetAnalyticsByCityResponse = zod.object({
  * @summary Get high-level platform engagement summary
  */
 export const GetPlatformSummaryResponse = zod.object({
+  totalAnswers: zod.number(),
   totalAnswersToday: zod.number(),
   totalAnswersThisWeek: zod.number(),
   totalActiveQuestions: zod.number(),

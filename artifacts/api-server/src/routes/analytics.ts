@@ -151,6 +151,9 @@ router.get("/analytics/platform-summary", async (_req, res): Promise<void> => {
     gte(answersTable.createdAt, weekAgo),
     or(isNull(answersTable.flagStatus), ne(answersTable.flagStatus, "removed")),
   ));
+  const [totalAnswersAll] = await db.select({ count: count() }).from(answersTable).where(
+    or(isNull(answersTable.flagStatus), ne(answersTable.flagStatus, "removed")),
+  );
   const [activeQuestions] = await db.select({ count: count() }).from(questionsTable).where(eq(questionsTable.status, "active"));
 
   const categoryResults = await db.select({
@@ -186,6 +189,7 @@ router.get("/analytics/platform-summary", async (_req, res): Promise<void> => {
   const todayAnswerCents = Number(todayAnswers?.count ?? 0);
 
   res.json({
+    totalAnswers: Number(totalAnswersAll?.count ?? 0),
     totalAnswersToday: Number(todayAnswers?.count ?? 0),
     totalAnswersThisWeek: Number(weekAnswers?.count ?? 0),
     totalActiveQuestions: Number(activeQuestions?.count ?? 0),

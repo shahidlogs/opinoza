@@ -413,6 +413,7 @@ export type PlatformSummaryRecentActivityItem = {
 };
 
 export interface PlatformSummary {
+  totalAnswers: number;
   totalAnswersToday: number;
   totalAnswersThisWeek: number;
   totalActiveQuestions: number;

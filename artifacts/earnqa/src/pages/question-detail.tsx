@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { rtlAttrs } from "@/lib/rtl";
 import { useParams, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Show, useUser, useAuth } from "@clerk/react";
@@ -1600,14 +1601,14 @@ export default function QuestionDetail() {
           )}
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3 leading-snug">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3 leading-snug" {...rtlAttrs(displayTitle)}>
           {displayTitle}
           {isTranslated && (
             <span className="ml-2 text-xs font-normal text-blue-400 align-middle">[translated]</span>
           )}
         </h1>
         {displayDesc && (
-          <p className="text-muted-foreground leading-relaxed">{displayDesc}</p>
+          <p className="text-muted-foreground leading-relaxed" {...rtlAttrs(displayDesc)}>{displayDesc}</p>
         )}
 
         {/* Translate / Original toggle */}

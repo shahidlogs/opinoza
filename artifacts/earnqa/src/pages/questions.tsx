@@ -6,6 +6,7 @@ import { useGetCategories, VALID_CATEGORIES } from "@workspace/api-client-react"
 import { usePageMeta } from "@/lib/page-meta";
 
 import { type Translation, translationCache } from "@/lib/translationCache";
+import { rtlAttrs } from "@/lib/rtl";
 
 // ── Profile question top card ─────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ function ProfileQuestionBanner({ question }: { question: any }) {
           </div>
 
           {/* Question title */}
-          <h3 className="font-bold text-foreground text-base sm:text-lg leading-snug mb-2 group-hover:text-amber-800 transition-colors">
+          <h3 className="font-bold text-foreground text-base sm:text-lg leading-snug mb-2 group-hover:text-amber-800 transition-colors" {...rtlAttrs(question.title)}>
             {question.title}
           </h3>
 
@@ -46,7 +47,7 @@ function ProfileQuestionBanner({ question }: { question: any }) {
 
           {/* Description */}
           {question.description && !isFullName && (
-            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2" {...rtlAttrs(question.description)}>
               {question.description}
             </p>
           )}
@@ -201,7 +202,7 @@ const QuestionCard = memo(function QuestionCard({ q, userLang, base }: { q: Ques
           </div>
         </div>
 
-        <h3 className="font-semibold text-foreground leading-snug mb-2 flex-1 group-hover:text-amber-700 transition-colors line-clamp-2 text-[0.95rem]">
+        <h3 className="font-semibold text-foreground leading-snug mb-2 flex-1 group-hover:text-amber-700 transition-colors line-clamp-2 text-[0.95rem]" {...rtlAttrs(displayTitle)}>
           {displayTitle}
           {isTranslated && (
             <span className="ml-1.5 text-[10px] font-normal text-blue-400 align-middle">[translated]</span>
@@ -209,7 +210,7 @@ const QuestionCard = memo(function QuestionCard({ q, userLang, base }: { q: Ques
         </h3>
 
         {displayDesc && (
-          <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
+          <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed" {...rtlAttrs(displayDesc)}>
             {displayDesc}
           </p>
         )}

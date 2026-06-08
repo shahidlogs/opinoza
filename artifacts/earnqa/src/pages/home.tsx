@@ -4,6 +4,7 @@ import { motion, useInView } from "framer-motion";
 import { useUser } from "@clerk/react";
 import { useGetFeaturedQuestions, useGetPlatformSummary, useGetCategories, CATEGORY_ICONS, HOME_DISPLAY_CATEGORIES } from "@workspace/api-client-react";
 import { usePageMeta } from "@/lib/page-meta";
+import { rtlAttrs } from "@/lib/rtl";
 
 const TYPE_COLORS: Record<string, string> = {
   short_answer: "bg-slate-100 text-slate-700 border-slate-200",
@@ -48,7 +49,7 @@ function FeaturedCard({ q, index }: { q: any; index: number }) {
             </div>
           </div>
 
-          <h3 className="font-semibold text-foreground leading-snug mb-3 flex-1 group-hover:text-amber-700 transition-colors text-[0.95rem] line-clamp-2">
+          <h3 className="font-semibold text-foreground leading-snug mb-3 flex-1 group-hover:text-amber-700 transition-colors text-[0.95rem] line-clamp-2" {...rtlAttrs(q.title)}>
             {q.title}
           </h3>
 
@@ -192,7 +193,7 @@ export default function Home() {
           {[
             { label: "Active Questions", value: summary?.totalActiveQuestions ?? "15+", icon: "❓" },
             { label: "Earned Per Answer", value: "1¢", icon: "⚡" },
-            { label: "Answered This Week", value: summary?.totalAnswersThisWeek ?? "0", icon: "📈" },
+            { label: "Total Answers", value: summary?.totalAnswers ?? "0", icon: "📈" },
             { label: "Creator Bonus", value: "0.5¢", icon: "🌟" },
           ].map((stat, i) => (
             <motion.div
