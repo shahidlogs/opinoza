@@ -651,6 +651,14 @@ router.post("/questions", async (req, res): Promise<void> => {
     res.status(400).json({ error: "title, type, and at least one category are required" });
     return;
   }
+  if (title.trim().length < 10) {
+    res.status(400).json({ error: "Question title must be at least 10 characters" });
+    return;
+  }
+  if (title.trim().length > 150) {
+    res.status(400).json({ error: "Question title must be 150 characters or fewer" });
+    return;
+  }
   if (rawCategories.length > 3) {
     res.status(400).json({ error: "A question can belong to at most 3 categories" });
     return;

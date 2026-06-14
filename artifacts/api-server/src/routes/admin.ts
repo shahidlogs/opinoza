@@ -245,7 +245,13 @@ router.patch("/admin/questions/:id", async (req, res): Promise<void> => {
   const { title, description, type, category, categories: rawCats, pollOptions, status, isProfileQuestion } = req.body;
 
   const updates: Record<string, any> = {};
-  if (title !== undefined) updates.title = title.trim();
+  if (title !== undefined) {
+    if (title.trim().length > 150) {
+      res.status(400).json({ error: "Question title must be 150 characters or fewer" });
+      return;
+    }
+    updates.title = title.trim();
+  }
   if (description !== undefined) updates.description = description?.trim() || null;
   if (type !== undefined) updates.type = type;
 

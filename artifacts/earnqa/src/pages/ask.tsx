@@ -75,7 +75,7 @@ export default function Ask() {
     setPollOptions(prev => { const u = [...prev]; u[i] = val; return u; });
   };
 
-  const isValid = title.trim().length >= 10 && categories.length > 0 &&
+  const isValid = title.trim().length >= 10 && title.trim().length <= 150 && categories.length > 0 &&
     (type !== "poll" || pollOptions.filter(o => o.trim()).length >= 2);
 
   const handleSubmit = () => {
@@ -194,10 +194,10 @@ export default function Ask() {
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="What would you like to ask the community?"
-                maxLength={200}
+                maxLength={150}
                 className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-400"
               />
-              <div className="text-xs text-muted-foreground mt-1 text-right">{title.length}/200</div>
+              <div className={`text-xs mt-1 text-right ${title.length >= 140 ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>{title.length}/150</div>
             </div>
 
             {/* Description */}
@@ -326,7 +326,7 @@ export default function Ask() {
             <div>
               {!isValid && title.length > 0 && (
                 <p className="text-xs text-muted-foreground mb-3">
-                  {title.trim().length < 10 ? "Title must be at least 10 characters. " : ""}
+                  {title.trim().length < 10 ? "Title must be at least 10 characters. " : title.trim().length > 150 ? "Title must be 150 characters or fewer. " : ""}
                   {categories.length === 0 ? "Please select a category. " : ""}
                   {type === "poll" && pollOptions.filter(o => o.trim()).length < 2 ? "Add at least 2 poll options." : ""}
                 </p>

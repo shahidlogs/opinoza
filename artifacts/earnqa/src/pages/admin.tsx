@@ -177,7 +177,7 @@ function EditQuestionModal({ question, onClose, onSaved }: {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Title</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} maxLength={200}
+            <input value={title} onChange={e => setTitle(e.target.value)} maxLength={150}
               className="w-full px-4 py-2.5 rounded-xl border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-amber-400" />
           </div>
 
