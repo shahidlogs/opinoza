@@ -117,6 +117,7 @@ function Spinner() {
   );
 }
 
+type PreviewRow = { label: string; count: number; pct: number };
 type Question = {
   id: number;
   title: string;
@@ -130,7 +131,40 @@ type Question = {
   totalAnswers: number;
   isAnswered?: boolean;
   lang?: string | null;
+  preview?: { rows: PreviewRow[] } | null;
 };
+
+function ResultsPreview({ preview, type, totalAnswers }: {
+  preview?: { rows: PreviewRow[] } | null;
+  type: string;
+  totalAnswers: number;
+}) {
+  if (totalAnswers === 0) {
+    return <p className="text-[11px] text-muted-foreground/55 italic mb-3">No answers yet</p>;
+  }
+  if (!preview || preview.rows.length === 0) return null;
+  const isCount = type === "short_answer";
+  return (
+    <div className="mb-3 space-y-0.5">
+      {preview.rows.map((row, i) => (
+        <div key={i} className="relative overflow-hidden rounded">
+          {!isCount && (
+            <div
+              className="absolute inset-y-0 left-0 bg-amber-400/[0.13] rounded"
+              style={{ width: `${Math.max(row.pct, 3)}%` }}
+            />
+          )}
+          <div className="relative flex items-center justify-between gap-2 px-2 py-[3px]">
+            <span className="text-[11px] text-foreground/70 truncate leading-tight min-w-0">{row.label}</span>
+            <span className="text-[11px] text-amber-700 font-semibold tabular-nums shrink-0">
+              {isCount ? row.count : `${row.pct}%`}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ── QuestionCard component — handles per-card translate state ──────────────────
 const QuestionCard = memo(function QuestionCard({ q, userLang, base }: { q: Question; userLang: string; base: string }) {
@@ -215,20 +249,7 @@ const QuestionCard = memo(function QuestionCard({ q, userLang, base }: { q: Ques
           </p>
         )}
 
-        {q.type === "poll" && displayOptions && displayOptions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {displayOptions.slice(0, 3).map(opt => (
-              <span key={opt} className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/50">
-                {opt}
-              </span>
-            ))}
-            {displayOptions.length > 3 && (
-              <span className="text-xs text-muted-foreground self-center">
-                +{displayOptions.length - 3} more
-              </span>
-            )}
-          </div>
-        )}
+        <ResultsPreview preview={q.preview} type={q.type} totalAnswers={q.totalAnswers} />
 
         <div className="flex items-center justify-between text-xs mt-auto pt-3 border-t border-border/60">
           <span className="text-muted-foreground">

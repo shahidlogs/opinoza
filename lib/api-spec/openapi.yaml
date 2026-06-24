@@ -790,6 +790,26 @@ components:
           type: string
         lang:
           type: ["string", "null"]
+        preview:
+          type: ["object", "null"]
+          properties:
+            rows:
+              type: array
+              items:
+                type: object
+                properties:
+                  label:
+                    type: string
+                  count:
+                    type: integer
+                  pct:
+                    type: number
+                required:
+                  - label
+                  - count
+                  - pct
+          required:
+            - rows
       required:
         - id
         - title

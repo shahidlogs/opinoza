@@ -44,6 +44,17 @@ export const ListQuestionsResponse = zod.object({
       rejectedBy: zod.string().nullish(),
       createdAt: zod.string(),
       lang: zod.string().nullish(),
+      preview: zod
+        .object({
+          rows: zod.array(
+            zod.object({
+              label: zod.string(),
+              count: zod.number(),
+              pct: zod.number(),
+            }),
+          ),
+        })
+        .nullish(),
     }),
   ),
   total: zod.number(),
@@ -86,6 +97,17 @@ export const GetQuestionResponse = zod
     rejectedBy: zod.string().nullish(),
     createdAt: zod.string(),
     lang: zod.string().nullish(),
+    preview: zod
+      .object({
+        rows: zod.array(
+          zod.object({
+            label: zod.string(),
+            count: zod.number(),
+            pct: zod.number(),
+          }),
+        ),
+      })
+      .nullish(),
   })
   .and(
     zod.object({
@@ -145,6 +167,17 @@ export const GetFeaturedQuestionsResponse = zod.object({
       rejectedBy: zod.string().nullish(),
       createdAt: zod.string(),
       lang: zod.string().nullish(),
+      preview: zod
+        .object({
+          rows: zod.array(
+            zod.object({
+              label: zod.string(),
+              count: zod.number(),
+              pct: zod.number(),
+            }),
+          ),
+        })
+        .nullish(),
     }),
   ),
   total: zod.number(),
@@ -385,6 +418,17 @@ export const AdminListQuestionsResponse = zod.object({
       rejectedBy: zod.string().nullish(),
       createdAt: zod.string(),
       lang: zod.string().nullish(),
+      preview: zod
+        .object({
+          rows: zod.array(
+            zod.object({
+              label: zod.string(),
+              count: zod.number(),
+              pct: zod.number(),
+            }),
+          ),
+        })
+        .nullish(),
     }),
   ),
   total: zod.number(),
@@ -414,6 +458,17 @@ export const ApproveQuestionResponse = zod.object({
   rejectedBy: zod.string().nullish(),
   createdAt: zod.string(),
   lang: zod.string().nullish(),
+  preview: zod
+    .object({
+      rows: zod.array(
+        zod.object({
+          label: zod.string(),
+          count: zod.number(),
+          pct: zod.number(),
+        }),
+      ),
+    })
+    .nullish(),
 });
 
 /**
@@ -444,6 +499,17 @@ export const RejectQuestionResponse = zod.object({
   rejectedBy: zod.string().nullish(),
   createdAt: zod.string(),
   lang: zod.string().nullish(),
+  preview: zod
+    .object({
+      rows: zod.array(
+        zod.object({
+          label: zod.string(),
+          count: zod.number(),
+          pct: zod.number(),
+        }),
+      ),
+    })
+    .nullish(),
 });
 
 /**

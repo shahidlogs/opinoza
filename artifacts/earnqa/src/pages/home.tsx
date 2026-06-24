@@ -29,6 +29,38 @@ function StarIcon({ size = 16, className = "" }: { size?: number; className?: st
   );
 }
 
+function ResultsPreview({ preview, type, totalAnswers }: {
+  preview?: { rows: { label: string; count: number; pct: number }[] } | null;
+  type: string;
+  totalAnswers: number;
+}) {
+  if (totalAnswers === 0) {
+    return <p className="text-[11px] text-muted-foreground/55 italic mb-3">No answers yet</p>;
+  }
+  if (!preview || preview.rows.length === 0) return null;
+  const isCount = type === "short_answer";
+  return (
+    <div className="mb-3 space-y-0.5">
+      {preview.rows.map((row, i) => (
+        <div key={i} className="relative overflow-hidden rounded">
+          {!isCount && (
+            <div
+              className="absolute inset-y-0 left-0 bg-amber-400/[0.13] rounded"
+              style={{ width: `${Math.max(row.pct, 3)}%` }}
+            />
+          )}
+          <div className="relative flex items-center justify-between gap-2 px-2 py-[3px]">
+            <span className="text-[11px] text-foreground/70 truncate leading-tight min-w-0">{row.label}</span>
+            <span className="text-[11px] text-amber-700 font-semibold tabular-nums shrink-0">
+              {isCount ? row.count : `${row.pct}%`}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function FeaturedCard({ q, index }: { q: any; index: number }) {
   return (
     <motion.div
@@ -49,11 +81,13 @@ function FeaturedCard({ q, index }: { q: any; index: number }) {
             </div>
           </div>
 
-          <h3 className="font-semibold text-foreground leading-snug mb-3 flex-1 group-hover:text-amber-700 transition-colors text-[0.95rem] line-clamp-2" {...rtlAttrs(q.title)}>
+          <h3 className="font-semibold text-foreground leading-snug mb-3 group-hover:text-amber-700 transition-colors text-[0.95rem] line-clamp-2" {...rtlAttrs(q.title)}>
             {q.title}
           </h3>
 
-          <div className="flex items-center justify-between text-xs pt-3 border-t border-border/60">
+          <ResultsPreview preview={(q as any).preview} type={q.type} totalAnswers={q.totalAnswers} />
+
+          <div className="flex items-center justify-between text-xs pt-3 border-t border-border/60 mt-auto">
             <span className="text-muted-foreground">{q.totalAnswers} answer{q.totalAnswers !== 1 ? "s" : ""}</span>
             <span className="earn-badge">
               <StarIcon size={10} />

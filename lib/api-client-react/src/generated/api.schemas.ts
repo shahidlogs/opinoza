@@ -30,6 +30,17 @@ export const QuestionStatus = {
   rejected: "rejected",
 } as const;
 
+/**
+ * @nullable
+ */
+export type QuestionPreview = {
+  rows: {
+    label: string;
+    count: number;
+    pct: number;
+  }[];
+} | null;
+
 export interface Question {
   id: number;
   title: string;
@@ -55,6 +66,8 @@ export interface Question {
   createdAt: string;
   /** @nullable */
   lang?: string | null;
+  /** @nullable */
+  preview?: QuestionPreview;
 }
 
 export interface UserAnswer {
