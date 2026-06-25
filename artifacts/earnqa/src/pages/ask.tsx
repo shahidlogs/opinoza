@@ -15,6 +15,38 @@ const STATUS_CONFIG = {
 
 const TYPE_LABELS: Record<string, string> = { short_answer: "Short Answer", poll: "Poll", rating: "Rating" };
 
+function ResultsPreview({ preview, type, totalAnswers }: {
+  preview?: { rows: { label: string; count: number; pct: number }[] } | null;
+  type: string;
+  totalAnswers: number;
+}) {
+  if (totalAnswers === 0) {
+    return <p className="text-[11px] text-muted-foreground/55 italic mt-2">No answers yet</p>;
+  }
+  if (!preview || preview.rows.length === 0) return null;
+  const isCount = type === "short_answer";
+  return (
+    <div className="mt-2 space-y-0.5">
+      {preview.rows.map((row, i) => (
+        <div key={i} className="relative overflow-hidden rounded">
+          {!isCount && (
+            <div
+              className="absolute inset-y-0 left-0 bg-amber-400/[0.13] rounded"
+              style={{ width: `${Math.max(row.pct, 3)}%` }}
+            />
+          )}
+          <div className="relative flex items-center justify-between gap-2 px-2 py-[3px]">
+            <span className="text-[11px] text-foreground/70 truncate leading-tight min-w-0">{row.label}</span>
+            <span className="text-[11px] text-amber-700 font-semibold tabular-nums shrink-0">
+              {isCount ? row.count : `${row.pct}%`}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Ask() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
@@ -389,6 +421,7 @@ export default function Ask() {
                       ))}
                     </div>
                     <p className="font-medium text-foreground text-sm line-clamp-2">{q.title}</p>
+                    <ResultsPreview preview={q.preview} type={q.type} totalAnswers={q.totalAnswers} />
                     {q.status === "active" && (
                       <p className="text-xs text-amber-600 mt-1">{q.totalAnswers} answers · {q.totalAnswers} × 0.5¢ earned so far</p>
                     )}

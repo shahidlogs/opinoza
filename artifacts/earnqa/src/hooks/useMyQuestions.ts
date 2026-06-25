@@ -12,6 +12,7 @@ export interface MyQuestion {
   totalAnswers: number;
   createdAt: string;
   rejectionReason: string | null;
+  preview: { rows: { label: string; count: number; pct: number }[] } | null;
 }
 
 export function useMyQuestions() {

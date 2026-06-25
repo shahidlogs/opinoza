@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
+import { attachPreviews } from "../lib/preview.js";
 import { db, usersTable, walletsTable, answersTable, questionsTable, transactionsTable, referralsTable, referralClicksTable, notificationsTable, pushNotificationLogsTable } from "@workspace/db";
 import { eq, count, sum, and, gte, desc, ne, or, isNull, sql, inArray } from "drizzle-orm";
 import { sendEmail, welcomeEmail } from "../lib/email.js";
@@ -404,10 +405,11 @@ router.get("/users/me/questions", async (req, res): Promise<void> => {
     return;
   }
 
-  const questions = await db.select().from(questionsTable)
+  const base = await db.select().from(questionsTable)
     .where(eq(questionsTable.creatorId, auth.userId))
     .orderBy(desc(questionsTable.createdAt));
 
+  const questions = await attachPreviews(base);
   res.json({ questions });
 });
 
