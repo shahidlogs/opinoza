@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
 import { attachPreviews } from "../lib/preview.js";
-import { db, usersTable, walletsTable, answersTable, questionsTable, transactionsTable, referralsTable, referralClicksTable, notificationsTable, pushNotificationLogsTable } from "@workspace/db";
+import { db, usersTable, walletsTable, answersTable, questionsTable, transactionsTable, referralsTable, referralClicksTable, notificationsTable, pushNotificationLogsTable, answerFlagsTable } from "@workspace/db";
 import { eq, count, sum, and, gte, desc, ne, or, isNull, sql, inArray } from "drizzle-orm";
 import { sendEmail, welcomeEmail } from "../lib/email.js";
 import { randomBytes } from "crypto";
@@ -91,6 +91,8 @@ async function getOrCreateUser(clerkId: string, emailFromClaims: string, nameFro
             .set({ userId: clerkId }).where(eq(notificationsTable.userId, oldClerkId));
           await tx.update(pushNotificationLogsTable)
             .set({ userId: clerkId }).where(eq(pushNotificationLogsTable.userId, oldClerkId));
+          await tx.update(answerFlagsTable)
+            .set({ flaggedByUserId: clerkId }).where(eq(answerFlagsTable.flaggedByUserId, oldClerkId));
           // users.clerk_id updated last — other tables reference it conceptually
           return tx
             .update(usersTable)
