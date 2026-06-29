@@ -30,21 +30,3 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
   (req as any).dbUser = user;
   next();
 }
-
-export async function getOrCreateUser(clerkId: string, email: string, name?: string) {
-  let [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
-  if (!user) {
-    const [newUser] = await db.insert(usersTable).values({
-      clerkId,
-      email: email || "",
-      name: name || null,
-      isAdmin: false,
-    }).returning();
-    user = newUser;
-
-    await db.insert(walletsTable).values({ userId: clerkId }).onConflictDoNothing();
-  }
-  return user;
-}
-
-import { walletsTable } from "@workspace/db";

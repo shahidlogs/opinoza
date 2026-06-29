@@ -46,21 +46,27 @@ async function getOrCreateUser(clerkId: string, emailFromClaims: string, nameFro
       console.warn("[users] Could not fetch user from Clerk API:", err);
     }
 
+    // Normalize email: trim whitespace + lowercase for consistent storage and
+    // comparison regardless of how Clerk or the client formatted the address.
+    const normalizedEmail = resolvedEmail ? resolvedEmail.trim().toLowerCase() : "";
+
     // ── Clerk tenant migration re-link ────────────────────────────────────────
-    // When switching Clerk tenants (e.g. external → Replit-managed), the same
-    // email address gets a brand-new clerkId. Without this block every existing
-    // user's row — along with their wallet, answers, questions, transactions,
-    // and referrals — would be orphaned while a blank new row was created.
+    // When switching Clerk tenants the same email gets a new clerkId. Without
+    // this block every existing user's wallet, answers, questions, transactions,
+    // and referrals would be orphaned while a blank new row was created.
     //
-    // Strategy: if an existing, non-deleted user already has this email, we
-    // atomically rewrite the old clerkId to the new one across every table that
-    // stores it, then return that row as an existing (isNew=false) user so no
-    // welcome email is sent and no data is lost.
-    if (resolvedEmail) {
+    // Strategy: find an existing non-deleted user whose stored email (also
+    // lower-trimmed at query time to tolerate historical mixed-case data) matches
+    // the incoming email, then atomically rewrite every clerkId reference in a
+    // single transaction and return that row as an existing (isNew=false) user.
+    if (normalizedEmail) {
       const [existingByEmail] = await db
         .select()
         .from(usersTable)
-        .where(and(eq(usersTable.email, resolvedEmail), eq(usersTable.isDeleted, false)));
+        .where(and(
+          sql`lower(trim(${usersTable.email})) = ${normalizedEmail}`,
+          eq(usersTable.isDeleted, false),
+        ));
 
       if (existingByEmail) {
         const oldClerkId = existingByEmail.clerkId;
@@ -92,10 +98,16 @@ async function getOrCreateUser(clerkId: string, emailFromClaims: string, nameFro
             .where(eq(usersTable.clerkId, oldClerkId))
             .returning();
         });
-        console.info(`[users] Re-linked clerkId for ${resolvedEmail}: ${oldClerkId} → ${clerkId}`);
+        // Log the re-link event for audit trail. No secret tokens are logged here.
+        console.info(`[users] Re-linked account by email (tenant migration): old_clerk_id_suffix=...${oldClerkId.slice(-6)} → new_clerk_id_suffix=...${clerkId.slice(-6)}`);
         user = relinked;
         // isNew stays false — fall through to referralCode backfill + wallet ensure
       }
+    } else {
+      // No email available — skip re-link entirely; a new account will be created
+      // if the clerkId is also unrecognised. This prevents incorrectly merging
+      // unidentifiable users.
+      console.warn(`[users] Skipping email re-link for incoming clerkId: no email resolved`);
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -116,7 +128,7 @@ async function getOrCreateUser(clerkId: string, emailFromClaims: string, nameFro
 
       const [newUser] = await db.insert(usersTable).values({
         clerkId,
-        email: resolvedEmail || "",
+        email: normalizedEmail,
         name: resolvedName || null,
         isAdmin: false,
         referralCode,
@@ -126,12 +138,12 @@ async function getOrCreateUser(clerkId: string, emailFromClaims: string, nameFro
       user = newUser;
 
       // Send welcome email — fire-and-forget, never blocks the response
-      if (resolvedEmail) {
-        const mail = welcomeEmail({ name: resolvedName, email: resolvedEmail });
-        sendEmail({ to: resolvedEmail, subject: mail.subject, html: mail.html, text: mail.text })
+      if (normalizedEmail) {
+        const mail = welcomeEmail({ name: resolvedName, email: normalizedEmail });
+        sendEmail({ to: normalizedEmail, subject: mail.subject, html: mail.html, text: mail.text })
           .catch(err => console.error("[email] Welcome email error:", err));
       } else {
-        console.warn(`[email] Skipping welcome email for ${clerkId} — no email address resolved`);
+        console.warn(`[users] Skipping welcome email — no email address resolved`);
       }
     }
   }
